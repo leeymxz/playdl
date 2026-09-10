@@ -61,6 +61,15 @@ jobs:
           # 复制安装脚本和文档
           cp README.md "$DIR/"
           cp docs/logo.png "$DIR/" 2>/dev/null || true
+          cp docs/playdl.ico "$DIR/" 2>/dev/null || true
+
+          # 复制 GUI 脚本（仅 Windows）
+          if [ "${{ matrix.suffix }}" = ".exe" ]; then
+            cp gui/PlayDL.ps1 "$DIR/" 2>/dev/null || true
+            cp gui/PlayDL.bat "$DIR/" 2>/dev/null || true
+            cp 打开终端.bat "$DIR/" 2>/dev/null || true
+            cp 下载器菜单.bat "$DIR/" 2>/dev/null || true
+          fi
 
           # 打包
           if [ "${{ matrix.archive }}" = "zip" ]; then
