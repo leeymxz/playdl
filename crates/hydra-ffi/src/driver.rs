@@ -7,9 +7,9 @@ use crate::abi::{hydra_error_code_t as E, hydra_event_type_t as EV, hydra_job_st
 use crate::engine::{now_ms, Creds, Engine, Job, SourceStat, Stop};
 use crate::err::{self, Detail};
 use crate::url::{basic_auth, Url};
-use hya_core::{Capability, Scheduler, Source};
-use hya_net::polite::Pace;
-use hya_net::{probe_resilient, Probe, SparseSink, Target, TlsCapableConnector};
+use pdl_core::{Capability, Scheduler, Source};
+use pdl_net::polite::Pace;
+use pdl_net::{probe_resilient, Probe, SparseSink, Target, TlsCapableConnector};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -136,7 +136,7 @@ async fn run(
                 );
                 // Jittered exponential backoff, so a fleet of clients failing
                 // against the same origin does not re-converge on it in step.
-                let wait = hya_net::polite::backoff_with_jitter(
+                let wait = pdl_net::polite::backoff_with_jitter(
                     attempt,
                     Duration::from_millis(500),
                     Duration::from_secs(30),
@@ -307,7 +307,7 @@ struct Resolved {
     /// The configured URL this came from, BEFORE any redirect.
     ///
     /// A publisher's ranking is index-aligned with the URLs the job was created
-    /// with, and probing may drop some and redirect others â€” so the way back to
+    /// with, and probing may drop some and redirect others â€?so the way back to
     /// a mirror's rank is the string it started as, not the host it ended at.
     requested: String,
     /// Measured per-request setup cost, which the scheduler needs to decide
@@ -379,7 +379,7 @@ async fn resolve_one(
         // Resilient rather than a bare HEAD: a server that answers HEAD with an
         // empty reply (hetzner's speed-test hosts do) otherwise resolves to
         // "unknown size, no ranges" and sends the whole object down the
-        // single-stream path â€” no size, no resume, no parallelism.
+        // single-stream path â€?no size, no resume, no parallelism.
         let p = probe_resilient(conn.as_ref(), &t)
             .await
             .map_err(|e| err::from_io(&e))?;
@@ -396,10 +396,10 @@ async fn resolve_one(
         // stripper or link filter answering `200` with a page whose whole
         // content is "go here instead". Following it costs one small GET on a
         // response that was already going to be downloaded, and not following
-        // it means saving the forwarding page under the object's name â€” a
+        // it means saving the forwarding page under the object's name â€?a
         // failure that reports success. Charged to the same hop budget.
         if p.maybe_redirector() {
-            if let Some(next) = hya_net::html_redirect(conn.as_ref(), &t)
+            if let Some(next) = pdl_net::html_redirect(conn.as_ref(), &t)
                 .await
                 .and_then(|loc| u.join(&loc).ok())
             {
@@ -414,7 +414,7 @@ async fn resolve_one(
                 http_status: p.status as i32,
                 message: format!(
                     "server answered {} for {}",
-                    hya_net::describe_status(p.status),
+                    pdl_net::describe_status(p.status),
                     u.host
                 ),
             });
@@ -477,8 +477,8 @@ async fn attempt_transfer(
 
     // ---- probe every mirror, CONCURRENTLY --------------------------------
     //
-    // One HEAD per mirror, and they are independent â€” each asks a different
-    // host what it holds â€” so the set costs about what the slowest one does
+    // One HEAD per mirror, and they are independent â€?each asks a different
+    // host what it holds â€?so the set costs about what the slowest one does
     // rather than the sum. In series this was the most expensive thing about
     // handing libhydra a mirror list: measured on the CLI against a real
     // twelve-mirror Fedora document, a dozen sequential probes cost 14.4 s
@@ -487,7 +487,7 @@ async fn attempt_transfer(
     // being multiplied are the long ones.
     //
     // Bounded, but not by politeness: each probe goes to a DIFFERENT host, and
-    // one HEAD apiece is not something any of them feels â€” the per-host
+    // one HEAD apiece is not something any of them feels â€?the per-host
     // ceilings elsewhere answer that question. The cap is only so a
     // forty-mirror document cannot open forty sockets at once and hit an fd
     // limit.
@@ -513,8 +513,8 @@ async fn attempt_transfer(
         });
     }
     // Collected in the order the CALLER gave, not the order the network
-    // answered in. Everything downstream is index-aligned with `cfg.urls` â€”
-    // the publisher's ranking, the connection split, the source rows â€” and
+    // answered in. Everything downstream is index-aligned with `cfg.urls` â€?
+    // the publisher's ranking, the connection split, the source rows â€?and
     // which mirror is source 0 must not depend on which handshake finished
     // first, or two runs against the same document cannot be compared.
     let mut answers: Vec<(usize, Result<Resolved, Detail>)> = Vec::new();
@@ -593,7 +593,7 @@ async fn attempt_transfer(
     //
     // A correctness gate, not an optimisation. Two mirrors that disagree about
     // the object produce a file assembled from both, of exactly the right
-    // length, that is not either object â€” a corruption every length check
+    // length, that is not either object â€?a corruption every length check
     // passes. A weak validator is not evidence of agreement either: the
     // specification lets one compare equal across representations that are
     // merely equivalent, which is precisely what must not be spliced.
@@ -604,7 +604,7 @@ async fn attempt_transfer(
     // an `ETag`, so requiring one keeps exactly ONE source out of a
     // nineteen-mirror list. A size published by whoever built the object, from a
     // host that is usually not one of the mirrors, admits a mirror on stronger
-    // grounds â€” and the document's digest, per chunk where it published
+    // grounds â€?and the document's digest, per chunk where it published
     // `<pieces>`, is what actually catches one serving something else.
     let strong = |p: &Probe| p.validator.is_some() && !p.weak_validator;
     let usable: Vec<&Resolved> = match job.cfg.attested_size {
@@ -654,9 +654,9 @@ async fn attempt_transfer(
     let ceiling = engine.connection_ceiling(job.cfg.max_connections);
     // Plans for the mirrors that SURVIVED probing, in the order they survived
     // in. `usable` is a subset of the configured URL list, so the ranking has to
-    // be carried across by URL or a dropped mirror shifts every rank after it â€”
+    // be carried across by URL or a dropped mirror shifts every rank after it â€?
     // the second-best host would be allocated as though it were the fourth.
-    let plans: Vec<hya_core::SourcePlan> = if job.cfg.source_plans.is_empty() {
+    let plans: Vec<pdl_core::SourcePlan> = if job.cfg.source_plans.is_empty() {
         crate::metalink::unranked(usable.len())
     } else {
         usable
@@ -685,7 +685,7 @@ async fn attempt_transfer(
         }
         out
     } else {
-        hya_core::plan::allocate(&plans, ceiling, ceiling, ceiling)
+        pdl_core::plan::allocate(&plans, ceiling, ceiling, ceiling)
     };
     let seated: Vec<usize> = (0..usable.len()).filter(|&i| split[i] > 0).collect();
     let n_sources = seated.len().max(1);
@@ -702,11 +702,11 @@ async fn attempt_transfer(
     // far more sources than politeness authorises sockets for, and without a
     // bench that surplus is decoration: the transfer survives on the mirrors it
     // opened with or it does not.
-    let bench: Vec<hya_net::Reserve> = {
+    let bench: Vec<pdl_net::Reserve> = {
         let mut idx: Vec<usize> = (0..usable.len()).filter(|&i| split[i] == 0).collect();
         idx.sort_by_key(|&i| (plans[i].priority, i));
         idx.into_iter()
-            .map(|i| hya_net::Reserve {
+            .map(|i| pdl_net::Reserve {
                 target: usable[i].target.clone(),
                 plan: plans[i],
                 host: usable[i].url.authority(),
@@ -723,16 +723,16 @@ async fn attempt_transfer(
                 caps: if job.cfg.attested_size.is_some() || strong(&r.probe) {
                     // A document that states the size and a content digest
                     // establishes agreement more strongly than an `ETag` does,
-                    // and from outside the mirrors â€” so a mirror admitted on
+                    // and from outside the mirrors â€?so a mirror admitted on
                     // that evidence is a full source, not a pinned one.
                     Capability::Full
                 } else {
                     Capability::NoValidator
                 },
                 delta_est: r.delta.max(1e-3),
-                // The publisher's ranking, used once â€” for the first split,
+                // The publisher's ranking, used once â€?for the first split,
                 // before anything has been measured. See
-                // `hya_core::sched::Source::priority`.
+                // `pdl_core::sched::Source::priority`.
                 priority: plans[i].priority,
                 ..Source::default()
             }
@@ -811,7 +811,7 @@ async fn attempt_transfer(
     // is not serving it.
     let sub_job = job.clone();
     let sub_engine = engine.clone();
-    let mut on_sub = move |src: usize, r: &hya_net::Reserve| {
+    let mut on_sub = move |src: usize, r: &pdl_net::Reserve| {
         {
             let mut g = sub_job.lock();
             if let Some(slot) = g.sources.get_mut(src) {
@@ -828,7 +828,7 @@ async fn attempt_transfer(
             r.host
         );
     };
-    let result = hya_net::run_transfer_with_reserves(
+    let result = pdl_net::run_transfer_with_reserves(
         conn.clone(),
         targets,
         &per,
@@ -839,7 +839,7 @@ async fn attempt_transfer(
         &mut observe,
         pace,
         Some(cancel.clone()),
-        hya_net::Bench::fixed(bench),
+        pdl_net::Bench::fixed(bench),
         Some(&mut on_sub),
     )
     .await;
@@ -879,31 +879,31 @@ async fn attempt_transfer(
 ///
 /// # Why this is worth a second pass over the file
 ///
-/// A whole-file digest answers one question â€” is this object right â€” and when
+/// A whole-file digest answers one question â€?is this object right â€?and when
 /// the answer is no, the only remedy it licenses is downloading all of it again.
 /// On a multi-gigabyte image over a mirror set where one node is serving a stale
 /// build, that is the difference between finishing and not.
 ///
 /// A piece list localises the fault. The manifest names the chunk, the chunk is
 /// refetched from a mirror that did not serve it, and the refetched bytes are
-/// checked against the same digest before being accepted â€” so a second corrupt
+/// checked against the same digest before being accepted â€?so a second corrupt
 /// copy is not taken on faith merely because it was asked for twice.
 ///
 /// `Trust::Advertised`, always, however the document arrived: nothing here has
 /// authenticated it. Detection and targeted refetch are self-correcting and are
 /// allowed; naming erasure positions for a parity decode is not. That cap is
 /// enforced inside `ChunkVerifier::new`, which also refuses to grant trust to a
-/// SHA-1 grid â€” the algorithm most Metalink 3.0 documents actually use.
+/// SHA-1 grid â€?the algorithm most Metalink 3.0 documents actually use.
 async fn verify_pieces(
     engine: &Arc<Engine>,
     job: &Arc<Job>,
     conn: &Arc<TlsCapableConnector>,
     targets: &[Target],
     output: &str,
-    m: hya_net::manifest::Manifest,
+    m: pdl_net::manifest::Manifest,
     cancel: &Arc<AtomicBool>,
 ) -> Result<(), Detail> {
-    use hya_net::manifest::{ChunkVerifier, Trust};
+    use pdl_net::manifest::{ChunkVerifier, Trust};
 
     let size = m.object.size;
     let mut v = ChunkVerifier::new(m, Trust::Advertised);
@@ -952,7 +952,7 @@ async fn verify_pieces(
         // bad mirror, every refetch fails and the repair dies on its first
         // candidate. Rotation costs nothing and puts each retry somewhere new.
         let t = targets[(1 + nth) % targets.len()].clone();
-        hya_net::fetch_range_retry(
+        pdl_net::fetch_range_retry(
             conn.clone(),
             t,
             lo,
@@ -1013,8 +1013,8 @@ fn split_connections(total: usize, sources: usize) -> Vec<usize> {
 /// resolved once at start: `hydra_engine_set_max_bytes_per_second` and
 /// `hydra_job_set_max_bytes_per_second` both take effect on a transfer that is
 /// already running, in either direction, including on a job that began with no
-/// cap at all. Picking one limiter here â€” as this used to, returning
-/// `Pace::unlimited()` whenever neither cap was set at start â€” froze that
+/// cap at all. Picking one limiter here â€?as this used to, returning
+/// `Pace::unlimited()` whenever neither cap was set at start â€?froze that
 /// decision for the life of the transfer and made both setters inert.
 fn pace_for(engine: &Arc<Engine>, job: &Arc<Job>) -> Pace {
     Pace::pair(engine.limiter.clone(), job.limiter.clone())
@@ -1185,11 +1185,11 @@ async fn stream_transfer(
     );
 
     // The byte counter the fetch keeps as it writes. Without it this path
-    // reported nothing at all until the last byte arrived â€” on a large object
+    // reported nothing at all until the last byte arrived â€?on a large object
     // that is an hour of a caller seeing zero and assuming a hung transfer.
     let written = Arc::new(AtomicU64::new(0));
     let pace = pace_for(engine, job);
-    let fut = hya_net::fetch_streaming_observed(
+    let fut = pdl_net::fetch_streaming_observed(
         conn.as_ref(),
         target,
         output,
@@ -1256,14 +1256,14 @@ async fn ftp_transfer(
     creds: &Creds,
     cancel: &Arc<AtomicBool>,
 ) -> Result<(), Detail> {
-    use hya_net::scheme::Endpoint;
+    use pdl_net::scheme::Endpoint;
 
     let u = Url::parse(&job.cfg.urls[0]).map_err(|e| Detail {
         code: E::HYDRA_ERR_INVALID_URL as u32,
         message: e,
         ..Default::default()
     })?;
-    let fetcher = hya_net::scheme::for_scheme("ftp", conn.clone()).ok_or_else(|| Detail {
+    let fetcher = pdl_net::scheme::for_scheme("ftp", conn.clone()).ok_or_else(|| Detail {
         code: E::HYDRA_ERR_UNSUPPORTED as u32,
         message: "this build cannot serve ftp://".into(),
         ..Default::default()
@@ -1294,7 +1294,7 @@ async fn ftp_transfer(
     }
     engine.emit(job, EV::HYDRA_EVENT_RESOLVED);
 
-    // FTP resumes with REST, which names one offset â€” so only a contiguous
+    // FTP resumes with REST, which names one offset â€?so only a contiguous
     // prefix is usable, not the arbitrary span set an HTTP transfer leaves.
     let start = if job.cfg.resume {
         contiguous_prefix(&job.lock().held)

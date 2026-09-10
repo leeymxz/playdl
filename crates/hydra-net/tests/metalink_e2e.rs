@@ -2,15 +2,15 @@
 //!
 //! The claim Metalink support is worth making is not "hydra can parse XML". It
 //! is that a document naming more sources than the client opens turns a transfer
-//! that would have failed into one that finishes â€” and that the bytes it
+//! that would have failed into one that finishes â€?and that the bytes it
 //! finishes with are the right bytes. Both halves are measured here over real
 //! TCP against origins that fail in the two ways a mirror actually fails:
 //! answering wrongly, and answering not at all.
 
-use hya_core::{Scheduler, Source, SourcePlan};
-use hya_net::origin::{byte_at, OriginSet};
-use hya_net::polite::Pace;
-use hya_net::{Reserve, SparseSink, Target};
+use pdl_core::{Scheduler, Source, SourcePlan};
+use pdl_net::origin::{byte_at, OriginSet};
+use pdl_net::polite::Pace;
+use pdl_net::{Reserve, SparseSink, Target};
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
@@ -66,7 +66,7 @@ async fn run_with_bench(
     let mut on_sub = move |src: usize, r: &Reserve| {
         rec.lock().unwrap().push((src, r.host.clone()));
     };
-    let res = hya_net::run_transfer_with_reserves(
+    let res = pdl_net::run_transfer_with_reserves(
         net,
         targets,
         per,
@@ -77,7 +77,7 @@ async fn run_with_bench(
         &mut |_: &Scheduler, _: u64| {},
         Pace::unlimited(),
         None,
-        hya_net::Bench::fixed(bench),
+        pdl_net::Bench::fixed(bench),
         Some(&mut on_sub),
     )
     .await;
@@ -127,7 +127,7 @@ async fn a_black_holing_mirror_is_replaced_from_the_bench() {
 }
 
 /// The other way a mirror fails: it answers, and the answer is unusable. Two
-/// consecutive failures with no progress between them is the threshold â€” one is
+/// consecutive failures with no progress between them is the threshold â€?one is
 /// a CDN node having a bad moment.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_mirror_that_answers_wrongly_is_replaced_before_the_transfer_fails() {
@@ -163,7 +163,7 @@ async fn a_mirror_that_answers_wrongly_is_replaced_before_the_transfer_fails() {
 
 /// Substitution reuses the failed source's connection slot. If it grew the
 /// connection set instead, a mirror list would quietly multiply the socket count
-/// past whatever politeness authorised â€” the ceiling would be honoured on paper
+/// past whatever politeness authorised â€?the ceiling would be honoured on paper
 /// and defeated in practice.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn substitution_does_not_grow_the_socket_budget() {
@@ -205,7 +205,7 @@ async fn substitution_does_not_grow_the_socket_budget() {
 }
 
 /// An empty bench must behave exactly as the transport did before reserves
-/// existed â€” that is what makes this addition safe for every existing caller.
+/// existed â€?that is what makes this addition safe for every existing caller.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn an_empty_bench_changes_nothing() {
     const SIZE: u64 = 2 * 1024 * 1024;
@@ -231,7 +231,7 @@ async fn an_empty_bench_changes_nothing() {
     let _ = std::fs::remove_file(&out);
 }
 
-/// A bench that runs out still fails, and fails with the reason â€” a client that
+/// A bench that runs out still fails, and fails with the reason â€?a client that
 /// exhausts nineteen mirrors must say so rather than hang.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn an_exhausted_bench_fails_with_a_reason() {
@@ -271,7 +271,7 @@ async fn an_exhausted_bench_fails_with_a_reason() {
 ///
 /// The two failure modes above are the ones a publisher's ranking cannot help
 /// with either way: a dead host is dead whatever its `priority` said. This is
-/// the case where the ranking is actively wrong â€” the document's best-ranked
+/// the case where the ranking is actively wrong â€?the document's best-ranked
 /// mirror answers every request, delivers real bytes, and does so an order of
 /// magnitude slower than the one it ranked below. No error count and no stall
 /// count sees that, and only measurement can.
@@ -288,8 +288,8 @@ async fn a_working_but_hopeless_mirror_is_replaced_by_a_faster_reserve() {
     // handshakes to save nothing.
     const SIZE: u64 = 96 * 1024 * 1024;
     let net = Arc::new(OriginSet::new());
-    // Two seated sources: one healthy, one crawling. The crawler is not broken â€”
-    // it serves correct bytes the whole time â€” it is just 200x slower, which is
+    // Two seated sources: one healthy, one crawling. The crawler is not broken â€?
+    // it serves correct bytes the whole time â€?it is just 200x slower, which is
     // well past `LAGGARD_RATIO` and is exactly the mirror a stale ranking sends
     // work to.
     let (fast, _fast_ctl) = net.spawn(SIZE, 6 * 1024 * 1024);
@@ -327,7 +327,7 @@ async fn a_working_but_hopeless_mirror_is_replaced_by_a_faster_reserve() {
 ///
 /// Repair already moves bytes away from it continuously, on measurement, at the
 /// cost of a range boundary. Substituting instead pays a fresh handshake and
-/// throws away everything measured about the host â€” so a rule that fired at 2:1
+/// throws away everything measured about the host â€?so a rule that fired at 2:1
 /// would make transfers worse while looking busy. Nothing here should move.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_merely_slower_mirror_keeps_its_sockets() {
@@ -365,8 +365,8 @@ async fn a_merely_slower_mirror_keeps_its_sockets() {
 ///
 /// This is the property the streaming bench was built for: the transfer starts
 /// as soon as it has seats, and mirrors still being probed join the bench when
-/// they answer. If the drain were broken â€” the channel never polled, or polled
-/// only at startup â€” this test would hang on the black-holed source until the
+/// they answer. If the drain were broken â€?the channel never polled, or polled
+/// only at startup â€?this test would hang on the black-holed source until the
 /// no-progress deadline and fail, because the reserve exists only AFTER the
 /// transfer is already running.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -374,7 +374,7 @@ async fn a_reserve_that_arrives_mid_transfer_still_rescues_a_dead_source() {
     const SIZE: u64 = 4 * 1024 * 1024;
     let net = Arc::new(OriginSet::new());
     // ONE source, black-holed, and nothing else: repair has nowhere to move the
-    // work, so the reserve is the only way this transfer can finish â€” which is
+    // work, so the reserve is the only way this transfer can finish â€?which is
     // exactly what makes the test discriminating. (A first version paired the
     // dead source with a healthy one, and repair quietly finished the object
     // before three stall rounds could accrue: correct behaviour, useless test.)
@@ -387,7 +387,7 @@ async fn a_reserve_that_arrives_mid_transfer_still_rescues_a_dead_source() {
     let sched = Scheduler::new(SIZE, vec![src(4e6)], &[1]).with_stall_timeout(0.5);
 
     // The bench starts EMPTY. The reserve is sent from a task that waits until
-    // the stall clock is already running â€” the shape of a probe that answered
+    // the stall clock is already running â€?the shape of a probe that answered
     // late.
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     tokio::spawn(async move {
@@ -398,10 +398,10 @@ async fn a_reserve_that_arrives_mid_transfer_still_rescues_a_dead_source() {
     let swaps: Arc<Mutex<Vec<(usize, String)>>> = Arc::new(Mutex::new(Vec::new()));
     let sink = Arc::new(SparseSink::create(&outs, SIZE).unwrap());
     let rec = swaps.clone();
-    let mut on_sub = move |src: usize, r: &hya_net::Reserve| {
+    let mut on_sub = move |src: usize, r: &pdl_net::Reserve| {
         rec.lock().unwrap().push((src, r.host.clone()));
     };
-    let res = hya_net::run_transfer_with_reserves(
+    let res = pdl_net::run_transfer_with_reserves(
         net.clone(),
         vec![tgt(dead)],
         &[1],
@@ -412,7 +412,7 @@ async fn a_reserve_that_arrives_mid_transfer_still_rescues_a_dead_source() {
         &mut |_: &Scheduler, _: u64| {},
         Pace::unlimited(),
         None,
-        hya_net::Bench {
+        pdl_net::Bench {
             ready: Vec::new(),
             late: Some(rx),
         },

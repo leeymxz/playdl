@@ -1,6 +1,6 @@
 //! `SparseSink::written` must be exact under concurrent writes.
 //!
-//! The counter was implemented as `written.store(written.load() + n)` â€” two
+//! The counter was implemented as `written.store(written.load() + n)` â€?two
 //! separate atomic operations, which is not an atomic read-modify-write. Two
 //! connections that load the same value both store their own sum and one
 //! write's bytes disappear from the count. Every connection calls `write_at`
@@ -14,7 +14,7 @@
 //! merely runs, which is the only formulation that can catch a lost update: the
 //! racy version returns a plausible number, just a wrong one.
 
-use hya_net::SparseSink;
+use pdl_net::SparseSink;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 

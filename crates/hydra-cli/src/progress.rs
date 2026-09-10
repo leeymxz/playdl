@@ -1,7 +1,7 @@
 //! Live progress rendering.
 //!
 //! Hand-rolled ANSI rather than a progress-bar crate, for one reason: this
-//! scheduler's interesting state is *per connection* — which source it is on,
+//! scheduler's interesting state is *per connection* �?which source it is on,
 //! what range it holds, how fast it is moving, and what the collapse detector
 //! thinks of it. A single aggregate bar hides exactly the information that makes
 //! a multi-source download debuggable.
@@ -9,13 +9,13 @@
 //! Everything degrades to plain lines when stdout is not a terminal, so piping
 //! to a file or a CI log produces something readable rather than escape soup.
 
-use hya_core::Health;
+use pdl_core::Health;
 use std::fmt::Write as _;
 use std::io::{IsTerminal, Write};
 use std::time::{Duration, Instant};
 
 const BAR_W: usize = 34;
-const SPARK: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+const SPARK: [char; 8] = ['�?, '�?, '�?, '�?, '�?, '�?, '�?, '�?];
 
 /// One connection's live state, as the renderer needs it.
 pub struct ConnView {
@@ -51,7 +51,7 @@ pub struct Progress {
     /// estimator: a single TCP window arriving late halves it, and one arriving
     /// early doubles it, so the figure changed several times per second while the
     /// actual throughput was steady. A number that unstable cannot be read at all
-    /// — you cannot tell a slow link from a jittery one.
+    /// �?you cannot tell a slow link from a jittery one.
     ///
     /// Exponentially-weighted, which is what every download client that displays
     /// a readable rate does. The raw samples still feed `history`, so the
@@ -74,7 +74,7 @@ pub struct Progress {
     /// True when the OBJECT is going to stdout, so no human output may.
     ///
     /// `--stdout` makes stdout a data channel. Anything written there that is not
-    /// payload corrupts it — measured: `hydra --no-save --stdout <url> > f`
+    /// payload corrupts it �?measured: `hydra --no-save --stdout <url> > f`
     /// produced 34 385 bytes for a 34 041-byte object, the extra 344 being the
     /// summary line and the format hint appended to the archive. The file looked
     /// plausible and failed to decompress. Same rule `--json` follows: a machine
@@ -259,7 +259,7 @@ impl Progress {
         // covers, not on how many frames were drawn, so the smoothing has the
         // same time constant whether the terminal redraws at 12 fps or the
         // transfer stalls and a single frame covers a second. TAU is the time to
-        // forget ~63% of the past — long enough to hold the digits still, short
+        // forget ~63% of the past �?long enough to hold the digits still, short
         // enough that a genuine slowdown shows within a second.
         const TAU: f64 = 1.5;
         let a = 1.0 - (-dt.as_secs_f64() / TAU).exp();
@@ -330,7 +330,7 @@ impl Progress {
                 let filled = (frac * BAR_W as f64).round() as usize;
                 let bar = format!(
                     "\x1b[36m{}\x1b[0m{}",
-                    "━".repeat(filled),
+                    "�?.repeat(filled),
                     "─".repeat(BAR_W - filled)
                 );
                 let remain = t.saturating_sub(done) as f64;
@@ -375,7 +375,7 @@ impl Progress {
                     let k = (f * w as f64).round() as usize;
                     format!(
                         "[{}{}] {:>9}-{:<9}",
-                        "▪".repeat(k),
+                        "�?.repeat(k),
                         "·".repeat(w - k),
                         lo,
                         hi
@@ -413,7 +413,7 @@ impl Progress {
     ///
     /// Erasing rather than leaving the frame behind: the bar, the per-connection
     /// rows, and the sparkline are scaffolding for a transfer that is still
-    /// running — a 0%-progress bar and an `idle 0 B/s` connection row left on
+    /// running �?a 0%-progress bar and an `idle 0 B/s` connection row left on
     /// screen under a `✓` describe a moment that has passed, and they push the
     /// one line the user actually wanted down the terminal. What remains is the
     /// result.
@@ -424,7 +424,7 @@ impl Progress {
         let el = self.started.elapsed().as_secs_f64();
         // Bytes THIS run moved, not bytes present. `draw` already subtracts the
         // baseline; `finish` did not, so a resumed run that transferred nothing
-        // reported the whole resumed prefix as if it had just been fetched —
+        // reported the whole resumed prefix as if it had just been fetched �?
         // "24.4 MiB in 1m09s (362.2 KiB/s)" for a run that moved 0 bytes. The
         // number was plausible, which is why it needed the divergence with the
         // live bar to be visible at all.
@@ -466,7 +466,7 @@ impl Progress {
             human(done)
         };
         line!(
-            "{mark} {} — {} in {} ({}/s), {} requests{}",
+            "{mark} {} �?{} in {} ({}/s), {} requests{}",
             self.name,
             moved_str,
             fmt_dur(el),
@@ -493,7 +493,7 @@ impl Progress {
     /// user explicitly asked for with `-v`.
     /// Announce what the client is doing before any bytes can flow.
     ///
-    /// Setup is not instantaneous — a redirect, a probe, and a concurrency measurement
+    /// Setup is not instantaneous �?a redirect, a probe, and a concurrency measurement
     /// each cost round trips, and on a slow path that is several seconds. Showing a
     /// silent terminal during it reads as a hang, which is what prompted this: the
     /// phase line is the difference between "it is stuck" and "it is measuring".
@@ -510,7 +510,7 @@ impl Progress {
     pub fn end_phase(&mut self) {
         // The condition must MATCH `phase()`'s, not be stricter than it. An earlier version
         // required verbose here while `phase()` only required non-quiet, so at default
-        // verbosity the row was drawn and never erased — leaving a half-line of spinner in
+        // verbosity the row was drawn and never erased �?leaving a half-line of spinner in
         // front of the next message.
         let had = self.phase.take().is_some();
         if had && self.phase_visible() {
@@ -697,7 +697,7 @@ fn trunc(s: &str, n: usize) -> String {
         s.to_string()
     } else {
         let keep: String = s.chars().take(n.saturating_sub(1)).collect();
-        format!("{keep}…")
+        format!("{keep}�?)
     }
 }
 
@@ -718,8 +718,8 @@ struct Finished {
 /// Aggregate progress for several independent files.
 ///
 /// One renderer owns the screen: per-file `Progress` instances would each try to redraw
-/// the same rows and the frames would interleave into noise. Each file gets one line —
-/// name, bar, fraction, rate — plus the format detail that a downloader can actually
+/// the same rows and the frames would interleave into noise. Each file gets one line �?
+/// name, bar, fraction, rate �?plus the format detail that a downloader can actually
 /// determine while the transfer runs: the extension it was served under, the media type
 /// the server declared, and (under `-v`) the human description of what that format is.
 pub struct Multi {
@@ -758,7 +758,7 @@ impl Multi {
     /// Mark a file as started, so a queued file is distinguishable from a stalled one.
     ///
     /// Without this, `--mode queue` showed only the running row and the other files were
-    /// invisible — indistinguishable from not having been accepted at all.
+    /// invisible �?indistinguishable from not having been accepted at all.
     pub fn start(&mut self, id: u64) {
         self.begun.insert(id);
         self.draw_force();
@@ -857,11 +857,11 @@ impl Multi {
                 (&f.name, f.size, f.secs, &f.ext, &f.label, &f.desc);
             // A word alongside the glyph: a tick and a cross are easy to misread at a
             // glance, and colour alone conveys nothing to a colour-blind reader. The
-            // column width matches "▸ active   " and "· queued   " so names align.
+            // column width matches "�?active   " and "· queued   " so names align.
             let mark = if f.ok {
-                "\x1b[32m✓ done     \x1b[0m"
+                "\x1b[32m�?done     \x1b[0m"
             } else {
-                "\x1b[31m✗ failed   \x1b[0m"
+                "\x1b[31m�?failed   \x1b[0m"
             };
             let what = match (ext.as_deref(), label.as_deref()) {
                 (Some(e), Some(l)) => format!("{e}  {l}"),
@@ -901,7 +901,7 @@ impl Multi {
                     let w = 18usize;
                     let fill = (f * w as f64).round() as usize;
                     (
-                        format!("{}{}", "━".repeat(fill.min(w)), "─".repeat(w - fill.min(w))),
+                        format!("{}{}", "�?.repeat(fill.min(w)), "─".repeat(w - fill.min(w))),
                         format!("{:>5.1}%", f * 100.0),
                         format!("{} / {}", human(t.done), human(sz)),
                     )
@@ -915,7 +915,7 @@ impl Multi {
                 ),
             };
             out.push_str(&format!(
-                "\x1b[K \x1b[36m▸ active   \x1b[0m{:<26.26} \x1b[36m{bar}\x1b[0m {pct}  {:<20}  {:>9}/s  \x1b[90m{} conn\x1b[0m\r\n",
+                "\x1b[K \x1b[36m�?active   \x1b[0m{:<26.26} \x1b[36m{bar}\x1b[0m {pct}  {:<20}  {:>9}/s  \x1b[90m{} conn\x1b[0m\r\n",
                 name,
                 amount,
                 human(t.rate as u64),
@@ -937,7 +937,7 @@ impl Multi {
             }
         }
         // Queued rows: every file that has neither finished nor started. Showing them is
-        // the difference between "one download exists" and "one of three is running" —
+        // the difference between "one download exists" and "one of three is running" �?
         // in --mode queue the others were previously invisible.
         let done_names: std::collections::HashSet<&str> =
             self.finished.iter().map(|f| f.name.as_str()).collect();
@@ -1082,7 +1082,7 @@ mod tests {
         assert_eq!(s.chars().count(), 4);
         assert_eq!(
             s.chars().last().unwrap(),
-            '█',
+            '�?,
             "the maximum must render full height"
         );
     }
@@ -1090,9 +1090,9 @@ mod tests {
     #[test]
     fn truncation_respects_character_boundaries() {
         assert_eq!(trunc("short", 10), "short");
-        assert_eq!(trunc("abcdefghij", 5), "abcd…");
+        assert_eq!(trunc("abcdefghij", 5), "abcd�?);
         // Multi-byte input must not be sliced mid-character.
-        let s = trunc("日本語のファイル名です", 5);
+        let s = trunc("日本語のファイル名で�?, 5);
         assert_eq!(s.chars().count(), 5);
     }
 
@@ -1145,7 +1145,7 @@ mod tests {
     ///
     /// Regression test for the FTP display. The FTP path is handed the
     /// setup-phase `Progress`, built before any request when no size was known,
-    /// and nothing ever told it what `SIZE` returned — so a transfer whose exact
+    /// and nothing ever told it what `SIZE` returned �?so a transfer whose exact
     /// length was known before the first byte moved rendered an empty rule, a
     /// `?` percentage, a `?` total and a `?` ETA for its entire duration
     /// (measured on unknown-size stream: `334.9 KiB/?`).
@@ -1161,7 +1161,7 @@ mod tests {
             "an unknown total must still render honestly: {unknown:?}"
         );
         assert!(
-            !unknown.contains('━'),
+            !unknown.contains('�?),
             "nothing may be claimed filled while the extent is unknown"
         );
 
@@ -1173,7 +1173,7 @@ mod tests {
             "the percentage must follow from the declared total: {known:?}"
         );
         assert!(
-            known.contains('━'),
+            known.contains('�?),
             "a fifth of the bar must be filled, not left as a bare rule"
         );
         assert!(
@@ -1190,7 +1190,7 @@ mod tests {
     ///
     /// Regression test for the FTP display: its `ConnView` was built as
     /// `(start, size, done)` against the renderer's `(lo, pos, hi)`, so the
-    /// fraction it computed was `(size - start) / (done - start)` — above 1 for
+    /// fraction it computed was `(size - start) / (done - start)` �?above 1 for
     /// the whole transfer, clamped to a permanently full `[▪▪▪▪▪▪▪▪▪▪]` from the
     /// first frame, with bytes-so-far printed where the object's length belongs.
     /// A full row under a 0% aggregate bar is a contradiction the display should
@@ -1217,10 +1217,10 @@ mod tests {
             "a tenth done must not render a full row: {early:?}"
         );
         assert!(
-            early.contains('▪'),
+            early.contains('�?),
             "a tenth done must render some of the row: {early:?}"
         );
-        // The extent, not the cursor, belongs in the range label — the swapped
+        // The extent, not the cursor, belongs in the range label �?the swapped
         // tuple printed `0-171477` at the halfway mark of a 342 954-byte object.
         assert!(
             early.contains(&total.to_string()),
@@ -1229,7 +1229,7 @@ mod tests {
 
         let mid = at(total / 2);
         assert!(
-            mid.contains("▪▪▪▪▪·····"),
+            mid.contains("▪▪▪▪▪····�?),
             "halfway must fill half the row: {mid:?}"
         );
         assert!(
@@ -1279,7 +1279,7 @@ mod tests {
     #[test]
     fn a_logfile_receives_the_human_output_and_no_escape_codes() {
         let dir = std::env::temp_dir();
-        let path = dir.join(format!("hydra_logfile_test_{}.log", std::process::id()));
+        let path = dir.join(format!("playdl_logfile_test_{}.log", std::process::id()));
         let _ = std::fs::remove_file(&path);
 
         let mut p = Progress::new("obj.bin", Some(1000), 1, true, false);
@@ -1313,7 +1313,7 @@ mod tests {
     #[test]
     fn logfile_append_keeps_the_previous_runs_lines() {
         let dir = std::env::temp_dir();
-        let path = dir.join(format!("hydra_logappend_test_{}.log", std::process::id()));
+        let path = dir.join(format!("playdl_logappend_test_{}.log", std::process::id()));
         let _ = std::fs::remove_file(&path);
         std::fs::write(&path, "earlier run\n").unwrap();
 

@@ -2,7 +2,7 @@
 //!
 //! Every run begins with a HEAD to learn the object's size and whether the origin
 //! supports ranges. That is the client's first contact with the host, so its TCP
-//! handshake â€” and on HTTPS its TLS handshake â€” is the most expensive one of the
+//! handshake â€?and on HTTPS its TLS handshake â€?is the most expensive one of the
 //! whole run and the one most worth keeping. Before the pool was shared through the
 //! connector, the probe dialled, asked the server to close, and the transfer that
 //! began milliseconds later dialled the same host again.
@@ -17,7 +17,7 @@
 //!
 //! # Harness fidelity limit
 //!
-//! The in-process origin does NOT honour a client's `Connection: close` â€” it answers
+//! The in-process origin does NOT honour a client's `Connection: close` â€?it answers
 //! keep-alive whenever the control flag is set, regardless of what was asked. So
 //! flipping the probe's request disposition does not ablate this test; the mechanism
 //! it actually pins is the pool shared through `Connector::pool`. Returning `None`
@@ -25,9 +25,9 @@
 //! below. A real server would also close on request, making the effect strictly
 //! larger in production than it is here.
 
-use hya_core::{Scheduler, Source};
-use hya_net::origin::OriginSet;
-use hya_net::{run_transfer, Connector, Target};
+use pdl_core::{Scheduler, Source};
+use pdl_net::origin::OriginSet;
+use pdl_net::{run_transfer, Connector, Target};
 use std::sync::atomic::Ordering;
 
 fn tgt(port: u16) -> Target {
@@ -39,7 +39,7 @@ fn tgt(port: u16) -> Target {
 /// returns `None` from `pool()`, so probe and transfer each build their own.
 struct PooledConnector {
     inner: OriginSet,
-    pool: hya_net::pool::SharedPool<<OriginSet as Connector>::Stream>,
+    pool: pdl_net::pool::SharedPool<<OriginSet as Connector>::Stream>,
 }
 
 impl Connector for PooledConnector {
@@ -54,7 +54,7 @@ impl Connector for PooledConnector {
         self.inner.connect(t)
     }
 
-    fn pool(&self) -> Option<hya_net::pool::SharedPool<Self::Stream>> {
+    fn pool(&self) -> Option<pdl_net::pool::SharedPool<Self::Stream>> {
         Some(self.pool.clone())
     }
 }
@@ -68,11 +68,11 @@ async fn the_probes_connection_is_reused_by_the_transfer() {
 
     let c = std::sync::Arc::new(PooledConnector {
         inner: net,
-        pool: std::sync::Arc::new(hya_net::pool::ConnPool::new()),
+        pool: std::sync::Arc::new(pdl_net::pool::ConnPool::new()),
     });
 
     // The probe: exactly what the CLI does before every transfer.
-    let p = hya_net::http::probe(c.as_ref(), &tgt(port))
+    let p = pdl_net::http::probe(c.as_ref(), &tgt(port))
         .await
         .expect("probe must succeed");
     assert_eq!(p.size, SIZE, "probe must read the object's size");

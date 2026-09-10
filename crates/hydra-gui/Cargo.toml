@@ -1,172 +1,65 @@
 [package]
-name = "hya-gui"
+name = "pdl-gui"
 version.workspace = true
 edition = "2021"
 license = "GPL-3.0-or-later"
 repository.workspace = true
 homepage.workspace = true
-description = "Hydra download manager desktop GUI (cross platform)"
+description = "PlayDL download manager desktop GUI (cross platform)"
 publish = false
 
 [[bin]]
-name = "hydra-gui"
+name = "playdl-gui"
 path = "src/main.rs"
 
 [dependencies]
-hya-core = { workspace = true }
-hya-net = { workspace = true }
-# HLS/DASH manifests and segment assembly, shared with the CLI.
-hya-stream = { workspace = true }
-# Startup update check + the Update-Now download/extract/finisher pipeline.
-hya-updater = { workspace = true }
-# WebSocket handshake for the browser-extension bridge (extbus): the accept
-# key is base64(SHA-1(key+GUID)) per RFC 6455 — and, separately, verifying a
-# Metalink digest, since SHA-1 is what most Metalink 3.0 documents publish.
+pdl-core = { workspace = true }
+pdl-net = { workspace = true }
+pdl-stream = { workspace = true }
+pdl-updater = { workspace = true }
 sha1 = { workspace = true }
-# The other digests a Metalink may publish. Verifying only the ones this build
-# happens to find convenient would silently skip the check on the documents
-# most likely to need it.
 sha2 = { workspace = true }
 md-5 = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-# GUI toolkit. `tokio` runs Tasks/subscription futures on a tokio executor so
-# the engine bridge can use tokio channels directly; `svg` renders the
-# toolbar/tree icons which are embedded as vector assets so they stay crisp on
-# any DPI without shipping bitmaps per scale factor.
-# `advanced` exposes the widget trait the zero-cost cursor probe in
-# `ui::probe` implements — see that module for why the pointer is not
-# tracked through messages.
 iced = { version = "0.14", features = ["tokio", "svg", "image", "advanced"] }
-# Config/state directory resolution per platform (~/Library/Application Support,
-# %APPDATA%, ~/.config) — the GUI persists its download list and settings there.
 dirs = "6"
-# Human dates for the "Last Try Date" column and scheduler times.
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
-# `config.toml` in ~/.config/hydra (or %APPDATA%\hydra): user-editable
-# configuration; an unparsable file falls back to defaults instead of failing.
 toml = "1"
-# "Open" / "Open folder" on completed downloads, delegated to the OS.
 open = "5"
-# Shut down / log off the machine when a queue or download finishes.
 system_shutdown = "4"
-# Native "Browse..." file/folder pickers (Save As, download directory, virus
-# scanner path). Async API so the picker never blocks the render thread.
 rfd = "0.17"
-# Embedded ACID key-value store for the download list: scales past what a
-# rewritten-whole JSON file handles gracefully, with no C++ build dependency
-# (chosen over rocksdb for that reason).
 redb = "4"
-# Event sounds (Options > Sounds): .wav/.ogg playback; a generated chime is
-# the fallback when no file is configured.
 rodio = { version = "0.22", default-features = false, features = ["wav", "vorbis", "playback"] }
-
-# Primary-display resolution at startup: the main window's default and
-# minimum size are a fraction of the screen, not a hardcoded pixel count.
 display-info = "0.5"
-# Decodes docs/logo.png (embedded at compile time) into the RGBA the tray
-# icon and window/taskbar icon APIs want.
 png = "0.18"
 
 [target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
-# System tray icon + native menus. `tray-icon` re-exports muda as
-# `tray_icon::menu`; using that everywhere (tray AND the macOS menu bar)
-# keeps one muda instance and therefore one global menu-event channel.
-# Linux uses ksni instead (see below). Default features (`gtk`, `libxdo`)
-# only feed tray-icon's unused Linux backend, yet they drag
-# libappindicator -> gtk -> glib into Cargo.lock for every platform
-# (RUSTSEC-2024-0429: unsound `glib::VariantStrIter`, unfixable while the
-# discontinued gtk3 bindings pin glib < 0.20), so keep them off.
 tray-icon = { version = "0.24", default-features = false }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-# Linux tray: StatusNotifierItem over D-Bus, in pure Rust. Display-server
-# agnostic (X11 and Wayland alike) and hosted natively by KDE Plasma,
-# Cinnamon, Budgie, LXQt and xfce4-panel 4.18+, by GNOME through the
-# AppIndicator extension, and by Wayland bars like waybar. No GTK main loop
-# to reconcile with winit's, and none of the glib stack tray-icon's own
-# Linux backend needs.
-#
-# `async-io` rather than the default `tokio` feature, deliberately: it
-# selects `zbus/tokio`, and zbus picks its socket implementation at COMPILE
-# time for the whole graph — that would move iced_winit's `mundy` (system
-# light/dark detection, also a zbus user) onto tokio sockets it has no
-# runtime for. `blocking` then gives a sync API, so the tray needs no
-# executor of ours at all. See src/tray/sni.rs.
-ksni = { version = "0.3", default-features = false, features = [
-    "async-io",
-    "blocking",
-] }
-# "Hide from taskbar" on X11: the _NET_WM_STATE_SKIP_TASKBAR hint, which
-# winit does not expose. Default features only — the pure-Rust connection,
-# no C dependency. Must stay on the major winit itself uses (winit 0.30 ->
-# x11rb 0.13) so cargo unifies the two into one copy: a second, separately
-# featured x11rb ends up linking libxcb, which then has to be installed to
-# build at all. See src/linux_taskbar.rs.
+ksni = { version = "0.3", default-features = false, features = ["async-io", "blocking"] }
 x11rb = "0.13"
 
 [build-dependencies]
-# Compiles the generated .rc (app icon + VERSIONINFO) into hydra-gui.exe —
-# see build.rs. Uses rc.exe on Windows hosts and llvm-rc under cargo-xwin;
-# build.rs is a no-op for non-Windows targets.
 embed-resource = "3"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-# "Hide Dock icon": NSApplication activation policy (Regular <-> Accessory).
-# Same objc2 generation the tray/menu stack (tray-icon 0.24) already links.
 objc2 = "0.6"
-objc2-app-kit = { version = "0.3", default-features = false, features = [
-    "std",
-    "NSApplication",
-    "NSResponder",
-    "NSRunningApplication",
-    # Pinning the window's colour space to the software surface's — see
-    # macos_surface.rs for why that is worth a per-frame full-window
-    # ColorSync pass.
-    "NSColorSpace",
-    "NSView",
-    "NSWindow",
-    # NSWindowOrderingMode, for parenting dialogs under the main window
-    # (dialog_parent.rs).
-    "NSGraphics",
-] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSResponder", "NSRunningApplication", "NSColorSpace", "NSView", "NSWindow", "NSGraphics"] }
 
-# System light/dark detection, on every platform the GUI ships a desktop
-# for. Two readers: the tray glyph — white on dark panels, black on light,
-# since Windows has no template-icon mechanism — and View > Theme > System
-# Default, which paints the first frame from it because iced only learns the
-# OS appearance once a window exists (`iced::system::theme` answers
-# `Mode::None` before that). Live flips after startup come from iced, not
-# from here.
-#
-# On Linux the answer comes from the XDG desktop portal
-# (org.freedesktop.appearance color-scheme), plus a change stream that
-# re-tints the tray glyph. Default features, deliberately: they select
-# zbus/async-io, the same zbus flavor ksni pins — never the tokio one.
 [target.'cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))'.dependencies]
 dark-light = "3"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-# Owning dialogs to the main window (dialog_parent.rs). The version winit
-# 0.30 links, so this adds no second copy.
 windows-sys = { version = "0.52", features = ["Win32_UI_WindowsAndMessaging"] }
-# "Launch on startup" is an HKCU\...\CurrentVersion\Run value:
-# no console flash at logon, and Task Manager's Startup page
-# shows the exe's embedded name and icon. See autostart.rs.
 winreg = "0.56"
-# Cross-compiling to windows-msvc: MSVC's arm64_neon.h is not clang-parsable,
-# so blake3's C NEON path cannot build — the pure-Rust implementation is
-# feature-unified in for Windows targets only (the GUI never bulk-hashes).
 blake3 = { version = "1", features = ["pure"] }
 
 [dev-dependencies]
-# Encrypting fixtures for the AES-128 end-to-end test: the decrypt side is
-# the library's, so the test has to be able to produce real ciphertext.
 aes = { workspace = true }
 cbc = { workspace = true }
-# Writes the archive the Zip-preview end-to-end test serves back over a local
-# socket: real archiver output rather than bytes laid out by the code under test.
 zip = { version = "8", default-features = false, features = ["deflate"] }
 
 [lints]

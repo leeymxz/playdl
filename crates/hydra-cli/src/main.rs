@@ -24,7 +24,7 @@
 //! INDEPENDENT of the object being downloaded, because bytes go straight to
 //! their file offset and are never reassembled in RAM.
 
-//! hydra â€” a multi-source downloader.
+//! hydra â€?a multi-source downloader.
 //!
 //! The scheduler lives in `hydra-core` and knows nothing about I/O; the transport
 //! lives in `hydra-net`. This crate is the product surface: argument parsing, the
@@ -48,9 +48,9 @@ mod update;
 mod url;
 mod xval;
 
-use hya_core::{Scheduler, Source};
-use hya_net::origin::OriginSet;
-use hya_net::{run_transfer, Target};
+use pdl_core::{Scheduler, Source};
+use pdl_net::origin::OriginSet;
+use pdl_net::{run_transfer, Target};
 use std::sync::Arc;
 
 /// Peak resident set size in bytes, via `getrusage(RUSAGE_SELF)`.
@@ -137,7 +137,7 @@ async fn memprofile() {
                 ..Default::default()
             });
         }
-        let out = std::env::temp_dir().join(format!("hydra_mem_{size_mb}.bin"));
+        let out = std::env::temp_dir().join(format!("playdl_mem_{size_mb}.bin"));
         let outs = out.to_string_lossy().to_string();
 
         // getrusage reports a process high-water mark, so it only ever rises:
@@ -168,14 +168,14 @@ async fn memprofile() {
 /// The point of `--json` is that a GUI should not have to scrape text to build its
 /// tooltips or its file-type filter; it reads the same table the classifier uses.
 fn print_formats(as_json: bool, category: Option<&str>, what: Option<&str>) {
-    use hya_core::{catalogue, describe, from_extension_pub as by_ext};
+    use pdl_core::{catalogue, describe, from_extension_pub as by_ext};
 
     // A single lookup: "what is a .tar.gz?" is the question a user actually asks.
     if let Some(query) = what {
         let key = query.trim().trim_start_matches('.');
         // Try the format name first, then the extension. `from_extension` wants
         // something that LOOKS like a filename, so a bare extension is given a stem
-        // â€” otherwise ".mkv" finds nothing while "x.mkv" resolves to matroska.
+        // â€?otherwise ".mkv" finds nothing while "x.mkv" resolves to matroska.
         let hit = describe(key)
             .map(|(l, d)| (key.to_string(), l, d))
             .or_else(|| {
@@ -195,7 +195,7 @@ fn print_formats(as_json: bool, category: Option<&str>, what: Option<&str>) {
                 }
             }
             None => {
-                eprintln!("hydra: no format known as {query:?} (try `hydra formats`)");
+                eprintln!("playdl: no format known as {query:?} (try `hydra formats`)");
             }
         }
         return;
@@ -210,7 +210,7 @@ fn print_formats(as_json: bool, category: Option<&str>, what: Option<&str>) {
         })
         .collect();
     if rows.is_empty() {
-        eprintln!("hydra: no formats in category {:?}", category.unwrap_or(""));
+        eprintln!("playdl: no formats in category {:?}", category.unwrap_or(""));
         return;
     }
 
@@ -264,14 +264,14 @@ fn print_formats(as_json: bool, category: Option<&str>, what: Option<&str>) {
 /// whether a manifest may be attempted at all, and `--inspect` uses it to
 /// refuse rather than be silently dropped. Kept as two hand-maintained
 /// copies, adding a mode flag to one and forgetting the other is what
-/// silently ignores a flag the user typed â€” the exact bug the refusal
+/// silently ignores a flag the user typed â€?the exact bug the refusal
 /// exists to prevent.
 /// What `--no-save` can and cannot report at the requested concurrency.
 ///
 /// The digest under `--no-save` is computed from the stream, and the stream
 /// digest only finishes for a single-connection transfer: a parallel one opens
 /// with one span per connection, so everything past the first span would have
-/// to be buffered (see `hya_net::stream_digest`). The run still works and still
+/// to be buffered (see `pdl_net::stream_digest`). The run still works and still
 /// classifies the object; it just cannot say what the bytes hash to. That is
 /// worth saying BEFORE the transfer rather than after it, and a `--checksum`
 /// the run can never check is a contradiction, not a warning.
@@ -353,7 +353,7 @@ fn parse_range(spec: &str) -> Option<download::RangeSpec> {
 ///
 /// `#[tokio::main]` with no arguments starts one worker thread per CPU core. On a
 /// 12-core box that is 12 threads to service at most a couple of dozen sockets, and
-/// the work each one does per wakeup is a 64 KiB read and a positioned write â€” far
+/// the work each one does per wakeup is a 64 KiB read and a positioned write â€?far
 /// too little to amortise being scheduled. The cost shows up as involuntary context
 /// switches: measured on an 11 MB transfer, hydra was preempted 1516 times at `-x 8`
 /// compared to single-threaded baseline of 33 (46x), while VOLUNTARY switches were essentially identical
@@ -363,7 +363,7 @@ fn parse_range(spec: &str) -> Option<download::RangeSpec> {
 /// **This is a resource-policy choice, not a measured optimisation.** The hypothesis
 /// above was tested and rejected: interleaved over five repetitions the paired ratio was
 /// 1.04 with Wilcoxon p = 0.81 and per-repetition deltas inconsistent in sign. An
-/// earlier apparent 1516 â†’ 921 improvement was between-job noise â€” the two builds ran in
+/// earlier apparent 1516 â†?921 improvement was between-job noise â€?the two builds ran in
 /// separate jobs minutes apart.
 ///
 /// The cap is kept because sizing a thread pool to the workload is defensible on its own
@@ -378,10 +378,10 @@ fn parse_range(spec: &str) -> Option<download::RangeSpec> {
 /// against two on a 2-core host, interleaved, 1 GB at four connections: involuntary
 /// context switches 40-57 against 287-352 over HTTP and 260-434 against 896-1149 over
 /// TLS, CPU 1.8-2.1 s against 2.7-3.4 s, wall clock unchanged. A downloader is one
-/// I/O loop â€” that is how `curl`, `wget` and `aria2c` are built â€” and a second thread
-/// only gives the tasks somewhere to bounce to. `HYDRA_WORKERS=n` overrides it.
+/// I/O loop â€?that is how `curl`, `wget` and `aria2c` are built â€?and a second thread
+/// only gives the tasks somewhere to bounce to. `PLAYDL_WORKERS=n` overrides it.
 fn main() -> std::process::ExitCode {
-    let workers = std::env::var("HYDRA_WORKERS")
+    let workers = std::env::var("PLAYDL_WORKERS")
         .ok()
         .and_then(|v| v.parse::<usize>().ok())
         .filter(|&n| n >= 1)
@@ -405,7 +405,7 @@ async fn async_main() -> std::process::ExitCode {
     let (canon, notes) = match compat::canonicalize(dialect, &rest) {
         Ok(v) => v,
         Err(e) => {
-            eprintln!("hydra: {e}");
+            eprintln!("playdl: {e}");
             return std::process::ExitCode::from(2);
         }
     };
@@ -426,11 +426,11 @@ async fn async_main() -> std::process::ExitCode {
         }
     };
     if args.verbose > 0 && dialect != compat::Personality::Native {
-        eprintln!("hydra: {} compatibility mode", dialect.name());
+        eprintln!("playdl: {} compatibility mode", dialect.name());
     }
     for n in &notes {
         if args.verbose > 0 {
-            eprintln!("hydra: {n}");
+            eprintln!("playdl: {n}");
         }
     }
 
@@ -472,7 +472,7 @@ async fn async_main() -> std::process::ExitCode {
             let mut list = args.urls.clone();
             list.extend(urls.clone());
             if let Err(e) = tui::run_with(path, list, max, *headless).await {
-                eprintln!("hydra: {e}");
+                eprintln!("playdl: {e}");
                 return std::process::ExitCode::FAILURE;
             }
             return std::process::ExitCode::SUCCESS;
@@ -513,7 +513,7 @@ async fn async_main() -> std::process::ExitCode {
             let (exe, plans) = match compat_link::plan(dir.as_deref(), &names) {
                 Ok(v) => v,
                 Err(e) => {
-                    eprintln!("hydra: {e}");
+                    eprintln!("playdl: {e}");
                     return std::process::ExitCode::from(2);
                 }
             };
@@ -526,7 +526,7 @@ async fn async_main() -> std::process::ExitCode {
                     }
                     compat_link::Action::Occupied(what) if !*force => {
                         eprintln!(
-                            "hydra: {} already exists ({what}); --force replaces it, \
+                            "playdl: {} already exists ({what}); --force replaces it, \
                              --dir puts the links elsewhere, or use --name hydra-{} \
                              to keep the real tool's name free",
                             p.path.display(),
@@ -546,7 +546,7 @@ async fn async_main() -> std::process::ExitCode {
                         exe.display()
                     );
                 } else if let Err(e) = compat_link::apply(p, &exe, *force) {
-                    eprintln!("hydra: {e}");
+                    eprintln!("playdl: {e}");
                     failed = true;
                     continue;
                 } else {
@@ -557,7 +557,7 @@ async fn async_main() -> std::process::ExitCode {
             // actually resolves is the half that silently fails.
             for p in &plans {
                 if let Some(note) = compat_link::shadow_note(p) {
-                    eprintln!("hydra: {note}");
+                    eprintln!("playdl: {note}");
                 }
             }
             return if failed {
@@ -577,7 +577,7 @@ async fn async_main() -> std::process::ExitCode {
                 Some(s) => s,
                 None => {
                     eprintln!(
-                        "hydra: could not detect a shell from $SHELL; pass one explicitly, \
+                        "playdl: could not detect a shell from $SHELL; pass one explicitly, \
                          e.g. `hydra install-completions zsh`"
                     );
                     return std::process::ExitCode::from(2);
@@ -602,7 +602,7 @@ async fn async_main() -> std::process::ExitCode {
                     return std::process::ExitCode::SUCCESS;
                 }
                 Err(e) => {
-                    eprintln!("hydra: {e}");
+                    eprintln!("playdl: {e}");
                     return std::process::ExitCode::FAILURE;
                 }
             }
@@ -618,7 +618,7 @@ async fn async_main() -> std::process::ExitCode {
                     "sizesweep" => xval::size_sweep().await,
                     "detectab" => xval::detect_ab(*reps).await,
                     other => {
-                        eprintln!("hydra: unknown harness {other}");
+                        eprintln!("playdl: unknown harness {other}");
                         return std::process::ExitCode::from(2);
                     }
                 }
@@ -649,13 +649,13 @@ async fn async_main() -> std::process::ExitCode {
                     .map(str::to_string),
             ),
             Err(e) => {
-                eprintln!("hydra: cannot read --input-file {}: {e}", path.display());
+                eprintln!("playdl: cannot read --input-file {}: {e}", path.display());
                 return std::process::ExitCode::from(2);
             }
         }
     }
     if urls.is_empty() && args.metalink.is_none() {
-        eprintln!("hydra: no URL given (try --help)");
+        eprintln!("playdl: no URL given (try --help)");
         return std::process::ExitCode::from(2);
     }
     // `-H NAME` (no colon) asks what the server answered with. Answer it and
@@ -669,7 +669,7 @@ async fn async_main() -> std::process::ExitCode {
     let limit_rate = match args.rate_limit() {
         Ok(v) => v,
         Err(e) => {
-            eprintln!("hydra: {e}");
+            eprintln!("playdl: {e}");
             return std::process::ExitCode::from(2);
         }
     };
@@ -680,7 +680,7 @@ async fn async_main() -> std::process::ExitCode {
         Some(spec) => match parse_range(spec) {
             Some(r) => Some(r),
             None => {
-                eprintln!("hydra: unparsable --range: {spec} (try 0-1023, 1024-, or -512)");
+                eprintln!("playdl: unparsable --range: {spec} (try 0-1023, 1024-, or -512)");
                 return std::process::ExitCode::from(2);
             }
         },
@@ -693,7 +693,7 @@ async fn async_main() -> std::process::ExitCode {
     // `--inspect` and `--list-streams` ask a QUESTION about one object. When
     // the rest of the command line makes that question unanswerable, dropping
     // the flag and carrying on turns "tell me about this" into "download
-    // this" â€” writing files the user never asked for. Say what clashed.
+    // this" â€?writing files the user never asked for. Say what clashed.
     //
     // Only flags the user TYPED are checked here. The manifest auto-detect
     // below falls back to a plain download on purpose: nobody asked it a
@@ -707,12 +707,12 @@ async fn async_main() -> std::process::ExitCode {
             "--list-streams"
         };
         if let Some(other) = plain_download_conflict(&args) {
-            eprintln!("hydra: {flag} cannot be combined with {other}");
+            eprintln!("playdl: {flag} cannot be combined with {other}");
             return std::process::ExitCode::from(2);
         }
         if multi {
             eprintln!(
-                "hydra: {flag} reports on one URL at a time, but {} were given \
+                "playdl: {flag} reports on one URL at a time, but {} were given \
                  (pass one, or --mirrors if they are mirrors of the same object)",
                 urls.len()
             );
@@ -724,13 +724,13 @@ async fn async_main() -> std::process::ExitCode {
     // flags above it owes an answer and never a download.
     if args.preview {
         if urls.is_empty() {
-            eprintln!("hydra: --preview needs a URL");
+            eprintln!("playdl: --preview needs a URL");
             return std::process::ExitCode::from(2);
         }
         return match preview::run(&urls[0], &args).await {
             Ok(()) => std::process::ExitCode::SUCCESS,
             Err(e) => {
-                eprintln!("hydra: {e}");
+                eprintln!("playdl: {e}");
                 std::process::ExitCode::FAILURE
             }
         };
@@ -746,7 +746,7 @@ async fn async_main() -> std::process::ExitCode {
     //
     // `!urls.is_empty()` is not defensiveness: `--metalink FILE` names the
     // sources without naming a URL, so this is the first code below the
-    // "no URL given" check that can be reached with an empty list â€” and
+    // "no URL given" check that can be reached with an empty list â€?and
     // `urls[0]` there is a panic, not a diagnostic.
     if !multi
         && plain
@@ -775,7 +775,7 @@ async fn async_main() -> std::process::ExitCode {
         // `--adaptive` is about ranged file downloads; saying so beats
         // silently ignoring a flag the user typed.
         if args.adaptive && !args.quiet {
-            eprintln!("hydra: --adaptive does not apply to streams; using -x segments in flight");
+            eprintln!("playdl: --adaptive does not apply to streams; using -x segments in flight");
         }
         match stream::run(sjob.clone()).await {
             // Not a manifest. What that means depends on which flag asked:
@@ -786,13 +786,13 @@ async fn async_main() -> std::process::ExitCode {
                 return match stream::inspect_file(&sjob).await {
                     Ok(()) => std::process::ExitCode::SUCCESS,
                     Err(e) => {
-                        eprintln!("hydra: {e}");
+                        eprintln!("playdl: {e}");
                         std::process::ExitCode::FAILURE
                     }
                 };
             }
             stream::Verdict::NotAManifest if args.list_streams => {
-                eprintln!("hydra: {} is not an HLS or DASH manifest", urls[0]);
+                eprintln!("playdl: {} is not an HLS or DASH manifest", urls[0]);
                 return std::process::ExitCode::FAILURE;
             }
             // Not a stream, and nobody asked a question: download it.
@@ -801,7 +801,7 @@ async fn async_main() -> std::process::ExitCode {
                 return std::process::ExitCode::SUCCESS
             }
             stream::Verdict::Failed(e) => {
-                eprintln!("hydra: {e}");
+                eprintln!("playdl: {e}");
                 return std::process::ExitCode::FAILURE;
             }
         }
@@ -811,11 +811,11 @@ async fn async_main() -> std::process::ExitCode {
         Ok(None) => {}
         Ok(Some(note)) => {
             if !args.quiet {
-                eprintln!("hydra: {note}");
+                eprintln!("playdl: {note}");
             }
         }
         Err(why) => {
-            eprintln!("hydra: {why}");
+            eprintln!("playdl: {why}");
             return std::process::ExitCode::FAILURE;
         }
     }
@@ -844,7 +844,7 @@ async fn async_main() -> std::process::ExitCode {
             .clone()
             .map(|p| (p, true))
             .or_else(|| args.logfile.clone().map(|p| (p, false))),
-        ip_family: hya_net::IpFamily::from_flags(args.ipv4, args.ipv6),
+        ip_family: pdl_net::IpFamily::from_flags(args.ipv4, args.ipv6),
         tries: args.tries,
         timeout_s: args.timeout,
         checksum: args.checksum.clone(),
@@ -894,7 +894,7 @@ async fn async_main() -> std::process::ExitCode {
     // can only take the first entry; this one can run them all.
     match metalink_origins(&args, &urls) {
         Err(e) => {
-            eprintln!("hydra: {e}");
+            eprintln!("playdl: {e}");
             return std::process::ExitCode::from(2);
         }
         Ok(list) if !list.is_empty() => return run_metalink(list, job, &args).await,
@@ -919,7 +919,7 @@ async fn async_main() -> std::process::ExitCode {
 ///
 /// Two spellings, because both are how people actually reach for it:
 /// `--metalink FILE|URL` states it outright, and a bare `foo.meta4` argument
-/// means the same thing â€” a user who has downloaded a document does not expect
+/// means the same thing â€?a user who has downloaded a document does not expect
 /// to have to name a flag to use it. A URL with no extension
 /// (`.../metalink?repo=fedora-40`) is NOT detected here: it is caught by
 /// `Content-Type` at probe time, where the answer is already paid for.
@@ -934,15 +934,15 @@ fn origin_of(spec: &str) -> metalink::Origin {
 /// Which of this run's arguments are Metalink documents.
 ///
 /// Detection is automatic, so `--metalink` is an override and not a
-/// requirement â€” a user holding a mirror list should be able to point hydra at
+/// requirement â€?a user holding a mirror list should be able to point hydra at
 /// it and have it work, the same way `hydra <url>` works. An argument is a
 /// document if its name says so (`.meta4`, `.metalink`) or, for a local path, if
 /// its content does; a remote URL that reveals itself only by `Content-Type` is
 /// caught later, inside the engine, where the probe has already been paid for.
 ///
 /// A MIX of documents and plain URLs is refused rather than guessed at. The two
-/// readings â€” "fetch this list and also that URL" and "you meant these all to be
-/// lists" â€” lead to different files on disk, and picking one silently is how a
+/// readings â€?"fetch this list and also that URL" and "you meant these all to be
+/// lists" â€?lead to different files on disk, and picking one silently is how a
 /// command that looks like it worked produces something else.
 fn metalink_origins(args: &cli::Cli, urls: &[String]) -> Result<Vec<metalink::Origin>, String> {
     if let Some(spec) = args.metalink.as_deref() {
@@ -979,7 +979,7 @@ fn metalink_origins(args: &cli::Cli, urls: &[String]) -> Result<Vec<metalink::Or
 /// volunteer machines, and the whole point of the politeness ceilings is that
 /// this client does not decide on a user's behalf to open four connections per
 /// file times six files against the same set of hosts. `--mode same` on explicit
-/// URLs is a different situation â€” the user named them one by one.
+/// URLs is a different situation â€?the user named them one by one.
 async fn run_metalink(
     origins: Vec<metalink::Origin>,
     template: download::Job,
@@ -990,20 +990,20 @@ async fn run_metalink(
         let doc = match load_metalink(origin, args).await {
             Ok(d) => d,
             Err(e) => {
-                eprintln!("hydra: {e}");
+                eprintln!("playdl: {e}");
                 return std::process::ExitCode::from(2);
             }
         };
         let got = match metalink::resolve(&doc, &args.metalink_selection(), origin) {
             Ok(f) => f,
             Err(e) => {
-                eprintln!("hydra: {e}");
+                eprintln!("playdl: {e}");
                 return std::process::ExitCode::from(2);
             }
         };
         if !args.quiet && !args.json {
             eprintln!(
-                "hydra: {origin}: Metalink {}, {} file(s), {} mirror(s)",
+                "playdl: {origin}: Metalink {}, {} file(s), {} mirror(s)",
                 doc.version.map(|v| v.as_str()).unwrap_or("?"),
                 got.len(),
                 got.iter().map(|f| f.urls.len()).sum::<usize>(),
@@ -1018,16 +1018,16 @@ async fn run_metalink(
     for (i, f) in files.iter().enumerate() {
         // The document's own notes are carried ON the job and emitted by the
         // engine through `Progress::event`, so they are verbosity-gated, land in
-        // `--logfile`, and are silenced by `-q` â€” none of which an `eprintln!`
+        // `--logfile`, and are silenced by `-q` â€?none of which an `eprintln!`
         // here would be.
         let mut job = template.clone().with_metalink(f);
         // `-O` names ONE file. With several entries it cannot apply to all of
         // them, and applying it to the first would write six objects over each
-        // other in turn â€” the same rule `run_many` follows.
+        // other in turn â€?the same rule `run_many` follows.
         if explicit_output && files.len() > 1 {
             if i == 0 {
                 eprintln!(
-                    "hydra: -O names one file and this document describes {}; using the names from the document",
+                    "playdl: -O names one file and this document describes {}; using the names from the document",
                     files.len()
                 );
             }
@@ -1055,11 +1055,11 @@ async fn run_metalink(
 async fn load_metalink(
     origin: &metalink::Origin,
     args: &cli::Cli,
-) -> Result<hya_net::Metalink, String> {
+) -> Result<pdl_net::Metalink, String> {
     match origin {
         metalink::Origin::File(p) => metalink::load_file(p),
         metalink::Origin::Url(u) => {
-            let conn = hya_net::TlsCapableConnector::with_insecure(args.insecure)
+            let conn = pdl_net::TlsCapableConnector::with_insecure(args.insecure)
                 .map(std::sync::Arc::new)
                 .map_err(|e| format!("tls setup failed: {e}"))?;
             metalink::load_url(&conn, u, &args.headers, &args.user_agent, args.max_redirs).await
@@ -1079,7 +1079,7 @@ async fn metalink_report(source: &str, json: bool, args: &cli::Cli) -> std::proc
     let doc = match load_metalink(&origin, args).await {
         Ok(d) => d,
         Err(e) => {
-            eprintln!("hydra: {e}");
+            eprintln!("playdl: {e}");
             return std::process::ExitCode::from(2);
         }
     };
@@ -1155,7 +1155,7 @@ async fn metalink_report(source: &str, json: bool, args: &cli::Cli) -> std::proc
         println!();
         match f.safe_name() {
             Ok(n) => println!("  {n}"),
-            Err(e) => println!("  {} â€” REFUSED: {}", f.name, e.why),
+            Err(e) => println!("  {} â€?REFUSED: {}", f.name, e.why),
         }
         match f.size {
             Some(n) => println!("    size      {} ({n} bytes)", progress::human(n)),
@@ -1175,13 +1175,13 @@ async fn metalink_report(source: &str, json: bool, args: &cli::Cli) -> std::proc
         }
         match (&f.pieces, f.size) {
             (Some(p), Some(size)) if p.covers(size) => println!(
-                "    pieces    {} x {} ({}) â€” per-chunk verification and targeted refetch",
+                "    pieces    {} x {} ({}) â€?per-chunk verification and targeted refetch",
                 p.hashes.len(),
                 progress::human(p.length),
                 p.algo.as_str()
             ),
             (Some(p), _) => println!(
-                "    pieces    {} x {} ({}) â€” do NOT tile this object; whole-file digest only",
+                "    pieces    {} x {} ({}) â€?do NOT tile this object; whole-file digest only",
                 p.hashes.len(),
                 progress::human(p.length),
                 p.algo.as_str()
@@ -1238,8 +1238,8 @@ async fn metalink_report(source: &str, json: bool, args: &cli::Cli) -> std::proc
 /// Report the digests a server advertises for each URL, without transferring the body.
 ///
 /// Order of attempts matches descending cost and ascending desperation: response headers
-/// (one HEAD, no body), then sidecar/manifest files (one small GET each), then â€” only if
-/// asked â€” streaming the object to compute the digest locally, which defeats the purpose
+/// (one HEAD, no body), then sidecar/manifest files (one small GET each), then â€?only if
+/// asked â€?streaming the object to compute the digest locally, which defeats the purpose
 /// but is the honest fallback when nothing is published.
 async fn checksum_report(
     urls: &[String],
@@ -1249,11 +1249,11 @@ async fn checksum_report(
     download_if_needed: bool,
     args: &cli::Cli,
 ) -> std::process::ExitCode {
-    use hya_net::digest::{self, Advertised};
-    let conn = match hya_net::TlsCapableConnector::with_insecure(args.insecure) {
+    use pdl_net::digest::{self, Advertised};
+    let conn = match pdl_net::TlsCapableConnector::with_insecure(args.insecure) {
         Ok(c) => std::sync::Arc::new(c),
         Err(e) => {
-            eprintln!("hydra: tls setup failed: {e}");
+            eprintln!("playdl: tls setup failed: {e}");
             return std::process::ExitCode::FAILURE;
         }
     };
@@ -1262,7 +1262,7 @@ async fn checksum_report(
 
     for u in urls {
         let Some(parsed) = crate::url::Url::parse(u) else {
-            eprintln!("hydra: cannot parse {u}");
+            eprintln!("playdl: cannot parse {u}");
             all_ok = false;
             continue;
         };
@@ -1275,7 +1275,7 @@ async fn checksum_report(
         let mut validator: Option<String> = None;
 
         // 1. Headers: free apart from the round trip we already need for size.
-        // Follow redirects first â€” a 302's headers carry no size, no validator,
+        // Follow redirects first â€?a 302's headers carry no size, no validator,
         // and no digest, so probing the hop instead of the object reported
         // `size: null` for anything served through a CDN redirect.
         match crate::download::probe_public(conn.as_ref(), &parsed, args).await {
@@ -1283,8 +1283,8 @@ async fn checksum_report(
             // 24-byte JSON body is not a 24-byte file with no digest.
             Ok((pr, final_url)) if pr.status >= 400 => {
                 eprintln!(
-                    "hydra: server answered {} for {}",
-                    hya_net::describe_status(pr.status),
+                    "playdl: server answered {} for {}",
+                    pdl_net::describe_status(pr.status),
                     final_url.host
                 );
                 all_ok = false;
@@ -1304,7 +1304,7 @@ async fn checksum_report(
                 }
             }
             Err(e) => {
-                eprintln!("hydra: probe failed for {u}: {e}");
+                eprintln!("playdl: probe failed for {u}: {e}");
                 all_ok = false;
             }
         }
@@ -1317,7 +1317,7 @@ async fn checksum_report(
                 let Ok(t2) = side.to_target(px.as_ref().map(|(h, p)| (h.as_str(), *p))) else {
                     continue;
                 };
-                if let Ok(body) = hya_net::fetch_small(conn.as_ref(), &t2, 1 << 20).await {
+                if let Ok(body) = pdl_net::fetch_small(conn.as_ref(), &t2, 1 << 20).await {
                     let text = String::from_utf8_lossy(&body);
                     let name = parsed
                         .path
@@ -1337,8 +1337,8 @@ async fn checksum_report(
         // 3. Last resort, and only on request: transfer the object and hash it.
         let mut computed = None;
         if found.is_empty() && download_if_needed {
-            eprintln!("hydra: nothing advertised for {u}; streaming to compute sha256");
-            let tmp = std::env::temp_dir().join(format!("hydra_ck_{}", std::process::id()));
+            eprintln!("playdl: nothing advertised for {u}; streaming to compute sha256");
+            let tmp = std::env::temp_dir().join(format!("playdl_ck_{}", std::process::id()));
             let job = crate::download::Job {
                 urls: vec![u.clone()],
                 output: Some(tmp.clone()),
@@ -1366,7 +1366,7 @@ async fn checksum_report(
         // verify against. It was previously ignored here: `local_digests` consults
         // only `found` (server-advertised digests), so an object whose server
         // advertises nothing produced a correct `computed_sha256` beside the
-        // verdict "no comparable digest" â€” and a deliberately corrupted local file
+        // verdict "no comparable digest" â€?and a deliberately corrupted local file
         // produced the identical verdict. The one case the flag combination exists
         // to serve was the one case it could not answer.
         let mut comparable = found.clone();
@@ -1410,7 +1410,7 @@ async fn checksum_report(
                     };
                 }
                 Err(e) => {
-                    eprintln!("hydra: cannot read {}: {e}", path.display());
+                    eprintln!("playdl: cannot read {}: {e}", path.display());
                     all_ok = false;
                 }
             }
@@ -1491,9 +1491,9 @@ async fn checksum_report(
 /// parallel.
 fn local_digests(
     path: &std::path::Path,
-    advertised: &[hya_net::digest::Advertised],
-) -> std::io::Result<Vec<(hya_net::digest::Algo, String)>> {
-    use hya_net::digest::Algo;
+    advertised: &[pdl_net::digest::Advertised],
+) -> std::io::Result<Vec<(pdl_net::digest::Algo, String)>> {
+    use pdl_net::digest::Algo;
     use md5::Digest as _;
     use std::io::Read;
     let want: Vec<Algo> = advertised
@@ -1590,12 +1590,12 @@ async fn resolve_existing(
         }
         let on_disk = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
         eprintln!(
-            "hydra: {} already exists ({} on disk)",
+            "playdl: {} already exists ({} on disk)",
             path.display(),
             progress::human(on_disk)
         );
         eprintln!("  [c] continue it   [r] start over   [s] skip this file");
-        eprint!("hydra: what would you like to do? ");
+        eprint!("playdl: what would you like to do? ");
         use std::io::Write as _;
         let _ = std::io::stderr().flush();
         let mut line = String::new();
@@ -1630,7 +1630,7 @@ async fn resolve_existing(
 /// `same` (the default) runs them together, which is what a user pasting three links
 /// expects; `queue` runs them in order, which is the polite choice against one host and
 /// the predictable one on a narrow link. Either way each URL gets its own job and its own
-/// output file â€” mirror assembly is a different operation and needs `--mirrors`.
+/// output file â€?mirror assembly is a different operation and needs `--mirrors`.
 async fn run_many(
     template: download::Job,
     urls: &[String],
@@ -1643,7 +1643,7 @@ async fn run_many(
     // Concurrent jobs cannot each own the terminal: several prompts would interleave on
     // the same rows and an answer would land on whichever job read stdin first, which is
     // not the one the question came from. So the prompt runs here, serially, with the
-    // progress renderer not yet drawing â€” and the engines then run with the decision
+    // progress renderer not yet drawing â€?and the engines then run with the decision
     // already made (`force`), never prompting.
     let decisions = match resolve_existing(urls, &template).await {
         Ok(d) => d,
@@ -1677,7 +1677,7 @@ async fn run_many(
         .map(|(i, _)| i)
         .collect();
     for i in &skipped {
-        eprintln!("hydra: skipping {} (kept the existing file)", urls[*i]);
+        eprintln!("playdl: skipping {} (kept the existing file)", urls[*i]);
     }
     let names: Vec<String> = urls
         .iter()
@@ -1758,10 +1758,10 @@ async fn run_many(
     }
 }
 
-/// `hydra parity make|repair` â€” local Reed-Solomon parity generation and repair.
+/// `hydra parity make|repair` â€?local Reed-Solomon parity generation and repair.
 fn run_parity(what: &cli::ParityCmd) -> i32 {
-    use hya_net::manifest::Manifest;
-    use hya_net::parity::{generate, repair, Layout, DEFAULT_WINDOW};
+    use pdl_net::manifest::Manifest;
+    use pdl_net::parity::{generate, repair, Layout, DEFAULT_WINDOW};
     use std::path::PathBuf;
 
     match what {
@@ -1775,14 +1775,14 @@ fn run_parity(what: &cli::ParityCmd) -> i32 {
             let text = match std::fs::read_to_string(manifest) {
                 Ok(t) => t,
                 Err(e) => {
-                    eprintln!("hydra: cannot read manifest {}: {e}", manifest.display());
+                    eprintln!("playdl: cannot read manifest {}: {e}", manifest.display());
                     return 2;
                 }
             };
             let mut m = match Manifest::parse(&text) {
                 Ok(m) => m,
                 Err(e) => {
-                    eprintln!("hydra: {}: {e}", manifest.display());
+                    eprintln!("playdl: {}: {e}", manifest.display());
                     return 2;
                 }
             };
@@ -1797,7 +1797,7 @@ fn run_parity(what: &cli::ParityCmd) -> i32 {
             ) {
                 Ok(l) => l,
                 Err(e) => {
-                    eprintln!("hydra: {e}");
+                    eprintln!("playdl: {e}");
                     return 2;
                 }
             };
@@ -1807,14 +1807,14 @@ fn run_parity(what: &cli::ParityCmd) -> i32 {
             let digests = match generate(&file.to_string_lossy(), &pp.to_string_lossy(), &lay) {
                 Ok(d) => d,
                 Err(e) => {
-                    eprintln!("hydra: parity generation failed: {e}");
+                    eprintln!("playdl: parity generation failed: {e}");
                     return 1;
                 }
             };
             // Record the code in the manifest, including the parity shards' own
             // digests: a corrupt parity shard fed into a repair produces a
             // silently wrong result.
-            m.parity = Some(hya_net::manifest::ParityMeta {
+            m.parity = Some(pdl_net::manifest::ParityMeta {
                 algo: "reed-solomon".into(),
                 field: "gf16".into(),
                 k: lay.k,
@@ -1824,7 +1824,7 @@ fn run_parity(what: &cli::ParityCmd) -> i32 {
                 shard_digests: digests,
             });
             if let Err(e) = std::fs::write(manifest, m.to_json()) {
-                eprintln!("hydra: cannot update manifest: {e}");
+                eprintln!("playdl: cannot update manifest: {e}");
                 return 1;
             }
             println!(
@@ -1852,20 +1852,20 @@ fn run_parity(what: &cli::ParityCmd) -> i32 {
             let text = match std::fs::read_to_string(manifest) {
                 Ok(t) => t,
                 Err(e) => {
-                    eprintln!("hydra: cannot read manifest {}: {e}", manifest.display());
+                    eprintln!("playdl: cannot read manifest {}: {e}", manifest.display());
                     return 2;
                 }
             };
             let m = match Manifest::parse(&text) {
                 Ok(m) => m,
                 Err(e) => {
-                    eprintln!("hydra: {}: {e}", manifest.display());
+                    eprintln!("playdl: {}: {e}", manifest.display());
                     return 2;
                 }
             };
             let Some(pm) = m.parity.clone() else {
                 eprintln!(
-                    "hydra: {} records no parity; run `hydra parity make` first",
+                    "playdl: {} records no parity; run `hydra parity make` first",
                     manifest.display()
                 );
                 return 2;
@@ -1874,17 +1874,17 @@ fn run_parity(what: &cli::ParityCmd) -> i32 {
             // Erasure positions come from digest mismatches against the trusted manifest.
             let bad;
             {
-                use hya_net::manifest::{ChunkVerifier, Trust};
+                use pdl_net::manifest::{ChunkVerifier, Trust};
                 let mut v = ChunkVerifier::new(m.clone(), Trust::Trusted);
                 let mut f = match std::fs::File::open(file) {
                     Ok(f) => f,
                     Err(e) => {
-                        eprintln!("hydra: cannot read {}: {e}", file.display());
+                        eprintln!("playdl: cannot read {}: {e}", file.display());
                         return 2;
                     }
                 };
                 if let Err(e) = v.write_reader(&mut f) {
-                    eprintln!("hydra: read failed: {e}");
+                    eprintln!("playdl: read failed: {e}");
                     return 1;
                 }
                 if v.all_verified() {
@@ -1902,7 +1902,7 @@ fn run_parity(what: &cli::ParityCmd) -> i32 {
             );
             if bad.len() > pm.parity_shards {
                 eprintln!(
-                    "hydra: {} damaged but only {} parity shards: unrecoverable",
+                    "playdl: {} damaged but only {} parity shards: unrecoverable",
                     bad.len(),
                     pm.parity_shards
                 );
@@ -1921,7 +1921,7 @@ fn run_parity(what: &cli::ParityCmd) -> i32 {
             ) {
                 Ok(l) => l,
                 Err(e) => {
-                    eprintln!("hydra: {e}");
+                    eprintln!("playdl: {e}");
                     return 2;
                 }
             };
@@ -1931,14 +1931,14 @@ fn run_parity(what: &cli::ParityCmd) -> i32 {
 
             // Verify the PARITY before decoding from it. A decoder cannot tell a
             // corrupt parity shard from a good one, and repair writes in place, so
-            // decoding from rotted parity damages chunks that were intact â€” turning
+            // decoding from rotted parity damages chunks that were intact â€?turning
             // one recoverable chunk into several. Checked here rather than trusting
             // the length, which a rotted file of the right size passes.
-            match hya_net::parity::verify_parity(&pp.to_string_lossy(), &lay, &pm.shard_digests) {
+            match pdl_net::parity::verify_parity(&pp.to_string_lossy(), &lay, &pm.shard_digests) {
                 Ok(bad_shards) if !bad_shards.is_empty() => {
                     eprintln!(
-                        "hydra: {} is itself damaged (parity shard(s) {:?} fail their digests); \
-                         refusing to decode from it â€” {} still holds its original bytes",
+                        "playdl: {} is itself damaged (parity shard(s) {:?} fail their digests); \
+                         refusing to decode from it â€?{} still holds its original bytes",
                         pp.display(),
                         bad_shards,
                         file.display()
@@ -1947,7 +1947,7 @@ fn run_parity(what: &cli::ParityCmd) -> i32 {
                 }
                 Ok(_) => {}
                 Err(e) => {
-                    eprintln!("hydra: cannot verify {}: {e}", pp.display());
+                    eprintln!("playdl: cannot verify {}: {e}", pp.display());
                     return 1;
                 }
             }
@@ -1955,7 +1955,7 @@ fn run_parity(what: &cli::ParityCmd) -> i32 {
             match repair(&file.to_string_lossy(), &pp.to_string_lossy(), &lay, &bad) {
                 Ok(n) => {
                     // Re-verify repaired object against manifest chunks.
-                    use hya_net::manifest::{ChunkVerifier, Trust};
+                    use pdl_net::manifest::{ChunkVerifier, Trust};
                     let mut v = ChunkVerifier::new(m.clone(), Trust::Trusted);
                     let mut f = std::fs::File::open(file).expect("just repaired");
                     // A read error surfaces as unverified chunks below, which is
@@ -1966,7 +1966,7 @@ fn run_parity(what: &cli::ParityCmd) -> i32 {
                         0
                     } else {
                         eprintln!(
-                            "hydra: repair ran but {} chunk(s) still fail: the parity or the \
+                            "playdl: repair ran but {} chunk(s) still fail: the parity or the \
                              manifest does not match this file",
                             v.failed_indices().len()
                         );
@@ -1974,7 +1974,7 @@ fn run_parity(what: &cli::ParityCmd) -> i32 {
                     }
                 }
                 Err(e) => {
-                    eprintln!("hydra: repair failed: {e}");
+                    eprintln!("playdl: repair failed: {e}");
                     1
                 }
             }
@@ -1985,7 +1985,7 @@ fn run_parity(what: &cli::ParityCmd) -> i32 {
 /// Report the value of one or more response headers, and nothing else.
 ///
 /// `hydra <url> -H X-GitHub-Request-Id` prints
-/// `AC6C:16A281:52CCDD5:53451AC:6A813D03` â€” the value, on its own line, with no
+/// `AC6C:16A281:52CCDD5:53451AC:6A813D03` â€?the value, on its own line, with no
 /// bar, no summary, no format note. That output composes: `$(...)` captures it
 /// and a pipe reads it.
 ///
@@ -1995,13 +1995,13 @@ fn run_parity(what: &cli::ParityCmd) -> i32 {
 /// `--json` follows: a machine channel carries one thing.
 ///
 /// No body is transferred. The question is about the response head, so fetching
-/// the object would be work nobody asked for â€” this is `--spider` with a
+/// the object would be work nobody asked for â€?this is `--spider` with a
 /// projection.
 async fn report_header_values(urls: &[String], args: &cli::Cli) -> std::process::ExitCode {
-    let conn = match hya_net::TlsCapableConnector::with_insecure(args.insecure) {
+    let conn = match pdl_net::TlsCapableConnector::with_insecure(args.insecure) {
         Ok(c) => std::sync::Arc::new(c),
         Err(e) => {
-            eprintln!("hydra: tls setup failed: {e}");
+            eprintln!("playdl: tls setup failed: {e}");
             return std::process::ExitCode::FAILURE;
         }
     };
@@ -2011,33 +2011,33 @@ async fn report_header_values(urls: &[String], args: &cli::Cli) -> std::process:
 
     for u in urls {
         let Some(parsed) = crate::url::Url::parse(u) else {
-            eprintln!("hydra: cannot parse {u}");
+            eprintln!("playdl: cannot parse {u}");
             all_found = false;
             continue;
         };
         // Follow redirects: the header almost always belongs to the final
         // response, and reporting a 302's headers would answer a different
         // question than the one asked. Headers the user asked to SEND still
-        // apply â€” the value a server returns can depend on what it was asked
-        // (Vary, auth, conditional GETs) â€” and `probe_public` carries them.
+        // apply â€?the value a server returns can depend on what it was asked
+        // (Vary, auth, conditional GETs) â€?and `probe_public` carries them.
         let pr = match crate::download::probe_public(conn.as_ref(), &parsed, args).await {
             Ok((p, _final_url)) => p,
             Err(e) => {
-                eprintln!("hydra: {u}: {e}");
+                eprintln!("playdl: {u}: {e}");
                 all_found = false;
                 continue;
             }
         };
 
         for name in &args.header_queries {
-            match hya_net::header_lookup(&pr.raw_head, name) {
+            match pdl_net::header_lookup(&pr.raw_head, name) {
                 Some(v) if multi => println!("{name}: {v}"),
                 Some(v) => println!("{v}"),
                 None => {
                     // A missing header is not a crash, but it is not success
                     // either: a script substituting an empty string would be
                     // acting on an answer that was never given.
-                    eprintln!("hydra: {u}: no {name} header in the response");
+                    eprintln!("playdl: {u}: no {name} header in the response");
                     all_found = false;
                 }
             }
@@ -2106,7 +2106,7 @@ mod tests {
         assert!(matches!(&got[0], metalink::Origin::File(p) if p.ends_with("list.meta4")));
 
         // A `.meta4` URL is one by its name; a URL that reveals itself only by
-        // `Content-Type` is NOT caught here â€” it is settled inside the engine,
+        // `Content-Type` is NOT caught here â€?it is settled inside the engine,
         // on the probe that had to happen anyway.
         let b = cli(&["hydra", "https://h/x.meta4"]);
         let got = metalink_origins(&b, &["https://h/x.meta4".into()]).unwrap();
@@ -2121,8 +2121,8 @@ mod tests {
 
     #[test]
     fn documents_mixed_with_plain_urls_are_refused_rather_than_guessed_at() {
-        // The two readings â€” "fetch this list and also that URL" and "you meant
-        // these all to be lists" â€” put different files on disk. Picking one
+        // The two readings â€?"fetch this list and also that URL" and "you meant
+        // these all to be lists" â€?put different files on disk. Picking one
         // silently is how a command that looks like it worked produces
         // something else.
         let a = cli(&["hydra", "a.meta4", "https://h/f"]);

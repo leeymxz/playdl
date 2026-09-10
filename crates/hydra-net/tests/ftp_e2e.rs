@@ -3,7 +3,7 @@
 //! Port 21 is blocked by this sandbox's network policy (a port rule, which no domain grant
 //! can lift) and `bind()` is refused, so neither a live nor a loopback FTP server is
 //! reachable. The origin runs over `tokio::io::duplex` behind the `Connector` trait, which
-//! is the same async byte stream a socket provides â€” the identical approach already used for
+//! is the same async byte stream a socket provides â€?the identical approach already used for
 //! the HTTP end-to-end tests in this crate.
 //!
 //! These tests exercise the real client: reply parsing, `PASV` and the separate data
@@ -12,10 +12,10 @@
 //! reported as a round-trip COUNT, which is a protocol property and carries over to a real
 //! network, rather than a duration, which would not.
 
-use hya_net::ftp::FtpFetcher;
-use hya_net::ftp_origin::{byte_at, FtpOriginSet};
-use hya_net::scheme::{Endpoint, Fetcher};
-use hya_net::SparseSink;
+use pdl_net::ftp::FtpFetcher;
+use pdl_net::ftp_origin::{byte_at, FtpOriginSet};
+use pdl_net::scheme::{Endpoint, Fetcher};
+use pdl_net::SparseSink;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
@@ -276,7 +276,7 @@ async fn the_client_asks_for_binary_mode_and_refuses_to_proceed_without_it() {
 /// This is what the CLI's FTP progress bar is driven from. `fetch_range` is a
 /// single await that returns once the whole object has landed, so there is no
 /// per-tick callback to render from the way the HTTP path renders from the
-/// scheduler's observer â€” a multi-megabyte FTP download printed nothing at all
+/// scheduler's observer â€?a multi-megabyte FTP download printed nothing at all
 /// and then a finished summary. Polling `sink.written` alongside the fetch is
 /// the mechanism that fixes it, and this asserts the counter is actually
 /// observable mid-flight rather than jumping from 0 to the full size.

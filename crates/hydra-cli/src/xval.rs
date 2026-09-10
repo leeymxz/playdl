@@ -11,9 +11,9 @@
 //! reassigned), `StealOnIdle` is work-stealing on idle.
 //! The comparison is a benchmark of algorithm behavior.
 
-use hya_core::{Scheduler, Source};
-use hya_net::origin::{byte_at, OriginControl, OriginSet};
-use hya_net::{run_transfer_tick, Target};
+use pdl_core::{Scheduler, Source};
+use pdl_net::origin::{byte_at, OriginControl, OriginSet};
+use pdl_net::{run_transfer_tick, Target};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
@@ -156,7 +156,7 @@ async fn run_hydra_tick(
 
 /// The shared body of every hydra-policy runner: spawn the scenario, arm its
 /// events, build per-source estimates, run the transfer, verify the bytes,
-/// clean up. `configure` is the one thing the variants differ in â€” what they
+/// clean up. `configure` is the one thing the variants differ in â€?what they
 /// do to the scheduler before it runs.
 async fn run_hydra_with(
     sc: &Scenario,
@@ -197,7 +197,7 @@ async fn run_equal_static(sc: &Scenario, size: u64, conns: usize) -> Option<(f64
     let n = sc.rates.len() * conns;
     let out = std::env::temp_dir().join(format!("static_xval_{}.bin", sc.name));
     let outs = out.to_string_lossy().to_string();
-    let sink = Arc::new(hya_net::SparseSink::create(&outs, size).ok()?);
+    let sink = Arc::new(pdl_net::SparseSink::create(&outs, size).ok()?);
     let t0 = std::time::Instant::now();
 
     // Each part is fetched independently and retried in place: no stealing.
@@ -208,7 +208,7 @@ async fn run_equal_static(sc: &Scenario, size: u64, conns: usize) -> Option<(f64
         let t = targets[k % targets.len()].clone();
         let (sk, nt) = (sink.clone(), net.clone());
         handles.push(tokio::spawn(async move {
-            hya_net::fetch_range_retry(nt, t, lo, hi, sk, 6, 0.6).await
+            pdl_net::fetch_range_retry(nt, t, lo, hi, sk, 6, 0.6).await
         }));
     }
     let mut all_ok = true;
@@ -244,7 +244,7 @@ async fn run_hydra_detect(
     health_ranking: bool,
 ) -> Option<(f64, u64)> {
     // The A and B arms need distinct scratch files: detect_ab runs both per rep.
-    let tag = format!("hydra_ab_{health_ranking}");
+    let tag = format!("playdl_ab_{health_ranking}");
     run_hydra_with(sc, size, conns, 20, &tag, |s| {
         s.with_health_ranking(health_ranking)
     })

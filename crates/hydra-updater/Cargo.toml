@@ -1,38 +1,29 @@
 [package]
-name = "hya-updater"
+name = "pdl-updater"
 version.workspace = true
 edition = "2021"
 license = "GPL-3.0-or-later"
 repository.workspace = true
 homepage.workspace = true
-description = "Hydra self-update: release check, download, and the swap-in-place finisher"
+description = "PlayDL self-update: release check, download, and the swap-in-place finisher"
 publish = false
 
-# The finisher: waits for the running Hydra to exit, swaps the installed
-# binaries for the freshly extracted ones, and relaunches. It ships inside
-# the GUI bundle and is also copied to a temp dir before it runs, so it is
-# never asked to overwrite itself.
 [[bin]]
-name = "hydra-updater"
+name = "playdl-updater"
 path = "src/main.rs"
 
 [dependencies]
-hya-net = { workspace = true }
+pdl-net = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
 clap = { workspace = true }
-# Release archives: .tar.gz on Unix, .zip on Windows. Both decoders build on
-# every platform so the mock-flow tests exercise both formats everywhere.
 flate2 = "1"
 tar = "0.4"
 zip = { version = "8", default-features = false, features = ["deflate"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-# Same feature-unification note as hydra-gui/hydra-cli: MSVC's arm64_neon.h
-# is not clang-parsable, so blake3's C NEON path cannot build when
-# cross-compiling; the pure-Rust implementation is forced in for Windows.
 blake3 = { version = "1", features = ["pure"] }
 
 [lints]

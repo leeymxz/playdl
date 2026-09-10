@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The Configuration window: General, File types, Save to, Downloads,
-//! Connection, Proxy/Socks, Sites Logins, Extensions, Sounds â€” two-row
+//! Connection, Proxy/Socks, Sites Logins, Extensions, Sounds â€?two-row
 //! tab strip.
 
 use crate::app::{App, El, Message, OptField, OptTab, WinKind};
@@ -55,7 +55,7 @@ fn section<'a>(title: String) -> El<'a> {
 fn general(app: &App) -> El<'_> {
     let s = &app.options.draft;
     // Which extensions are talking to Hydra right now. A tick with nothing
-    // beside it means the box is set but no extension has connected â€” which
+    // beside it means the box is set but no extension has connected â€?which
     // is the difference between "capture is off" and "capture cannot happen",
     // and the list gave no way to tell them apart before.
     let live = crate::extbus::live_browsers();
@@ -107,7 +107,7 @@ fn general(app: &App) -> El<'_> {
         tr("Hydra windows get no taskbar button; reach the app from the tray icon. Applies to windows opened after the change."),
     ));
     // Linux: an X11 window-manager hint per window. Wayland has no
-    // skip-taskbar protocol at all â€” a checkbox that cannot act would only
+    // skip-taskbar protocol at all â€?a checkbox that cannot act would only
     // look broken, so it exists on X11 sessions only. (winit picks Wayland
     // exactly when WAYLAND_DISPLAY is set, so that is the session test.)
     #[cfg(target_os = "linux")]
@@ -294,7 +294,7 @@ fn save_to(app: &App) -> El<'_> {
         .spacing(8),
         hinted(
             checkbox(app.options.draft.no_category_dirs)
-                .label(tr("Do not create category folders â€” save everything in the default folder"))
+                .label(tr("Do not create category folders â€?save everything in the default folder"))
                 .on_toggle(|b| o(OptField::NoCatDirs(b)))
                 .size(15.0)
                 .text_size(theme::FONT_SIZE)
@@ -321,7 +321,7 @@ fn save_to(app: &App) -> El<'_> {
             .size(15.0)
             .text_size(theme::FONT_SIZE)
             .style(theme::check),
-        text(tr("File parts are stored next to the destination as \"<name>.part\" and renamed in place on completion â€” no temporary directory is needed."))
+        text(tr("File parts are stored next to the destination as \"<name>.part\" and renamed in place on completion â€?no temporary directory is needed."))
             .size(theme::FONT_SIZE - 1.0)
             .color(theme::dim_text(&iced::Theme::Light)),
     ]
@@ -395,7 +395,7 @@ fn downloads(app: &App) -> El<'_> {
                 .size(15.0)
                 .text_size(theme::FONT_SIZE)
                 .style(theme::check),
-            tr("A finished download drops off the list on its own â€” once the complete dialog is closed, when that dialog is shown. The downloaded file is kept."),
+            tr("A finished download drops off the list on its own â€?once the complete dialog is closed, when that dialog is shown. The downloaded file is kept."),
         ),
         section(tr("Virus checking")),
         text(tr("Virus scanner program")).size(theme::FONT_SIZE),
@@ -427,7 +427,7 @@ fn downloads(app: &App) -> El<'_> {
 
 /// One-line readout of the live window beneath the limit controls: what the
 /// running limit has counted and when it rolls over. Reads the *saved*
-/// settings, not the draft â€” the draft is not in force until OK is pressed.
+/// settings, not the draft â€?the draft is not in force until OK is pressed.
 fn quota_line(app: &App) -> String {
     let s = &app.cfg.settings;
     if !s.dl_limit_enabled {
@@ -514,7 +514,7 @@ fn connection(app: &App) -> El<'_> {
                 .size(15.0)
                 .text_size(theme::FONT_SIZE)
                 .style(theme::check),
-            tr("Caps how much Hydra may transfer per period â€” for metered or capped connections. Transfers pause when the cap is reached and resume by themselves when the next period starts."),
+            tr("Caps how much Hydra may transfer per period â€?for metered or capped connections. Transfers pause when the cap is reached and resume by themselves when the next period starts."),
         ),
         row![
             text(tr("Download no more than")).size(theme::FONT_SIZE),
@@ -681,7 +681,7 @@ fn sites(app: &App) -> El<'_> {
                 row![
                     container(text(l.site.clone()).size(theme::FONT_SIZE)).width(Length::Fill),
                     container(text(l.user.clone()).size(theme::FONT_SIZE)).width(140.0),
-                    container(text("â€¢â€¢â€¢".to_string()).size(theme::FONT_SIZE)).width(120.0),
+                    container(text("â€¢â€¢â€?.to_string()).size(theme::FONT_SIZE)).width(120.0),
                 ]
                 .spacing(6),
             )
@@ -804,7 +804,7 @@ fn elide_path(path: &std::path::Path, budget: usize) -> String {
     let sep = if full.contains('\\') { '\\' } else { '/' };
     let parts: Vec<&str> = full.split(sep).collect();
     // The head is the drive on Windows (`C:`) and the empty string before
-    // the leading slash on Unix, which is exactly what makes `/â€¦/bin/ffmpeg`
+    // the leading slash on Unix, which is exactly what makes `/â€?bin/ffmpeg`
     // come out right.
     let head = parts.first().copied().unwrap_or_default();
     let mut tail: Vec<&str> = Vec::new();
@@ -813,7 +813,7 @@ fn elide_path(path: &std::path::Path, budget: usize) -> String {
     for part in parts.iter().skip(1).rev() {
         let cost = part.chars().count() + 1;
         // The file name goes in whatever it costs: a row that elides down to
-        // "C:\â€¦" has told the reader nothing at all.
+        // "C:\â€? has told the reader nothing at all.
         if !tail.is_empty() && used + cost > budget {
             break;
         }
@@ -887,7 +887,7 @@ impl FfmpegRow {
 ///
 /// The path is a line of its own rather than a tail glued to the status
 /// sentence. Glued on, a Windows path wraps as one unbreakable word, runs
-/// out past the panel and straight under the button â€” and it buried the part
+/// out past the panel and straight under the button â€?and it buried the part
 /// that matters (which ffmpeg is this?) inside a paragraph.
 fn ffmpeg_row<'a>(found: Option<std::path::PathBuf>) -> El<'a> {
     let st = FfmpegRow::of(found.as_deref());
@@ -996,7 +996,7 @@ fn extensions(_app: &App) -> El<'_> {
             None,
         ),
         section(tr("Media tools")),
-        ffmpeg_row(hya_stream::ffmpeg()),
+        ffmpeg_row(pdl_stream::ffmpeg()),
     ]
     .spacing(10)
     .into()
@@ -1195,7 +1195,7 @@ mod tests {
     }
 
     /// Both states build. The row is the one place in this dialog that
-    /// changes shape â€” a third line and a different button â€” and a widget
+    /// changes shape â€?a third line and a different button â€?and a widget
     /// tree that does not survive being built takes the whole window down
     /// with it.
     #[test]
@@ -1205,7 +1205,7 @@ mod tests {
     }
 
     /// A budget the file name alone cannot meet still shows the file name:
-    /// eliding down to "C:\â€¦" would answer nothing.
+    /// eliding down to "C:\â€? would answer nothing.
     #[test]
     fn the_file_name_survives_an_impossible_budget() {
         let p = Path::new("C:\\Program Files\\ffmpeg\\bin\\ffmpeg-with-a-long-name.exe");

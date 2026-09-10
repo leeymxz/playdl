@@ -1,15 +1,15 @@
 //! The download engine the CLI drives: probe, plan, transfer, verify.
 //!
 //! This is where the theory meets a user's file. The scheduler decides *which
-//! bytes go where*; this module decides everything around that â€” how many
+//! bytes go where*; this module decides everything around that â€?how many
 //! connections politeness permits, whether a partial file can be resumed, what
 //! the sidecar records, and whether the delivered bytes are the bytes asked for.
 
 use crate::progress::{ConnView, Counters, Progress};
 use crate::url::{proxy_from_env, Sidecar, Url};
-use hya_core::{detect_format, Category, Scheduler, Source};
-use hya_net::polite::{Politeness, RateLimiter};
-use hya_net::{fetch_range_retry, probe_resilient, SparseSink, Target, TlsCapableConnector};
+use pdl_core::{detect_format, Category, Scheduler, Source};
+use pdl_net::polite::{Politeness, RateLimiter};
+use pdl_net::{fetch_range_retry, probe_resilient, SparseSink, Target, TlsCapableConnector};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -17,8 +17,8 @@ use std::time::Instant;
 
 /// A requested byte range, kept symbolic until the object size is known.
 ///
-/// `Suffix` cannot be resolved at parse time â€” "the last 512 bytes" depends on
-/// the size, which only the probe reveals â€” so it stays an explicit variant
+/// `Suffix` cannot be resolved at parse time â€?"the last 512 bytes" depends on
+/// the size, which only the probe reveals â€?so it stays an explicit variant
 /// rather than a sentinel value.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RangeSpec {
@@ -51,7 +51,7 @@ impl RangeSpec {
 ///
 /// The queue manager needs this because a transfer is opaque otherwise: `run()` only
 /// returns when it is finished, so a UI driving several jobs had nothing to show until
-/// each one completed â€” every row sat at `?` for the whole download. Per-connection
+/// each one completed â€?every row sat at `?` for the whole download. Per-connection
 /// detail rides along because that is the state that makes a multi-source transfer
 /// debuggable (which mirror is slow, which range is stuck).
 #[derive(Clone, Debug)]
@@ -88,7 +88,7 @@ pub struct Job {
     /// Redirect hops permitted before giving up. `0` refuses to follow any.
     pub max_redirs: u32,
     /// `-4` / `-6`: restrict every connection to one IP version.
-    pub ip_family: hya_net::IpFamily,
+    pub ip_family: pdl_net::IpFamily,
     /// `--show-error`: print failure reasons to stderr even under `-q`.
     pub show_error: bool,
     /// `--logfile` (truncate) or `--logfile-append`: human output goes to this
@@ -109,8 +109,8 @@ pub struct Job {
     /// Separate from `probe` below because the two answer different questions.
     /// `probe` is "no number was given, go and find one"; this is "a number was
     /// given, but check how much of it is useful". Conflating them would either
-    /// make `-x N` silently measure â€” breaking a flag whose whole purpose is to
-    /// pin a value for a reproduction or a comparison against another client â€” or
+    /// make `-x N` silently measure â€?breaking a flag whose whole purpose is to
+    /// pin a value for a reproduction or a comparison against another client â€?or
     /// leave `--adaptive` unable to express a ceiling.
     pub adaptive: bool,
     /// Measure the useful connection count when no `-x` was given.
@@ -167,10 +167,10 @@ pub struct Job {
     pub chunk_size: Option<u64>,
     /// Publisher ranking and per-mirror ceilings, index-aligned with `urls`.
     ///
-    /// Empty means unranked, which is exactly what a bare list of URLs is â€” so
+    /// Empty means unranked, which is exactly what a bare list of URLs is â€?so
     /// every caller that does not read a mirror list gets the behaviour it
     /// always had.
-    pub source_plans: Vec<hya_core::SourcePlan>,
+    pub source_plans: Vec<pdl_core::SourcePlan>,
     /// Size and digests attested by a Metalink document rather than by a mirror.
     ///
     /// See [`crate::metalink`] for why this changes what mirror agreement means:
@@ -198,8 +198,8 @@ pub struct Job {
     /// Which entry and which mirrors to take, when a document is followed.
     ///
     /// Carried on the job rather than read from `Cli` because the follow happens
-    /// inside the engine â€” the discovery is a `Content-Type` on a probe that has
-    /// already been paid for â€” and the engine has no access to the parsed
+    /// inside the engine â€?the discovery is a `Content-Type` on a probe that has
+    /// already been paid for â€?and the engine has no access to the parsed
     /// command line.
     pub metalink_select: crate::metalink::Selection,
 }
@@ -219,7 +219,7 @@ pub struct Outcome {
     pub elapsed_s: f64,
     /// Wall time for the byte transfer alone.
     ///
-    /// Reported separately because the two differ by seconds on a slow path â€” the
+    /// Reported separately because the two differ by seconds on a slow path â€?the
     /// progress bar's clock starts when bytes start, so a single `elapsed_s` next to a
     /// bar reading "1.7s" looked like two clocks disagreeing. Setup is a per-path cost
     /// a real client caches; transfer is the steady-state figure.
@@ -278,7 +278,7 @@ fn targets_for(
     let px = if no_proxy {
         None
     } else if let Some(spec) = proxy {
-        match hya_net::Proxy::parse(spec) {
+        match pdl_net::Proxy::parse(spec) {
             // SOCKS: handled by the connector, so the target is built as if direct.
             Ok(p) if p.kind.is_socks() => None,
             Ok(p) => Some((p.host, p.port)),
@@ -297,22 +297,22 @@ fn targets_for(
                 match u.split_once("://") {
                     Some((s, _)) => format!(
                         "{u}: {} (supported: {})",
-                        hya_net::scheme::unsupported_reason(&s.to_ascii_lowercase()),
-                        hya_net::scheme::supported().join(", ")
+                        pdl_net::scheme::unsupported_reason(&s.to_ascii_lowercase()),
+                        pdl_net::scheme::supported().join(", ")
                     ),
                     None => format!(
                         "unparsable URL: {u} (supported schemes: {})",
-                        hya_net::scheme::supported().join(", ")
+                        pdl_net::scheme::supported().join(", ")
                     ),
                 }
             })?;
             // `to_target` builds an HTTP request target and rejects any other scheme. FTP
-            // does not use one â€” it gets an Endpoint instead â€” so a placeholder is paired
+            // does not use one â€?it gets an Endpoint instead â€?so a placeholder is paired
             // here and the FTP branch replaces it. Calling to_target for an ftp:// URL
             // returned an error BEFORE the FTP branch was ever reached, which is why an
             // ftp:// fetch failed silently with exit 1 and no message.
             if parsed.is_ftp() {
-                let t = hya_net::Target::direct(&parsed.host, parsed.port, &parsed.path);
+                let t = pdl_net::Target::direct(&parsed.host, parsed.port, &parsed.path);
                 return Ok((parsed, t));
             }
             let t = parsed
@@ -328,7 +328,7 @@ fn targets_for(
 ///
 /// This is a correctness gate, not an optimisation. Assembling ranges from two
 /// mirrors that serve *different* bytes produces a corrupt file that passes every
-/// length check â€” the unsound case the capability lattice names. Mirrors that
+/// length check â€?the unsound case the capability lattice names. Mirrors that
 /// disagree are dropped with a warning rather than silently mixed in.
 /// Probe an object, following redirects and falling back from HEAD to a ranged GET.
 ///
@@ -407,18 +407,18 @@ pub fn output_target(job: &Job, out_path: &str) -> OutputTarget {
 
 /// Rebuild a job around the mirror list a URL turned out to be serving.
 ///
-/// The derived job keeps everything the user asked for â€” output path, rate cap,
-/// headers, politeness â€” and replaces only the source list, the attestation, and
+/// The derived job keeps everything the user asked for â€?output path, rate cap,
+/// headers, politeness â€?and replaces only the source list, the attestation, and
 /// the ranking. `follow_metalink` is cleared on the result, which bounds the
 /// recursion at one hop: a document that names itself, or a redirector that
 /// answers a mirror URL with another mirror list, costs one wasted fetch rather
 /// than an unbounded chain.
 ///
 /// The output NAME is left alone when the user gave `-O`, and otherwise comes
-/// from the document rather than from the URL â€” `metalink?repo=fedora-40` is not
+/// from the document rather than from the URL â€?`metalink?repo=fedora-40` is not
 /// a filename, and the document knows what the object is called.
 async fn follow_metalink(job: &Job, from: &Url) -> Result<Job, String> {
-    let conn = hya_net::TlsCapableConnector::with_insecure(job.insecure)
+    let conn = pdl_net::TlsCapableConnector::with_insecure(job.insecure)
         .map(Arc::new)
         .map_err(|e| format!("tls setup failed: {e}"))?;
     let url = from.to_string();
@@ -427,7 +427,7 @@ async fn follow_metalink(job: &Job, from: &Url) -> Result<Job, String> {
     let origin = crate::metalink::Origin::Url(url);
     let files = crate::metalink::resolve(&doc, &job.metalink_select, &origin)?;
     // One job fetches one object. A document describing several needs one job
-    // each, which only the command-line path can arrange â€” so a follow that
+    // each, which only the command-line path can arrange â€?so a follow that
     // lands on a multi-file document takes the first entry and says so, rather
     // than silently fetching one of several and reporting success.
     let first = files
@@ -435,7 +435,7 @@ async fn follow_metalink(job: &Job, from: &Url) -> Result<Job, String> {
         .ok_or_else(|| format!("{origin}: no usable file entry"))?;
     if files.len() > 1 {
         eprintln!(
-            "hydra: {origin} describes {} files; fetching {:?}. Use --metalink <url> --metalink-file NAME to choose another, or --metalink <url> alone to fetch them all.",
+            "playdl: {origin} describes {} files; fetching {:?}. Use --metalink <url> --metalink-file NAME to choose another, or --metalink <url> alone to fetch them all.",
             files.len(),
             first.name
         );
@@ -467,7 +467,7 @@ impl Job {
 ///
 /// # Why this is not `usable.len()`
 ///
-/// It is tempting to seat every mirror the document offers â€” they are all
+/// It is tempting to seat every mirror the document offers â€?they are all
 /// there, and each takes at least one connection. Measured, that is worse: a
 /// real twelve-mirror Fedora document seated at eleven took 9.4 s against 6.0 s
 /// at eight, because the initial split hands every seated source a share of the
@@ -481,20 +481,20 @@ impl Job {
 /// A mirror list makes more sources AVAILABLE; it does not make more of them
 /// useful. The useful number is still bounded by the client's own link, and
 /// `per_host` is already this build's answer to "how many connections is a
-/// download worth" â€” so a mirror list opens the same number and points each one
+/// download worth" â€?so a mirror list opens the same number and points each one
 /// at a different server, which is strictly politer than pointing them all at
 /// one. The aggregate ceiling still binds on top.
 ///
 /// Measured on the twelve-mirror Fedora document, four interleaved reps of
 /// each width, medians of total wall clock: 5.79 s at three sources, 6.37 s at
 /// five, 6.73 s at eight, 8.16 s at twelve. Wider is monotonically worse once
-/// the link is saturated â€” the first split hands every seated source a share of
+/// the link is saturated â€?the first split hands every seated source a share of
 /// the object, and the slow ones then have to have it taken back off them one
 /// repair at a time. The surplus of a long list pays as RESERVES, not as seats.
 ///
 /// (An earlier revision bounded this by the aggregate ceiling instead, and an
-/// in-band ramp was tried in place of a fixed width. Both measured worse â€” the
-/// ramp notably so, at a 9.8 s median with an 18.5 s worst case â€” so the
+/// in-band ramp was tried in place of a fixed width. Both measured worse â€?the
+/// ramp notably so, at a 9.8 s median with an 18.5 s worst case â€?so the
 /// numbers above are what the code does.)
 fn mirror_list_width(job: &Job, sources: usize) -> usize {
     let ceiling = job.polite.per_host.min(job.polite.total).max(1);
@@ -505,8 +505,8 @@ fn mirror_list_width(job: &Job, sources: usize) -> usize {
 ///
 /// The host, plus the port when it is not the scheme's default. The port is
 /// almost always redundant and occasionally the only thing that distinguishes
-/// two rows â€” several mirrors behind one name on different ports, or a local
-/// test set â€” and a connection row that cannot be told from its neighbour is
+/// two rows â€?several mirrors behind one name on different ports, or a local
+/// test set â€?and a connection row that cannot be told from its neighbour is
 /// not a diagnostic.
 fn source_label(u: &Url) -> String {
     let default = match u.scheme.as_str() {
@@ -544,7 +544,7 @@ fn scratch_name() -> String {
 /// object, and the tail is where a truncated write leaves damage.
 ///
 /// Returns the number of verified bytes, or `None` when the prefix does not match.
-async fn verify_prefix<C: hya_net::Connector>(
+async fn verify_prefix<C: pdl_net::Connector>(
     c: &Arc<C>,
     t: &Target,
     path: &Path,
@@ -607,7 +607,7 @@ async fn verify_prefix<C: hya_net::Connector>(
 
 /// Print the probe exchange with request prefixed by `>` and response prefixed by
 /// `<`, so a pasted transcript is unambiguous about direction.
-fn print_exchange(pr: &hya_net::Probe) {
+fn print_exchange(pr: &pdl_net::Probe) {
     for line in pr.raw_request.lines() {
         if !line.is_empty() {
             println!("> {line}");
@@ -631,7 +631,7 @@ fn print_exchange(pr: &hya_net::Probe) {
 /// is a resumable sequential transfer, which is what this does.
 async fn ftp_fetch(job: &Job, u: &Url, p: &mut Progress, outs: String) -> Outcome {
     // `Outcome::stopped` records a note but prints nothing; `failed` prints. Every failure
-    // below goes through this so an exit code always arrives with a reason â€” an earlier
+    // below goes through this so an exit code always arrives with a reason â€?an earlier
     // version returned a bare stopped Outcome and an ftp:// fetch exited 1 in silence.
     macro_rules! bail {
         ($($arg:tt)*) => {{
@@ -640,20 +640,20 @@ async fn ftp_fetch(job: &Job, u: &Url, p: &mut Progress, outs: String) -> Outcom
             return failed(job, 0, why);
         }};
     }
-    use hya_net::scheme::Fetcher;
+    use pdl_net::scheme::Fetcher;
     let t_all = Instant::now();
     let px = proxy_for(u);
     let ep = u.to_endpoint(px.as_ref().map(|(h, pt)| (h.as_str(), *pt)));
-    let conn = Arc::new(hya_net::TcpConnector);
+    let conn = Arc::new(pdl_net::TcpConnector);
     // `--limit-rate` applies here too. One connection means one limiter, and it
     // is built for this fetch alone; the aggregate story the HTTP path tells
     // across connections has nothing to aggregate over.
     let pace = if job.limit_rate > 0 {
-        hya_net::polite::Pace::shared(Arc::new(hya_net::polite::RateLimiter::new(job.limit_rate)))
+        pdl_net::polite::Pace::shared(Arc::new(pdl_net::polite::RateLimiter::new(job.limit_rate)))
     } else {
-        hya_net::polite::Pace::unlimited()
+        pdl_net::polite::Pace::unlimited()
     };
-    let f = hya_net::ftp::FtpFetcher::new(conn).with_pace(pace);
+    let f = pdl_net::ftp::FtpFetcher::new(conn).with_pace(pace);
 
     p.phase("connecting and logging in");
     let probe = match f.probe(&ep).await {
@@ -705,7 +705,7 @@ async fn ftp_fetch(job: &Job, u: &Url, p: &mut Progress, outs: String) -> Outcom
         );
     }
 
-    // Resume uses REST, which is exactly a ranged read â€” the one place FTP's range support
+    // Resume uses REST, which is exactly a ranged read â€?the one place FTP's range support
     // is a clean fit.
     let start = if job.resume {
         std::fs::metadata(&outs).map(|m| m.len()).unwrap_or(0)
@@ -715,7 +715,7 @@ async fn ftp_fetch(job: &Job, u: &Url, p: &mut Progress, outs: String) -> Outcom
     if start >= probe.size {
         return Outcome::stopped(job, outs.clone(), probe.size, true, "already complete");
     }
-    let sink = match hya_net::SparseSink::create(&outs, probe.size) {
+    let sink = match pdl_net::SparseSink::create(&outs, probe.size) {
         Ok(s) => Arc::new(s),
         Err(e) => {
             bail!("cannot create {outs}: {e}");
@@ -728,7 +728,7 @@ async fn ftp_fetch(job: &Job, u: &Url, p: &mut Progress, outs: String) -> Outcom
     // whole object has landed, so awaiting it directly meant a multi-megabyte FTP
     // download sat in silence and then printed a finished summary. There is no
     // scheduler to observe here, but there is a sink, and the sink counts every
-    // byte it writes â€” so the bar is driven from that counter while the fetch runs.
+    // byte it writes â€?so the bar is driven from that counter while the fetch runs.
     //
     // `select!` on a pinned future rather than a spawned task: `Progress` is a
     // `&mut` the caller owns and the fetch borrows `ep`, so neither can cross a
@@ -770,7 +770,7 @@ async fn ftp_fetch(job: &Job, u: &Url, p: &mut Progress, outs: String) -> Outcom
                     // One connection, by design: FTP has no validator, so mirrors
                     // cannot be proven to serve identical bytes and the fetch is
                     // single-source. The view says so rather than implying a fan-out.
-                    // `(lo, pos, hi)`, in that order â€” the renderer fills the row
+                    // `(lo, pos, hi)`, in that order â€?the renderer fills the row
                     // from `(pos - lo) / (hi - lo)` and prints `lo`-`hi` as the
                     // extent. Passing `(start, size, done)` swapped the cursor
                     // with the end, so the fraction was `(size - start) /
@@ -782,7 +782,7 @@ async fn ftp_fetch(job: &Job, u: &Url, p: &mut Progress, outs: String) -> Outcom
                         host: u.host.clone(),
                         range: Some((start, done, probe.size)),
                         rate,
-                        health: hya_core::detect::Health::Healthy,
+                        health: pdl_core::detect::Health::Healthy,
                     }];
                     p.draw(done, &views, Counters { requests: 1, ..Default::default() });
                 }
@@ -826,7 +826,7 @@ async fn ftp_fetch(job: &Job, u: &Url, p: &mut Progress, outs: String) -> Outcom
                     Err(_) => return None,
                 }
             }
-            Some(hya_net::digest::to_lower_hex(&h.finalize()))
+            Some(pdl_net::digest::to_lower_hex(&h.finalize()))
         })
     };
     let elapsed = t_all.elapsed().as_secs_f64();
@@ -885,7 +885,7 @@ pub fn proxy_for_public(_u: &Url, proxy: Option<&str>, no_proxy: bool) -> Option
         return None;
     }
     match proxy {
-        Some(spec) => match hya_net::Proxy::parse(spec) {
+        Some(spec) => match pdl_net::Proxy::parse(spec) {
             Ok(px) if !px.kind.is_socks() => Some((px.host, px.port)),
             _ => None,
         },
@@ -903,18 +903,18 @@ pub fn default_job() -> Job {
         resume: false,
         limit_rate: 0,
         max_redirs: 8,
-        ip_family: hya_net::IpFamily::Any,
+        ip_family: pdl_net::IpFamily::Any,
         show_error: false,
         logfile: None,
         tries: 3,
         timeout_s: 30.0,
         checksum: None,
         headers: Vec::new(),
-        user_agent: hya_net::DEFAULT_USER_AGENT.into(),
+        user_agent: pdl_net::DEFAULT_USER_AGENT.into(),
         verbose: 0,
         quiet: true,
         no_progress: true,
-        polite: hya_net::polite::Politeness::default(),
+        polite: pdl_net::polite::Politeness::default(),
         adaptive: false,
         probe: true,
         to_stdout: false,
@@ -953,8 +953,8 @@ pub fn default_job() -> Job {
 /// A `Progress` configured from the job: logfile attached, and stdout reserved
 /// for the payload under `--stdout`.
 ///
-/// `run` builds two â€” one for the setup phase (size unknown), one for the
-/// transfer (size known) â€” and both must agree on this configuration: the
+/// `run` builds two â€?one for the setup phase (size unknown), one for the
+/// transfer (size known) â€?and both must agree on this configuration: the
 /// setup-phase instance missing the stdout reservation was what prepended 71
 /// bytes to a piped archive. stdout belongs to the object, on the same
 /// principle `--json` follows: a machine channel carries one thing, or it
@@ -980,22 +980,22 @@ fn proxy_for(u: &Url) -> Option<(String, u16)> {
 /// Probe `u` for metadata, following redirects, for the reporting commands.
 ///
 /// `hydra checksum` and `--server-response` want the headers of the FINAL
-/// response â€” a 302's headers answer a different question than the one asked.
+/// response â€?a 302's headers answer a different question than the one asked.
 /// Unlike the transfer path's [`probe_resolving`] there is no `Progress` to
 /// log hops to, and reporting prefers to describe what it reached over
 /// refusing: on an exhausted hop budget or an unusable `Location` the last
 /// probe is returned as-is rather than as an error.
 ///
 /// A HEAD that fails or reports no size falls back to a one-byte ranged GET,
-/// the same recovery the transfer path uses â€” CDNs that mishandle HEAD
+/// the same recovery the transfer path uses â€?CDNs that mishandle HEAD
 /// (unclean TLS close, `Content-Length: 0`) answer the GET correctly.
 ///
 /// Returns the final probe and the URL it came from.
-pub async fn probe_public<C: hya_net::Connector>(
+pub async fn probe_public<C: pdl_net::Connector>(
     c: &C,
     u: &Url,
     args: &crate::cli::Cli,
-) -> Result<(hya_net::Probe, Url), String> {
+) -> Result<(pdl_net::Probe, Url), String> {
     let mut cur = u.clone();
     let mut hops = 0u32;
     loop {
@@ -1006,7 +1006,7 @@ pub async fn probe_public<C: hya_net::Connector>(
         // One rule for "HEAD said nothing usable", shared with the GUI and the
         // engine rather than restated here: a HEAD that states `Content-Length: 0`
         // has answered, and a ranged GET against a zero-length object is refused.
-        let pr = hya_net::probe_resilient(c, &target)
+        let pr = pdl_net::probe_resilient(c, &target)
             .await
             .map_err(|e| e.to_string())?;
         if pr.is_redirect() && hops < args.max_redirs {
@@ -1024,7 +1024,7 @@ pub async fn probe_public<C: hya_net::Connector>(
         // that `--server-response` and `hydra checksum` describe the object
         // reached rather than the referrer stripper in front of it.
         if pr.maybe_redirector() && hops < args.max_redirs {
-            if let Some(next) = hya_net::html_redirect(c, &target)
+            if let Some(next) = pdl_net::html_redirect(c, &target)
                 .await
                 .and_then(|loc| cur.join(&loc))
             {
@@ -1039,8 +1039,8 @@ pub async fn probe_public<C: hya_net::Connector>(
 
 /// One source after redirect resolution: what described it, and where it ended up.
 struct Resolved {
-    probe: hya_net::Probe,
-    /// The target the transfer must use â€” post-redirect, which is commonly a
+    probe: pdl_net::Probe,
+    /// The target the transfer must use â€?post-redirect, which is commonly a
     /// different host from the one asked for.
     target: Target,
     /// The URL the last hop arrived at.
@@ -1069,7 +1069,7 @@ async fn probe_resolving<C>(
     max_redirs: u32,
 ) -> Result<Resolved, String>
 where
-    C: hya_net::Connector,
+    C: pdl_net::Connector,
 {
     // The hop budget is the CLI's, not a constant. `--max-redirs` was parsed,
     // validated, and listed in `--help`, but the resolver used a hardcoded
@@ -1077,7 +1077,7 @@ where
     // redirect and downloaded the object anyway.
     //
     // `0` means refuse to follow any redirect hops. One probe still
-    // happens â€” that is how a redirect is discovered at all â€” but the hop is not
+    // happens â€?that is how a redirect is discovered at all â€?but the hop is not
     // taken.
     let max_hops = max_redirs as usize;
     let mut target = t.clone();
@@ -1086,8 +1086,8 @@ where
     // `0..=max_hops`: the extra pass is what answers the request that the last
     // permitted hop arrived at. Without it a budget of N would resolve only N-1.
     for hop in 0..=max_hops {
-        // HEAD, then a ranged GET when it gives nothing usable â€” see
-        // [`hya_net::probe_resilient`], which is also what the GUI and the engine
+        // HEAD, then a ranged GET when it gives nothing usable â€?see
+        // [`pdl_net::probe_resilient`], which is also what the GUI and the engine
         // ask, so the three cannot drift apart on which servers they can read.
         let pr = probe_resilient(c, &target)
             .await
@@ -1116,11 +1116,11 @@ where
 
         // A redirect the server expressed in HTML instead of in a header: a
         // referrer stripper or link filter answering `200` with a page whose
-        // whole content is "go here instead". Charged to the SAME hop budget â€”
+        // whole content is "go here instead". Charged to the SAME hop budget â€?
         // two such pages pointing at each other is a loop like any other, and
         // `--max-redirs` is what bounds it.
         if pr.maybe_redirector() && hop < max_hops {
-            if let Some(next) = hya_net::html_redirect(c, &target)
+            if let Some(next) = pdl_net::html_redirect(c, &target)
                 .await
                 .and_then(|loc| current.join(&loc))
             {
@@ -1141,7 +1141,7 @@ where
         //
         // `probe_resilient` deliberately returns the status rather than failing,
         // so that a `404` learned from HEAD is reported instead of "the ranged GET
-        // was unsatisfiable" â€” the better error. That leaves the test to the
+        // was unsatisfiable" â€?the better error. That leaves the test to the
         // caller, and this caller did not make it: a `400 Bad Request` with a
         // 24-byte JSON body became a 24-byte object, the transfer was planned,
         // those 24 bytes were split across eight connections, and only the range
@@ -1153,7 +1153,7 @@ where
             // message that repeats it prints the host twice on one line.
             return Err(format!(
                 "server answered {}",
-                hya_net::describe_status(pr.status)
+                pdl_net::describe_status(pr.status)
             ));
         }
         return Ok(Resolved {
@@ -1180,13 +1180,13 @@ type ProbeOutcome = (usize, Url, Result<Resolved, String>, Vec<(u8, String)>);
 /// Without a mirror list the only evidence available is what the mirrors
 /// themselves say, so agreement has to be established PAIRWISE: same size and
 /// the same strong validator as the first source. That is the right test for its
-/// evidence, and it is deliberately strict â€” two mirrors serving different
+/// evidence, and it is deliberately strict â€?two mirrors serving different
 /// builds produce a file that passes every length check and is silently wrong.
 ///
 /// `attested_size` is different evidence. It comes from a Metalink document,
 /// published by whoever built the object, on a host that is usually not any of
 /// the mirrors, alongside a content digest for the whole file. Against that, the
-/// pairwise validator test is not merely unnecessary â€” it is unsatisfiable:
+/// pairwise validator test is not merely unnecessary â€?it is unsatisfiable:
 /// independent mirror operators run independent web servers and cannot share an
 /// `ETag`, so requiring one keeps exactly ONE source out of a nineteen-mirror
 /// list. The document's size is the admission test instead, and its digest (per
@@ -1197,7 +1197,7 @@ type ProbeOutcome = (usize, Url, Result<Resolved, String>, Vec<(u8, String)>);
 /// The oath is the seats': a reserve's bytes are spliced into the same file on
 /// substitution, so its admission cannot be weaker than the front door's. With
 /// a document, that is the attested size. Without one, the pairwise gate: the
-/// first source's size AND its strong validator â€” a weak or absent validator
+/// first source's size AND its strong validator â€?a weak or absent validator
 /// admits nothing late, exactly as it admits nothing up front. Ranges are
 /// required either way, because the first thing a substituted source is asked
 /// for is a range.
@@ -1205,7 +1205,7 @@ fn bench_admission(
     attested_size: Option<u64>,
     first_size: u64,
     first_strong_validator: Option<&str>,
-    pr: &hya_net::Probe,
+    pr: &pdl_net::Probe,
 ) -> bool {
     if !pr.ranges {
         return false;
@@ -1230,7 +1230,7 @@ type LateMirrors = tokio::sync::mpsc::UnboundedReceiver<(usize, Target)>;
 /// What probing the mirror list produced.
 struct Probed {
     /// The probe the transfer's size, validator and type are read from.
-    first: hya_net::Probe,
+    first: pdl_net::Probe,
     /// Indices of the mirrors that may be SEATED, in the caller's order.
     keep: Vec<usize>,
     /// Post-redirect targets, by index.
@@ -1245,7 +1245,7 @@ struct Probed {
     /// transfer, and everything timed in units of `delta` depends on it: the
     /// ramp's measurement windows, the stall timeout, the repair deadband. It
     /// used to be discarded and a 50 ms prior used instead, which is roughly
-    /// right for a nearby origin and half the truth on a transatlantic one â€”
+    /// right for a nearby origin and half the truth on a transatlantic one â€?
     /// measured on a 100 ms path, the ramp judged each newly admitted connection
     /// over a 0.15 s window, caught it mid-slow-start, concluded it was slower
     /// than the level below, and settled at one connection on a link that
@@ -1266,8 +1266,8 @@ async fn probe_all(
     // Sequentially, this was the single most expensive thing about using a
     // mirror list: a real Fedora document lists a dozen fetchable mirrors on
     // three continents, and one HEAD each, in series, cost 14.4 s before the
-    // first byte of a 5.9 KB object. The probes are independent â€” each asks one
-    // host what it holds â€” so the whole set costs about what the slowest one
+    // first byte of a 5.9 KB object. The probes are independent â€?each asks one
+    // host what it holds â€?so the whole set costs about what the slowest one
     // does.
     //
     // Bounded, but not by politeness: every probe in this set goes to a
@@ -1297,7 +1297,7 @@ async fn probe_all(
             (i, u, r, log)
         });
     }
-    // How long to wait for SEATS â€” and only for seats.
+    // How long to wait for SEATS â€?and only for seats.
     //
     // The probe phase is paid entirely before the first byte, so its cost is the
     // SLOWEST mirror the transfer waits for, not the average. This window used
@@ -1314,9 +1314,9 @@ async fn probe_all(
     // Relative, not fixed, because "slow" is a property of the path: three times
     // the fastest mirror's own round trip, floored so a LAN-fast first answer
     // cannot make it unreasonably tight, capped so a pathological one cannot
-    // reintroduce the wait. It opens only once a mirror has been ADMITTED â€” a
+    // reintroduce the wait. It opens only once a mirror has been ADMITTED â€?a
     // run whose first answers all fail still waits, because the alternative is
-    // failing while a working mirror is still dialling â€” and never applies to a
+    // failing while a working mirror is still dialling â€?and never applies to a
     // single-source run, which has nothing to choose between.
     const PROBE_GRACE_MULTIPLE: f64 = 3.0;
     const PROBE_GRACE_MIN: std::time::Duration = std::time::Duration::from_millis(600);
@@ -1324,8 +1324,8 @@ async fn probe_all(
     // Enough is enough: stop waiting once the seats are filled.
     //
     // This is the whole cost of using a mirror list. The transfer needs exactly
-    // two things from the probe phase â€” a size and enough mirrors to seat the
-    // connection budget â€” and everything past that only fills a RESERVE bench
+    // two things from the probe phase â€?a size and enough mirrors to seat the
+    // connection budget â€?and everything past that only fills a RESERVE bench
     // nothing consults until a source fails. Waiting for it means waiting for
     // the slowest host on the list to answer a HEAD, in front of a transfer
     // that could already be running: measured against a real twelve-mirror
@@ -1334,7 +1334,7 @@ async fn probe_all(
     //
     // So the loop stops at `want_seats` and the mirrors still in flight are
     // handed to the caller as a stream. They keep probing while bytes move and
-    // join the bench as they are admitted â€” a reserve is worth the same
+    // join the bench as they are admitted â€?a reserve is worth the same
     // whenever it arrives, because nothing looks at the bench until something
     // breaks. The grace window below is now only the backstop for a list that
     // never yields enough seats at all.
@@ -1358,7 +1358,7 @@ async fn probe_all(
                 let left = window.saturating_sub(probe_start.elapsed());
                 match tokio::time::timeout(left, set.join_next()).await {
                     Ok(v) => v,
-                    // Out of patience for seats â€” not out of interest. The
+                    // Out of patience for seats â€?not out of interest. The
                     // stragglers keep probing and become reserves.
                     Err(_) => {
                         streaming = true;
@@ -1380,7 +1380,7 @@ async fn probe_all(
                     // enough answers. A document that states a size makes this
                     // exact. Without one the pairwise validator gate can still
                     // reject a counted mirror afterwards, so the transfer may
-                    // open on fewer sources than it hoped â€” a slight
+                    // open on fewer sources than it hoped â€?a slight
                     // undershoot, healed by substitution from the bench, and
                     // cheaper than holding the transfer to find out.
                     let usable = match (attested_size, v.2.as_ref().ok()) {
@@ -1407,13 +1407,13 @@ async fn probe_all(
         );
     }
     // Back into the ORDER THE CALLER GAVE, not the order the network answered
-    // in. Everything downstream is index-aligned with `pairs` â€” the mirror
-    // ranking, the per-source connection split, the progress rows â€” and "which
+    // in. Everything downstream is index-aligned with `pairs` â€?the mirror
+    // ranking, the per-source connection split, the progress rows â€?and "which
     // mirror is source 0" must not depend on which handshake finished first, or
     // two runs against the same document cannot be compared.
     done.sort_by_key(|(i, ..)| *i);
 
-    let mut first: Option<hya_net::Probe> = None;
+    let mut first: Option<pdl_net::Probe> = None;
     // The first probe failure, worded for a user and naming its host. Kept
     // because a lone source's failure IS the transfer's error: summarising a
     // one-item list as "every probe failed" throws away the only thing the
@@ -1514,7 +1514,7 @@ async fn probe_all(
             }
         }
     }
-    // Only now â€” with `first` in hand â€” can the stragglers be given their
+    // Only now â€?with `first` in hand â€?can the stragglers be given their
     // admission test, so this is where the background prober starts.
     //
     // # The bench takes the SAME oath the seats took
@@ -1522,8 +1522,8 @@ async fn probe_all(
     // A reserve is not a spectator: on substitution its bytes are spliced into
     // the same file the seated mirrors are filling. So the test cannot be
     // weaker than the one at the front door. With a document, that is the
-    // attested size. Without one, it is the pairwise gate â€” same size as the
-    // first source AND the same strong validator â€” and an earlier revision of
+    // attested size. Without one, it is the pairwise gate â€?same size as the
+    // first source AND the same strong validator â€?and an earlier revision of
     // this spawn skipped exactly that, which would have let `-x 2 --mirrors a
     // b c` bench mirror `c` unexamined and splice whatever it served into the
     // file when a seat failed. Requiring ranges as well is not optional
@@ -1642,7 +1642,7 @@ async fn verify_and_repair_chunks(
     job: &Job,
     p: &mut Progress,
 ) -> Result<String, String> {
-    use hya_net::manifest::{Manifest, Trust};
+    use pdl_net::manifest::{Manifest, Trust};
 
     let text = std::fs::read_to_string(manifest_path)
         .map_err(|e| format!("cannot read manifest {}: {e}", manifest_path.display()))?;
@@ -1661,18 +1661,18 @@ async fn verify_and_repair_chunks(
 /// with the mirrors it belongs to.
 ///
 /// `trust` decides only whether the digests may name erasure positions for a
-/// parity decode â€” see [`hya_net::manifest::Trust`]. Detection and targeted
+/// parity decode â€?see [`pdl_net::manifest::Trust`]. Detection and targeted
 /// refetch work at either level, which is what this function does.
 async fn verify_and_repair(
     conn: &Arc<TlsCapableConnector>,
     usable: &[(Url, Target)],
     out_path: &Path,
-    m: hya_net::manifest::Manifest,
-    trust: hya_net::manifest::Trust,
+    m: pdl_net::manifest::Manifest,
+    trust: pdl_net::manifest::Trust,
     job: &Job,
     p: &mut Progress,
 ) -> Result<String, String> {
-    use hya_net::manifest::ChunkVerifier;
+    use pdl_net::manifest::ChunkVerifier;
 
     let mut v = ChunkVerifier::new(m, trust);
 
@@ -1693,14 +1693,14 @@ async fn verify_and_repair(
     p.event(
         0,
         &format!(
-            "{} chunk(s) failed verification: {:?} â€” refetching",
+            "{} chunk(s) failed verification: {:?} â€?refetching",
             bad.len(),
             bad
         ),
     );
 
     let sink = Arc::new(
-        hya_net::SparseSink::create(&out_path.to_string_lossy(), v.manifest().object.size)
+        pdl_net::SparseSink::create(&out_path.to_string_lossy(), v.manifest().object.size)
             .map_err(|e| format!("cannot reopen {} to repair: {e}", out_path.display()))?,
     );
 
@@ -1714,7 +1714,7 @@ async fn verify_and_repair(
         // candidate. Rotation costs nothing and puts each retry somewhere new.
         let t = usable[(1 + nth) % usable.len()].1.clone();
         p.event(1, &format!("refetching chunk {idx} [{lo},{hi})"));
-        hya_net::fetch_range_retry(
+        pdl_net::fetch_range_retry(
             conn.clone(),
             t,
             lo,
@@ -1763,7 +1763,7 @@ async fn verify_and_repair(
 ///
 /// Measured on a 121.7 MiB release asset: buffering the entire file scaled RSS
 /// to 127 MB instead of a constant ~11-14 MB. The signature that identified it was
-/// that hydra's FAILED runs used 11 MB â€” a failed transfer skips the digest, so the
+/// that hydra's FAILED runs used 11 MB â€?a failed transfer skips the digest, so the
 /// footprint was entirely this function. A 1 GiB download would have needed 1 GiB
 /// of resident memory.
 ///
@@ -1787,11 +1787,11 @@ async fn verify_and_repair(
 ///
 /// MD5 and SHA-1 are used here as INTEGRITY checks, not as authentication.
 /// Against a transmission fault, a truncating proxy, or a mirror serving a stale
-/// build â€” which is what a published digest is actually for â€” they work. Against
+/// build â€?which is what a published digest is actually for â€?they work. Against
 /// an adversary who chose the bytes, they do not, and no amount of care at this
 /// call site changes that: the digest and the object came down the same wire.
-fn digest_file(path: &Path, algo: hya_net::digest::Algo) -> Option<String> {
-    use hya_net::digest::Algo;
+fn digest_file(path: &Path, algo: pdl_net::digest::Algo) -> Option<String> {
+    use pdl_net::digest::Algo;
     use std::io::Read;
     // CRC32 is not implemented here: it is an error-detecting code whose
     // collisions are arithmetic, and a "verified" that means that little is
@@ -1819,7 +1819,7 @@ fn digest_file(path: &Path, algo: hya_net::digest::Algo) -> Option<String> {
             Err(_) => return None,
         }
     }
-    Some(hya_net::digest::to_lower_hex(&match algo {
+    Some(pdl_net::digest::to_lower_hex(&match algo {
         Algo::Sha256 => sha256.finalize().to_vec(),
         Algo::Sha512 => sha512.finalize().to_vec(),
         Algo::Sha1 => sha1.finalize().to_vec(),
@@ -1832,11 +1832,11 @@ fn digest_file(path: &Path, algo: hya_net::digest::Algo) -> Option<String> {
 ///
 /// A bare 64-hex value is what `--checksum` has always accepted; anything with a
 /// prefix comes from a mirror list and names its own algorithm.
-fn parse_digest_spec(spec: &str) -> Option<(hya_net::digest::Algo, String)> {
+fn parse_digest_spec(spec: &str) -> Option<(pdl_net::digest::Algo, String)> {
     let t = spec.trim().to_ascii_lowercase();
     match t.split_once(':') {
-        Some((a, h)) => hya_net::digest::Algo::parse(a).map(|algo| (algo, h.trim().to_string())),
-        None => Some((hya_net::digest::Algo::Sha256, t)),
+        Some((a, h)) => pdl_net::digest::Algo::parse(a).map(|algo| (algo, h.trim().to_string())),
+        None => Some((pdl_net::digest::Algo::Sha256, t)),
     }
 }
 
@@ -1853,7 +1853,7 @@ fn sha256_file(path: &Path) -> Option<String> {
             Err(_) => return None,
         }
     }
-    Some(hya_net::digest::to_lower_hex(&h.finalize()))
+    Some(pdl_net::digest::to_lower_hex(&h.finalize()))
 }
 
 pub async fn run(job: Job) -> Outcome {
@@ -1895,7 +1895,7 @@ pub async fn run(job: Job) -> Outcome {
     if job.no_clobber && out_path.exists() && !job.resume {
         if !job.quiet {
             eprintln!(
-                "hydra: {} already exists; not retrieved (--no-clobber)",
+                "playdl: {} already exists; not retrieved (--no-clobber)",
                 out_path.display()
             );
         }
@@ -1918,9 +1918,9 @@ pub async fn run(job: Job) -> Outcome {
     let t_start = Instant::now();
 
     // What reading the mirror list revealed. Level 1 because it is real
-    // diagnostic detail about a source list the user did not type â€” which
+    // diagnostic detail about a source list the user did not type â€?which
     // mirrors were dropped and why, whether per-chunk verification is available,
-    // whether the publisher capped the connection count â€” but not the answer to
+    // whether the publisher capped the connection count â€?but not the answer to
     // "did it work", which is the bar and the result line.
     for n in &job.metalink_notes {
         p.event(1, n);
@@ -1934,7 +1934,7 @@ pub async fn run(job: Job) -> Outcome {
     // the request). Conflating them sends a CONNECT to the origin, or an absolute-form
     // request to a SOCKS port.
     let socks = match &job.proxy {
-        Some(raw) => match hya_net::Proxy::parse(raw) {
+        Some(raw) => match pdl_net::Proxy::parse(raw) {
             Ok(px) if px.kind.is_socks() => Some(px),
             Ok(_) => None,
             Err(e) => return failed(&job, 0, format!("--proxy: {e}")),
@@ -1983,7 +1983,7 @@ pub async fn run(job: Job) -> Outcome {
         if pairs.len() > 1 {
             p.event(
                 0,
-                "ftp: using the first source only â€” FTP offers no validator that can prove \
+                "ftp: using the first source only â€?FTP offers no validator that can prove \
                  two servers hold identical bytes",
             );
         }
@@ -1994,7 +1994,7 @@ pub async fn run(job: Job) -> Outcome {
     p.phase("resolving and probing sources");
     // How many mirrors the probe phase must produce before the transfer may
     // start. Every mirror can take at least one connection, so the connection
-    // budget is the seat count â€” bounded by the list itself and by politeness.
+    // budget is the seat count â€?bounded by the list itself and by politeness.
     // Anything past this only fills the reserve bench, which is why it does not
     // have to be waited for.
     let want_seats = match job.conns {
@@ -2031,7 +2031,7 @@ pub async fn run(job: Job) -> Outcome {
     // download that is not a Metalink.
     //
     // Saving it instead would hand the user a few kilobytes of XML under the
-    // name of the multi-gigabyte image they asked for â€” which passes every check
+    // name of the multi-gigabyte image they asked for â€?which passes every check
     // this program makes and is entirely the wrong file.
     if job.follow_metalink && job.attested.is_none() && probe_info.serves_metalink() {
         p.event(
@@ -2048,7 +2048,7 @@ pub async fn run(job: Job) -> Outcome {
                 // Say WHAT the document turned out to describe, at level 0.
                 //
                 // The user typed one URL and is about to receive a file with a
-                // different name and possibly a very different size â€” a
+                // different name and possibly a very different size â€?a
                 // repository-metadata redirector and an image redirector look
                 // identical on the command line, and only the document knows
                 // which one this was. Reporting the mirror list without
@@ -2075,7 +2075,7 @@ pub async fn run(job: Job) -> Outcome {
         };
     }
     // The requested URL was a redirector PAGE, so the name taken from it names
-    // the stub, not the file â€” `href.li/?â€¦` yields `index.html`. Adopt the name
+    // the stub, not the file â€?`href.li/?â€¦` yields `index.html`. Adopt the name
     // the object actually landed under. Only when the user named nothing: `-O`
     // and `--output-dir`-relative paths are explicit and are never second-guessed.
     let (name, mut out_path) = match renamed.filter(|_| job.output.is_none()) {
@@ -2102,7 +2102,7 @@ pub async fn run(job: Job) -> Outcome {
     let mut size = probe_info.size;
     let validator = probe_info.validator.clone();
     // Kept separately from `validator`: `--remote-time` needs the DATE, and the
-    // validator is whichever of the two headers is better for resume â€” an ETag
+    // validator is whichever of the two headers is better for resume â€?an ETag
     // when the server sent one, which is opaque and carries no time.
     let last_modified = probe_info.last_modified.clone();
     // The server's own Content-Type, used as the weakest of the three
@@ -2117,12 +2117,12 @@ pub async fn run(job: Job) -> Outcome {
     // The two are indistinguishable in `size`, and treating the second as the first
     // fails a download that had already succeeded: a zero-length object (
     // `speedtest.bitel.io/Testdateien/0B`) went through the size fallback, then the
-    // unknown-size streaming path, and came out as "the server sent no body" â€”
+    // unknown-size streaming path, and came out as "the server sent no body" â€?
     // exit code 1 over a correctly written empty file.
     let empty_object = probe_info.stated_length() == Some(0);
     if size == 0 && !job.spider && !empty_object {
         // `keep` holds the indices that probed consistently; any of them can answer.
-        match hya_net::probe_size_via_range(conn.as_ref(), &pairs[keep[0]].1).await {
+        match pdl_net::probe_size_via_range(conn.as_ref(), &pairs[keep[0]].1).await {
             Ok(n) if n > 0 => {
                 p.event(1, &format!("size from Content-Range: {n} bytes"));
                 size = n;
@@ -2132,8 +2132,8 @@ pub async fn run(job: Job) -> Outcome {
         }
     }
     if size == 0 && !job.spider {
-        // No knowable size. Multi-source scheduling is impossible â€” with no total there
-        // are no ranges to divide â€” but FETCHING is not, which standard HTTP clients
+        // No knowable size. Multi-source scheduling is impossible â€?with no total there
+        // are no ranges to divide â€?but FETCHING is not, which standard HTTP clients
         // do routinely for dynamic pages and `Content-Range: bytes 0-0/*` replies. Degrade to a
         // single sequential stream and say so, rather than failing where other tools succeed.
         if job.server_response {
@@ -2153,7 +2153,7 @@ pub async fn run(job: Job) -> Outcome {
         p.end_phase();
         let outs = out_path.to_string_lossy().to_string();
         let t0 = Instant::now();
-        return match hya_net::fetch_streaming(conn.as_ref(), &usable[0].1, &outs).await {
+        return match pdl_net::fetch_streaming(conn.as_ref(), &usable[0].1, &outs).await {
             // An empty body is the whole object when the server said so, and a
             // failure only when it did not: nothing arrived and nothing said
             // nothing was supposed to.
@@ -2192,17 +2192,17 @@ pub async fn run(job: Job) -> Outcome {
                 o.format_conflict = det.conflict.clone();
                 if !job.quiet {
                     if let Some(c) = &det.conflict {
-                        eprintln!("hydra: warning: {c}");
+                        eprintln!("playdl: warning: {c}");
                     }
                     if let Some(f) = det.format {
                         println!("  {}", f.hint());
                     }
                     // An HTML body where a file was expected is the captive-portal /
                     // login-wall case, and on an unknown-size response it is the most
-                    // likely outcome of all â€” worth saying plainly.
+                    // likely outcome of all â€?worth saying plainly.
                     if det.category == Category::Markup && job.output.is_some() {
                         eprintln!(
-                            "hydra: note: this is a web page, not a file. If you meant a \
+                            "playdl: note: this is a web page, not a file. If you meant a \
                              release asset, use the download URL rather than the page URL."
                         );
                     }
@@ -2218,7 +2218,7 @@ pub async fn run(job: Job) -> Outcome {
     if job.spider {
         // `-S`/`-i` must be honoured here too. The only other place headers are
         // printed is after the transfer, which `--spider` returns before ever
-        // reaching â€” so `hydra --spider -S <url>` silently showed no headers,
+        // reaching â€?so `hydra --spider -S <url>` silently showed no headers,
         // despite being the most natural way to ask for exactly them.
         if job.server_response && !job.quiet {
             p.end_phase();
@@ -2259,7 +2259,7 @@ pub async fn run(job: Job) -> Outcome {
             if stored.trim() == current.trim() {
                 if !job.quiet {
                     eprintln!(
-                        "hydra: unchanged (ETag matches {}), not retrieved",
+                        "playdl: unchanged (ETag matches {}), not retrieved",
                         path.display()
                     );
                 }
@@ -2305,7 +2305,7 @@ pub async fn run(job: Job) -> Outcome {
     //
     // Under `--no-save` this is `Discard`, and the whole existing-file question
     // below becomes moot: a run that will never write cannot clobber, cannot
-    // resume, and must not prompt about â€” or rename around â€” a file it is not
+    // resume, and must not prompt about â€?or rename around â€?a file it is not
     // going to open. The previous implementation created the file, wrote it,
     // hashed it and deleted it at the end, so all of that machinery ran and the
     // bytes sat on disk for the duration.
@@ -2469,7 +2469,7 @@ pub async fn run(job: Job) -> Outcome {
 
     // ---- the discarding sink, created once -------------------------------
     // Created before the concurrency probe so probe bytes are recorded by the digest sink.
-    // A digest is wanted unless the user declined it â€” and `--checksum` or a
+    // A digest is wanted unless the user declined it â€?and `--checksum` or a
     // document's digest is a request for one however they answered, since a
     // verification that cannot run is worse than one that costs a pass.
     let want_digest_value = job.print_checksum
@@ -2478,7 +2478,7 @@ pub async fn run(job: Job) -> Outcome {
     let discard_sink = discarding.then(|| {
         let sk = SparseSink::discarding();
         Arc::new(if want_digest_value {
-            sk.with_digest(hya_net::stream_digest::DEFAULT_REORDER_CAP)
+            sk.with_digest(pdl_net::stream_digest::DEFAULT_REORDER_CAP)
         } else {
             sk
         })
@@ -2488,14 +2488,14 @@ pub async fn run(job: Job) -> Outcome {
     // An explicit `-x N` / `-s N` is an instruction, not a hint. Measuring anyway
     // and then overriding it was a silent no-op: `-x 5` produced ONE connection
     // while the flag's own help says measurement is what happens when you OMIT
-    // it. Whoever passes a number has a reason â€” a known-good mirror, a
-    // reproduction, a comparison against another client â€” and a measurement that
+    // it. Whoever passes a number has a reason â€?a known-good mirror, a
+    // reproduction, a comparison against another client â€?and a measurement that
     // quietly wins makes those impossible and looks like the flag is broken.
     //
     // `--adaptive` remains available to ask for measurement WITH a ceiling; the
     // probe is still what runs when no number is given at all.
     let (n_conns, delta, probe_filled): (usize, f64, Vec<(u64, u64)>) = match job.conns {
-        // An explicit `-x N` is honoured as given â€” but `--adaptive` asks for the
+        // An explicit `-x N` is honoured as given â€?but `--adaptive` asks for the
         // measurement to run anyway, with N as a CEILING rather than a target.
         //
         // That distinction is what the measured slowdown needed. On four of five
@@ -2503,10 +2503,10 @@ pub async fn run(job: Job) -> Outcome {
         // stream, because the access link saturated at one or two connections and
         // every further connection added setup cost against a capacity that was
         // already spoken for. The search that finds this is `Admission`, and it
-        // only ever ran when `-x` was omitted â€” which no benchmark does.
+        // only ever ran when `-x` was omitted â€?which no benchmark does.
         // `--adaptive` no longer probes. It opens the full connection budget but
         // starts the scheduler with only ONE active, and the in-band ramp
-        // (`hya_core::ramp`) admits the rest while the aggregate rate says they pay
+        // (`pdl_core::ramp`) admits the rest while the aggregate rate says they pay
         // for themselves. Measuring on the real transfer rather than on sample
         // transfers is what removes the probe's cost: on a 3.15 MB object over a
         // live path the climbing probe made the transfer 1.96x slower than not
@@ -2527,12 +2527,12 @@ pub async fn run(job: Job) -> Outcome {
         // a transfer across N independent servers is not a property of any one
         // of them, and the probe cannot see the other N-1. Measured on a real
         // twelve-mirror Fedora document it answered "2", and the transfer took
-        // 10.2 s against 5.2 s for the eight the list could actually seat â€” the
+        // 10.2 s against 5.2 s for the eight the list could actually seat â€?the
         // probe was not merely paid for, it was paid for a worse answer.
         //
         // So with a ranked list in hand the count comes from the list: one
         // connection per usable mirror, under both politeness ceilings. Sizing
-        // is still measured where measurement is the only source of truth â€” the
+        // is still measured where measurement is the only source of truth â€?the
         // scheduler reassigns ranges continuously on observed rate, and a mirror
         // that cannot keep up loses its work whatever this number was.
         None if !job.source_plans.is_empty() && usable.len() > 1 => {
@@ -2555,7 +2555,7 @@ pub async fn run(job: Job) -> Outcome {
         // 104 MB/s it measured 0.93 MB/s at one connection and 1.05 MB/s at two,
         // called that a 14% gain, and settled on one connection. Measured on that
         // link, the default reached 90 MB/s where four connections reach 224 and
-        // eight reach 287 â€” the probe spent 1.5 s to arrive at the worst
+        // eight reach 287 â€?the probe spent 1.5 s to arrive at the worst
         // configuration available, and `curl` beat it without measuring anything.
         //
         // Sampling harder is not the fix. To make streaming dominate setup on that
@@ -2569,23 +2569,23 @@ pub async fn run(job: Job) -> Outcome {
         // handles the paths that will not serve it: an origin that answers `429`
         // lowers the ceiling, one that accepts connections and starves them lowers
         // it too, and the scheduler moves ranges off any connection that lags. What
-        // is left is the case this default is right for â€” a path with more capacity
-        // than one stream can take â€” and there it is worth 2 to 3x.
+        // is left is the case this default is right for â€?a path with more capacity
+        // than one stream can take â€?and there it is worth 2 to 3x.
         None => (job.polite.allow(job.polite.per_host), first_rtt, Vec::new()),
     };
     // Split the connections across sources under BOTH ceilings: per-host, and the
     // aggregate `--max-total-connections`. The earlier arithmetic divided the
     // count over the sources and rounded UP, which consulted neither the total nor
-    // the per-host limit â€” `--max-total-connections 2 -x 8` reported eight
+    // the per-host limit â€?`--max-total-connections 2 -x 8` reported eight
     // connections and opened eight, because nothing in this path ever read
     // `Politeness.total`.
     //
     // Plans for the sources that SURVIVED probing, in the order they survived
     // in. `keep` is a subset of the original URL list, so the ranking has to be
-    // carried across by index or a dropped mirror shifts every rank after it â€”
+    // carried across by index or a dropped mirror shifts every rank after it â€?
     // the second-best host would be allocated as though it were the fourth.
-    let plans: Vec<hya_core::SourcePlan> = if job.source_plans.is_empty() {
-        vec![hya_core::SourcePlan::default(); usable.len()]
+    let plans: Vec<pdl_core::SourcePlan> = if job.source_plans.is_empty() {
+        vec![pdl_core::SourcePlan::default(); usable.len()]
     } else {
         keep.iter()
             .map(|&i| job.source_plans.get(i).copied().unwrap_or_default())
@@ -2598,8 +2598,8 @@ pub async fn run(job: Job) -> Outcome {
     };
     // Seated sources are the ones the split gave connections to; the rest are
     // the bench. With an even split the seated set is a prefix, but a ranked
-    // allocation can leave a gap â€” a mirror that stated `maxconnections` may be
-    // passed over while a lower-ranked one is seated â€” so this filters rather
+    // allocation can leave a gap â€?a mirror that stated `maxconnections` may be
+    // passed over while a lower-ranked one is seated â€?so this filters rather
     // than truncating.
     let seated: Vec<usize> = (0..usable.len()).filter(|&i| split[i] > 0).collect();
     let tgts: Vec<Target> = seated.iter().map(|&i| usable[i].1.clone()).collect();
@@ -2608,11 +2608,11 @@ pub async fn run(job: Job) -> Outcome {
     // nineteen-mirror list worth more than a four-mirror one at four
     // connections: `run_transfer_with_reserves` substitutes from here in place
     // when a source dies, so the socket count stays what politeness authorised.
-    let bench_ready: Vec<hya_net::Reserve> = {
+    let bench_ready: Vec<pdl_net::Reserve> = {
         let mut idx: Vec<usize> = (0..usable.len()).filter(|&i| split[i] == 0).collect();
         idx.sort_by_key(|&i| (plans[i].priority, i));
         idx.into_iter()
-            .map(|i| hya_net::Reserve {
+            .map(|i| pdl_net::Reserve {
                 target: usable[i].1.clone(),
                 plan: plans[i],
                 host: source_label(&usable[i].0),
@@ -2622,10 +2622,10 @@ pub async fn run(job: Job) -> Outcome {
     // Mirrors still being probed when the transfer was allowed to start. They
     // arrive as `(index into pairs, target)`; the ranking and the display name
     // live here, so a small bridge turns each into a `Reserve` as it lands.
-    // Nothing is awaited â€” the transfer already has its seats.
+    // Nothing is awaited â€?the transfer already has its seats.
     let bench_late = late_mirrors.map(|mut rx| {
         let plans_all = job.source_plans.clone();
-        let labels: Vec<(String, hya_core::SourcePlan)> = pairs
+        let labels: Vec<(String, pdl_core::SourcePlan)> = pairs
             .iter()
             .enumerate()
             .map(|(i, (u, _))| {
@@ -2641,20 +2641,20 @@ pub async fn run(job: Job) -> Outcome {
                 let Some((host, plan)) = labels.get(i).cloned() else {
                     continue;
                 };
-                if tx.send(hya_net::Reserve { target, plan, host }).is_err() {
+                if tx.send(pdl_net::Reserve { target, plan, host }).is_err() {
                     return;
                 }
             }
         });
         out
     });
-    let seated_plans: Vec<hya_core::SourcePlan> = seated.iter().map(|&i| plans[i]).collect();
+    let seated_plans: Vec<pdl_core::SourcePlan> = seated.iter().map(|&i| plans[i]).collect();
     // What the transfer will actually open, which is what `--json.connections`
     // must report: a number the run did not use is not a measurement.
     let n_conns: usize = per.iter().sum();
     // Level 1, not 0: at default verbosity the useful signal is the progress bar
     // and the one-line result. How many sources were chosen and what the measured
-    // setup cost was are diagnostics â€” real ones, but the answer to "did it work"
+    // setup cost was are diagnostics â€?real ones, but the answer to "did it work"
     // should not be preceded by two lines of internals.
     p.event(
         1,
@@ -2686,8 +2686,8 @@ pub async fn run(job: Job) -> Outcome {
         .map(|plan| Source {
             gamma_est: 1.0e6,
             delta_est: delta.max(1e-3),
-            // The publisher's ranking, used once â€” for the first split, before
-            // anything has been measured. See `hya_core::sched::Source::priority`
+            // The publisher's ranking, used once â€?for the first split, before
+            // anything has been measured. See `pdl_core::sched::Source::priority`
             // for why it is deliberately not consulted again.
             priority: plan.priority,
             ..Default::default()
@@ -2701,7 +2701,7 @@ pub async fn run(job: Job) -> Outcome {
             p.event(
                 1,
                 &format!(
-                    "source {k}: rank {} {} â€” {} connection(s){}",
+                    "source {k}: rank {} {} â€?{} connection(s){}",
                     plans[i].priority,
                     source_label(&usable[i].0),
                     split[i],
@@ -2732,13 +2732,13 @@ pub async fn run(job: Job) -> Outcome {
             );
         }
     }
-    let bench = hya_net::Bench {
+    let bench = pdl_net::Bench {
         ready: bench_ready,
         late: bench_late,
     };
     // --range: schedule only the requested interval. Resolving it here rather
     // than in the argument parser is what lets a suffix range like `-512` mean
-    // "the last 512 bytes" â€” that needs the object size, known only now.
+    // "the last 512 bytes" â€?that needs the object size, known only now.
     let (want_lo, want_hi) = match job.range {
         None => (0u64, size),
         Some(spec) => match spec.resolve(size) {
@@ -2818,8 +2818,8 @@ pub async fn run(job: Job) -> Outcome {
     // which bytes actually arrived, so its own count is carried out of the
     // transfer here rather than re-derived from a record written before it.
     //
-    // Seeded from the scheduler's state as it stands right now â€” after every
-    // `mark_done` above â€” because a transfer with nothing left to fetch completes
+    // Seeded from the scheduler's state as it stands right now â€?after every
+    // `mark_done` above â€?because a transfer with nothing left to fetch completes
     // before the first observation tick and never updates this at all.
     let progress = Arc::new(std::sync::atomic::AtomicU64::new(sched.bytes_held()));
     let progress_obs = progress.clone();
@@ -2852,8 +2852,8 @@ pub async fn run(job: Job) -> Outcome {
     // Checkpoint what is already held BEFORE the first byte of the transfer.
     //
     // The periodic checkpoint inside the render closure only fires once 2 seconds
-    // have passed, so a ^C during the concurrency probe â€” or within 2s of the
-    // transfer starting â€” left no sidecar at all, and the next `-c` restarted from
+    // have passed, so a ^C during the concurrency probe â€?or within 2s of the
+    // transfer starting â€?left no sidecar at all, and the next `-c` restarted from
     // zero. The probe's bytes are real: it fetches at true offsets into the real
     // output and the scheduler marks those ranges held, which is what makes the
     // probe free rather than wasted. Discarding them on an interrupt throws away
@@ -2881,7 +2881,7 @@ pub async fn run(job: Job) -> Outcome {
     });
     let outs = out_path.to_string_lossy().to_string();
     let c = conn.clone();
-    // Host names for the progress view, one per SOURCE â€” behind a lock because a
+    // Host names for the progress view, one per SOURCE â€?behind a lock because a
     // reserve substitution changes them mid-transfer. A view that keeps naming
     // the dead mirror is worse than one naming none: it attributes the
     // replacement's throughput to a machine that is not serving it.
@@ -2896,7 +2896,7 @@ pub async fn run(job: Job) -> Outcome {
     //
     // Measured on a loopback origin, 512 MiB: the transfer itself took 0.07 s,
     // the post-download hash 0.19-0.26 s, and the whole-file re-read the rest of
-    // a 0.37 s run â€” hydra spent three times longer hashing than downloading,
+    // a 0.37 s run â€?hydra spent three times longer hashing than downloading,
     // and curl spends nothing. On a wide-area transfer the re-read is a cold read
     // of a multi-gigabyte object from disk after the bar has already reached
     // 100%. Hashing in-band overlaps with waiting for the network, so on any
@@ -2907,7 +2907,7 @@ pub async fn run(job: Job) -> Outcome {
     // with one span per connection, so the second span starts at `size/n` and
     // the reorder buffer would need most of the object (see `stream_digest`).
     // Anything else, and anything the in-band hash could not finish, falls back
-    // to hashing the file â€” the same value, at the old cost.
+    // to hashing the file â€?the same value, at the old cost.
     let mut file_stream_sha256: Option<String> = None;
     let res = {
         // Clear the phase line before the first frame: they share a terminal row.
@@ -2916,7 +2916,7 @@ pub async fn run(job: Job) -> Outcome {
         // Checkpoint the resume record AS THE TRANSFER RUNS, not only at the end.
         //
         // Writing it only on exit means a ^C or a crash leaves no record, so the next
-        // run cannot tell which bytes are held â€” and because the output is a SPARSE
+        // run cannot tell which bytes are held â€?and because the output is a SPARSE
         // file created at full length from the start, its apparent size is the whole
         // object even when almost nothing has arrived. Together those two facts made an
         // interrupted 2 MB transfer look like a finished 121.7 MiB download. The record
@@ -2929,7 +2929,7 @@ pub async fn run(job: Job) -> Outcome {
         // The callback cannot report them itself: `Progress` is owned by the
         // render closure for the duration of the transfer, and two closures
         // cannot hold it at once. Draining here rather than after the transfer is
-        // what makes the message arrive when the mirror changed â€” reported at the
+        // what makes the message arrive when the mirror changed â€?reported at the
         // end it reads as a summary of something that is over, when in fact it is
         // the reason the next ten minutes look different from the last.
         let swaps: Arc<std::sync::Mutex<Vec<String>>> = Arc::new(std::sync::Mutex::new(Vec::new()));
@@ -2940,7 +2940,7 @@ pub async fn run(job: Job) -> Outcome {
         let ckpt_validator = validator.clone();
         let ckpt_url = job.urls[0].clone();
         // The last concurrency decision reported, so each is printed once.
-        let mut last_reason = hya_core::LimitReason::None;
+        let mut last_reason = pdl_core::LimitReason::None;
         let mut render = |sc: &Scheduler, done: u64| {
             for line in swaps_r.lock().unwrap().drain(..) {
                 p.event(0, &line);
@@ -2952,7 +2952,7 @@ pub async fn run(job: Job) -> Outcome {
             let reason = sc.limit_reason();
             if reason != last_reason {
                 last_reason = reason;
-                use hya_core::LimitReason as R;
+                use pdl_core::LimitReason as R;
                 let human_rate = |r: f64| format!("{}/s", crate::progress::human(r as u64));
                 match reason {
                     R::Measured {
@@ -3003,29 +3003,29 @@ pub async fn run(job: Job) -> Outcome {
             // The concurrency the transfer ACTUALLY reached. Under `--adaptive` the
             // in-band ramp starts at one connection and admits more only while they
             // pay, so the budget is a ceiling and reporting it would be reporting a
-            // number the run did not use â€” the same defect that made
+            // number the run did not use â€?the same defect that made
             // `--max-total-connections 2 -x 8` claim eight.
             observed_requests_obs
                 .fetch_max(sc.stats.requests, std::sync::atomic::Ordering::Relaxed);
             // FOUR different numbers, and conflating any two of them has already cost a
             // wrong diagnosis. The distinctions are not pedantic:
             //
-            //  * `peak_connections` â€” highest admission limit ever set. Under
+            //  * `peak_connections` â€?highest admission limit ever set. Under
             //    `--adaptive` this is the top of the SEARCH, not its answer: the ramp
             //    raises the limit to measure a level and lowers it when the level does
             //    not pay. Reporting this as "connections" made a correctly-settled
             //    search look like a runaway (traced windows showed it stopping at 2
             //    while the summary said 4) and sent the investigation after the ramp
             //    logic twice.
-            //  * `settled_connections` â€” the admission limit at the end. This is a
+            //  * `settled_connections` â€?the admission limit at the end. This is a
             //    POLICY number: it says what the scheduler was willing to run, not what
             //    it did run.
-            //  * `peak_busy_connections` â€” the most connections that ever actually held
+            //  * `peak_busy_connections` â€?the most connections that ever actually held
             //    a range at once. This differs from the limit in both directions:
             //    lowering the limit lets an already-busy connection finish its range and
             //    go quiet, so real concurrency lags the limit downward; and a connection
             //    can be idle between ranges, so it lags upward too.
-            //  * `connection_seconds` â€” the integral of busy connections over time,
+            //  * `connection_seconds` â€?the integral of busy connections over time,
             //    which is the only one of the four that summarises the WHOLE run rather
             //    than a moment or a bound. For research this is the number that belongs
             //    next to a throughput figure.
@@ -3117,16 +3117,16 @@ pub async fn run(job: Job) -> Outcome {
         let sink = discard_sink.clone();
         // One limiter for the whole transfer, however many connections it opens:
         // `--limit-rate 1M` means the transfer uses 1 MB/s, not 1 MB/s per
-        // connection. `--no-save` is capped too â€” the bytes still cross the
+        // connection. `--no-save` is capped too â€?the bytes still cross the
         // network, which is what the flag is about.
-        let pace = hya_net::polite::Pace::shared(limiter.clone());
+        let pace = pdl_net::polite::Pace::shared(limiter.clone());
         // Keep the progress view honest across a substitution, and say so at
         // level 0: a mirror changing under a running transfer is exactly the
         // kind of thing a user wants in the log when they come back to a
         // download that took longer than expected.
         let sub_hosts = hosts.clone();
         let sub_note_w = swaps.clone();
-        let mut on_sub = move |src: usize, r: &hya_net::Reserve| {
+        let mut on_sub = move |src: usize, r: &pdl_net::Reserve| {
             let mut names = sub_hosts.lock().unwrap();
             let was = names.get(src).cloned().unwrap_or_else(|| "?".into());
             if let Some(slot) = names.get_mut(src) {
@@ -3140,9 +3140,9 @@ pub async fn run(job: Job) -> Outcome {
         // One transfer entry point for both paths. `--no-save`'s discarding sink
         // and the ordinary sparse file differ only in where the bytes land, and
         // splitting the call in two meant the reserve bench had to be threaded
-        // through twice â€” so the sink is chosen here and the call is made once.
+        // through twice â€?so the sink is chosen here and the call is made once.
         // Hash in-band only where the stream digest can finish (one connection,
-        // starting from zero, the whole object) â€” see `file_stream_sha256`.
+        // starting from zero, the whole object) â€?see `file_stream_sha256`.
         let hash_in_band = want_digest_value
             && !discarding
             && resumed_from == 0
@@ -3152,14 +3152,14 @@ pub async fn run(job: Job) -> Outcome {
             Some(sk) => sk.clone(),
             None => match SparseSink::create(&outs, size) {
                 Ok(sk) if hash_in_band => {
-                    Arc::new(sk.with_digest(hya_net::stream_digest::DEFAULT_REORDER_CAP))
+                    Arc::new(sk.with_digest(pdl_net::stream_digest::DEFAULT_REORDER_CAP))
                 }
                 Ok(sk) => Arc::new(sk),
                 Err(e) => return failed(&job, size, format!("cannot create {outs}: {e}")),
             },
         };
         let file_sink = sink.is_none().then(|| sk.clone());
-        let r = hya_net::run_transfer_with_reserves(
+        let r = pdl_net::run_transfer_with_reserves(
             c,
             tgts,
             &per,
@@ -3195,7 +3195,7 @@ pub async fn run(job: Job) -> Outcome {
     //
     // `Err(_) => (false, 0)` discarded both the error and the request count, so a
     // failed 88 MB transfer printed "83.6 MiB in 2m52s (496.7 KiB/s), 0 requests"
-    // â€” a byte count that contradicted the byte-complete file on disk, a rate
+    // â€?a byte count that contradicted the byte-complete file on disk, a rate
     // derived from it, and a request count that was not measured but invented. The
     // "0 requests" was the only clue that the number was fabricated rather than
     // observed, and it took a reproduction on a real 88 MB object to notice.
@@ -3214,7 +3214,7 @@ pub async fn run(job: Job) -> Outcome {
     };
     if let Some(why) = transfer_error.as_deref() {
         if !job.quiet || job.show_error {
-            eprintln!("hydra: transfer error: {why}");
+            eprintln!("playdl: transfer error: {why}");
         }
     }
     let counters = Counters {
@@ -3227,7 +3227,7 @@ pub async fn run(job: Job) -> Outcome {
     //
     // Every cheaper way of asking this question afterwards lies in some case.
     // The file's apparent length is the whole object from the very first byte,
-    // because the output is a sparse file created at full length â€” using it here
+    // because the output is a sparse file created at full length â€?using it here
     // once made an interrupted 2 MB transfer report "121.7 MiB on disk" and offer
     // to skip a download that had barely begun. Allocated blocks fix that but
     // read as the full size on a filesystem that does not store holes. And the
@@ -3238,15 +3238,15 @@ pub async fn run(job: Job) -> Outcome {
     // the two apart.
     //
     // The scheduler is the one component that knows which bytes arrived, so its
-    // live count â€” sampled through the observer above and seeded from its state
-    // before the transfer â€” is what completeness is judged on. That count is on
+    // live count â€?sampled through the observer above and seeded from its state
+    // before the transfer â€?is what completeness is judged on. That count is on
     // the OBJECT's coordinate scale, which is the scale the comparison below
     // wants: in range mode the spans outside `[want_lo, want_hi)` are marked held
     // precisely so they are never requested, and they must keep counting as
     // present or a satisfied range would read as incomplete.
     //
     // With `--no-save` there is no file to measure, so the transfer's own success
-    // is the only evidence â€” which is exactly what it should be, since the bytes
+    // is the only evidence â€?which is exactly what it should be, since the bytes
     // were verified as they streamed.
     let on_disk = if discarding {
         if ok {
@@ -3266,7 +3266,7 @@ pub async fn run(job: Job) -> Outcome {
     //
     // Positioned writes need a file of the OBJECT's length to write into, because
     // a range lands at its true offset. In range mode only `[want_lo, want_hi)`
-    // is ever fetched, so the rest of that extent is a hole â€” and a hole reads
+    // is ever fetched, so the rest of that extent is a hole â€?and a hole reads
     // back as zeros. `hydra -r 0-1023` delivered a 34 041-byte file whose first
     // 1 024 bytes were correct and whose remaining 33 017 were zeros: right
     // prefix, plausible size, silently wrong file. The same failure shape as the
@@ -3310,7 +3310,7 @@ pub async fn run(job: Job) -> Outcome {
     // read of a file already in page cache, and it buys the thing the whole-file
     // digest cannot: WHICH chunk is wrong.
     //
-    // A mismatch is repaired by refetching that chunk alone â€” preferring a
+    // A mismatch is repaired by refetching that chunk alone â€?preferring a
     // different source than the one that served it, since a mirror that served
     // corrupt bytes once is the least likely to serve them correctly now. This is
     // what BitTorrent and Metalink already do, and while the source is reachable
@@ -3330,7 +3330,7 @@ pub async fn run(job: Job) -> Outcome {
         // whole re-download, and the manifest says which chunk.
         //
         // `Advertised`, not `Trusted`, however the document arrived. Nothing here
-        // has authenticated it â€” the `<signature>` is recorded and not verified â€”
+        // has authenticated it â€?the `<signature>` is recorded and not verified â€?
         // so it may detect a bad chunk and drive a refetch, both of which are
         // self-correcting (the refetched bytes are checked against the same
         // digest), and may not name erasure positions for a parity decode, which
@@ -3341,7 +3341,7 @@ pub async fn run(job: Job) -> Outcome {
                 &usable,
                 &out_path,
                 pieces,
-                hya_net::manifest::Trust::Advertised,
+                pdl_net::manifest::Trust::Advertised,
                 &job,
                 &mut p,
             )
@@ -3364,7 +3364,7 @@ pub async fn run(job: Job) -> Outcome {
         if d.is_none() {
             if let Some(reason) = stream_result.as_ref().and_then(|(_, _, r)| r.clone()) {
                 if !job.quiet {
-                    eprintln!("hydra: {reason}");
+                    eprintln!("playdl: {reason}");
                 }
             }
         }
@@ -3383,7 +3383,7 @@ pub async fn run(job: Job) -> Outcome {
     // What must the bytes hash to?
     //
     // `--checksum` first: a digest the user typed came from somewhere they chose
-    // â€” a release page, a signed announcement, a colleague â€” and it outranks one
+    // â€?a release page, a signed announcement, a colleague â€?and it outranks one
     // that arrived over the same session as the mirror list. The document's is
     // the fallback, and it is the common case, because nobody types a SHA-512 by
     // hand for a file they are about to download from nineteen mirrors.
@@ -3400,7 +3400,7 @@ pub async fn run(job: Job) -> Outcome {
         (Some(spec), true) => match parse_digest_spec(spec) {
             None => {
                 if !job.quiet {
-                    eprintln!("hydra: cannot check {spec:?}: unknown digest algorithm");
+                    eprintln!("playdl: cannot check {spec:?}: unknown digest algorithm");
                 }
                 None
             }
@@ -3408,15 +3408,15 @@ pub async fn run(job: Job) -> Outcome {
                 // The SHA-256 is already computed above for the report, so the
                 // common case costs no second pass over the file.
                 let got = match (algo, &digest) {
-                    (hya_net::digest::Algo::Sha256, Some(d)) => Some(d.clone()),
+                    (pdl_net::digest::Algo::Sha256, Some(d)) => Some(d.clone()),
                     _ if discarding => {
                         // Nothing was written, so there is no file to re-read.
                         // The stream digest is SHA-256 only, so any other
-                        // algorithm genuinely cannot be checked â€” which is worth
+                        // algorithm genuinely cannot be checked â€?which is worth
                         // saying rather than silently reporting "verified".
                         if !job.quiet {
                             eprintln!(
-                                "hydra: --no-save keeps no file, so the {} digest could not be checked (sha256 is computed from the stream)",
+                                "playdl: --no-save keeps no file, so the {} digest could not be checked (sha256 is computed from the stream)",
                                 algo.as_str()
                             );
                         }
@@ -3461,7 +3461,7 @@ pub async fn run(job: Job) -> Outcome {
         // archive was expected is the signature of a captive portal or an error
         // page saved as a file, and both the byte count and the status look fine.
         if !job.quiet {
-            eprintln!("hydra: warning: {msg}");
+            eprintln!("playdl: warning: {msg}");
             if detection.looks_intercepted() {
                 eprintln!(
                     "  the saved file is a web page, not the object requested \
@@ -3489,13 +3489,13 @@ pub async fn run(job: Job) -> Outcome {
                         dest
                     }
                     Err(e) => {
-                        eprintln!("hydra: could not move into {}: {e}", dir.display());
+                        eprintln!("playdl: could not move into {}: {e}", dir.display());
                         out_path
                     }
                 }
             }
             Err(e) => {
-                eprintln!("hydra: could not create {}: {e}", dir.display());
+                eprintln!("playdl: could not create {}: {e}", dir.display());
                 out_path
             }
         }
@@ -3509,7 +3509,7 @@ pub async fn run(job: Job) -> Outcome {
         // paraphrase below is a convenience, and when the two disagree the raw block
         // is the evidence.
         print_exchange(&probe_info);
-        println!("hydra: interpretation");
+        println!("playdl: interpretation");
         println!("  size: {size}");
         println!("  validator: {}", validator.as_deref().unwrap_or("none"));
         println!(
@@ -3577,10 +3577,10 @@ pub async fn run(job: Job) -> Outcome {
                         drop(f);
                         let _ = std::fs::remove_file(&out_path);
                     }
-                    Err(e) => eprintln!("hydra: cannot stream to stdout: {e}"),
+                    Err(e) => eprintln!("playdl: cannot stream to stdout: {e}"),
                 }
             }
-            Err(e) => eprintln!("hydra: cannot stream to stdout: {e}"),
+            Err(e) => eprintln!("playdl: cannot stream to stdout: {e}"),
         }
     }
 
@@ -3589,15 +3589,15 @@ pub async fn run(job: Job) -> Outcome {
     // rather than a fabricated timestamp.
     if job.remote_time && complete {
         // `Last-Modified` first, and on its own terms. Reading the collapsed
-        // `validator` here meant any server that also sent an ETag â€” GitHub, S3,
-        // most CDNs â€” had its date thrown away before the flag ran, and the tool
+        // `validator` here meant any server that also sent an ETag â€?GitHub, S3,
+        // most CDNs â€?had its date thrown away before the flag ran, and the tool
         // reported "no date-form validator" about a response that carried one.
         // The validator is still consulted as a fallback, for the servers that
         // send only a date: there it IS the Last-Modified value.
         match last_modified
             .as_deref()
             .or(validator.as_deref())
-            .and_then(hya_net::polite::parse_http_date)
+            .and_then(pdl_net::polite::parse_http_date)
         {
             Some(secs) => {
                 let _ = set_mtime(&out_path, secs);
@@ -3615,9 +3615,9 @@ pub async fn run(job: Job) -> Outcome {
         counters,
         digest.as_deref(),
     );
-    // At default verbosity a format note is printed only when it is a WARNING â€”
-    // the served bytes are not what was asked for. "gzip stream â€” compresses a
-    // single streamâ€¦" is a description of a successful download and belongs at
+    // At default verbosity a format note is printed only when it is a WARNING â€?
+    // the served bytes are not what was asked for. "gzip stream â€?compresses a
+    // single streamâ€? is a description of a successful download and belongs at
     // `-v`; "this is an HTML page where a file was expected" is the difference
     // between a good file and a captive-portal page saved with status 200, and
     // suppressing it would hide the failure this project cares most about.
@@ -3629,7 +3629,7 @@ pub async fn run(job: Job) -> Outcome {
             // Content-Type is the other.
             let suspicious = detection.conflict.is_some() || f.category == Category::Markup;
             // At default verbosity this is a VALUE, not a sentence: `HTML page`
-            // rather than `HTML page â€” A web page. Where a real file was
+            // rather than `HTML page â€?A web page. Where a real file was
             // expected, this usually means...`. The explanation is real and worth
             // having, but it belongs at `-v`; a user who has seen it once does not
             // need the paragraph on every subsequent run.
@@ -3663,12 +3663,12 @@ pub async fn run(job: Job) -> Outcome {
         if complete && checksum_ok != Some(false) && !discarding {
             let cs = job
                 .chunk_size
-                .unwrap_or(hya_net::manifest::DEFAULT_CHUNK)
+                .unwrap_or(pdl_net::manifest::DEFAULT_CHUNK)
                 .max(1);
-            match hya_net::manifest::from_file(
+            match pdl_net::manifest::from_file(
                 &out_path.to_string_lossy(),
                 cs,
-                hya_net::manifest::ChunkAlgo::Blake3,
+                pdl_net::manifest::ChunkAlgo::Blake3,
                 Some(job.urls[0].clone()),
                 validator.clone(),
             ) {
@@ -3683,13 +3683,13 @@ pub async fn run(job: Job) -> Outcome {
                             );
                         }
                     }
-                    Err(e) => eprintln!("hydra: cannot write manifest {}: {e}", mpath.display()),
+                    Err(e) => eprintln!("playdl: cannot write manifest {}: {e}", mpath.display()),
                 },
-                Err(e) => eprintln!("hydra: cannot build manifest: {e}"),
+                Err(e) => eprintln!("playdl: cannot build manifest: {e}"),
             }
         } else if !job.quiet {
             eprintln!(
-                "hydra: --emit-manifest skipped: a manifest is only written for a download \
+                "playdl: --emit-manifest skipped: a manifest is only written for a download \
                  that verified"
             );
         }
@@ -3766,7 +3766,7 @@ fn failed(job: &Job, size: u64, why: String) -> Outcome {
     // was indistinguishable from a quiet run that succeeded: empty stdout, empty
     // stderr, and only the exit code to tell them apart.
     if !job.quiet || job.show_error {
-        eprintln!("hydra: {why}");
+        eprintln!("playdl: {why}");
     }
     Outcome {
         url: job.urls.first().cloned().unwrap_or_default(),
@@ -3794,7 +3794,7 @@ pub fn conn_views(sched: &Scheduler, hosts: &[String]) -> Vec<ConnView> {
 mod tests {
     use super::*;
 
-    /// Answers every request with `400 Bad Request` and a 24-byte JSON body â€”
+    /// Answers every request with `400 Bad Request` and a 24-byte JSON body â€?
     /// the shape of a CDN's "no such file" answer, with a `Content-Length` that
     /// a probe reading only the size would take for the object's.
     async fn spawn_400_origin() -> u16 {
@@ -3911,9 +3911,9 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn the_reported_sha256_is_the_files_sha256_on_every_hashing_path() {
         let body: Vec<u8> = (0..3_000_017u64).map(|i| (i % 251) as u8).collect();
-        let want = hya_net::digest::to_lower_hex(&Sha256::digest(&body));
+        let want = pdl_net::digest::to_lower_hex(&Sha256::digest(&body));
         let port = spawn_ranged_origin(std::sync::Arc::new(body)).await;
-        let dir = std::env::temp_dir().join(format!("hydra_digest_{}", scratch_name()));
+        let dir = std::env::temp_dir().join(format!("playdl_digest_{}", scratch_name()));
         std::fs::create_dir_all(&dir).unwrap();
         // `None` is the default path, where the concurrency probe chooses the
         // count and may pre-fill bytes the sink never sees. It is covered here
@@ -3953,7 +3953,7 @@ mod tests {
     /// caller's to make, and this caller did not make it: the error body's
     /// `Content-Length` became the file size, a transfer was planned, 24 bytes
     /// were split across eight connections, and only the range requests failed a
-    /// second later â€” with "unexpected status 400 for a range request", which
+    /// second later â€?with "unexpected status 400 for a range request", which
     /// names the symptom and not the answer the server had already given.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn an_error_status_from_the_probe_is_reported_not_downloaded() {
@@ -3961,7 +3961,7 @@ mod tests {
         let u =
             crate::url::Url::parse(&format!("http://127.0.0.1:{port}/VSCode.zip0")).expect("url");
         let t = u.to_target(None).expect("target");
-        let c = hya_net::TlsCapableConnector::new().expect("connector");
+        let c = pdl_net::TlsCapableConnector::new().expect("connector");
         let mut log = Vec::new();
         let r = probe_resolving(&c, &u, &t, &mut log, 8).await;
         let err = match r {
@@ -4071,7 +4071,7 @@ mod tests {
     /// private temp directory. Returns the directory (for cleanup) and the
     /// file path.
     fn span_scratch_object(size: usize) -> (std::path::PathBuf, std::path::PathBuf, Vec<u8>) {
-        let dir = std::env::temp_dir().join(format!("hydra_span_{}", scratch_name()));
+        let dir = std::env::temp_dir().join(format!("playdl_span_{}", scratch_name()));
         std::fs::create_dir_all(&dir).unwrap();
         let p = dir.join("obj.bin");
         let mut whole = vec![0u8; size];
@@ -4142,7 +4142,7 @@ mod tests {
     /// Ensure metadata probe follows redirects to the target object.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn public_probe_follows_a_redirect_to_the_object() {
-        let net = hya_net::origin::OriginSet::new();
+        let net = pdl_net::origin::OriginSet::new();
         let (real_port, _real) = net.spawn(64 * 1024, 1_000_000);
         let (hop_port, _hop) =
             net.spawn_redirecting(0, 1_000_000, &format!("http://127.0.0.1:{real_port}/obj"));
@@ -4176,7 +4176,7 @@ mod tests {
         // a mirror that answers late must clear the same bar it would have
         // cleared at the front door. An earlier revision required only range
         // support here, which would have benched an unvalidated mirror.
-        let probe = |size: u64, ranges: bool, validator: Option<&str>, weak: bool| hya_net::Probe {
+        let probe = |size: u64, ranges: bool, validator: Option<&str>, weak: bool| pdl_net::Probe {
             size,
             ranges,
             validator: validator.map(str::to_string),
@@ -4247,7 +4247,7 @@ mod tests {
 
     #[test]
     fn a_digest_spec_names_its_algorithm_or_defaults_to_sha256() {
-        use hya_net::digest::Algo;
+        use pdl_net::digest::Algo;
         // The two roads a spec arrives by: `--checksum`, normalised to
         // `algo:hex` at parse time, and a Metalink digest, which always carries
         // its prefix. A bare value is the historical `--checksum` form.
@@ -4270,8 +4270,8 @@ mod tests {
 
     #[test]
     fn digest_file_computes_every_algorithm_a_document_publishes_and_refuses_crc() {
-        use hya_net::digest::Algo;
-        let p = std::env::temp_dir().join(format!("hydra-digest-file-{}", std::process::id()));
+        use pdl_net::digest::Algo;
+        let p = std::env::temp_dir().join(format!("playdl-digest-file-{}", std::process::id()));
         std::fs::write(&p, b"abc").unwrap();
         // Published test vectors for "abc", so a wrong wiring of algorithm to
         // hasher is caught here rather than as a checksum mismatch against a

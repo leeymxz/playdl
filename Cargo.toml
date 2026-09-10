@@ -3,29 +3,26 @@ members = ["crates/hydra-core", "crates/hydra-net", "crates/hydra-stream", "crat
 resolver = "2"
 
 [workspace.package]
-# The product version: hya-cli, hya-gui and hya-host inherit this via
-# `version.workspace = true` and move together as one "Hydra Download
-# Manager" release. The library crates (hya-core, hya-net) do NOT inherit
+# The product version: pdl-cli, pdl-gui and pdl-host inherit this via
+# `version.workspace = true` and move together as one "PlayDL"
+# release. The library crates (pdl-core, pdl-net) do NOT inherit
 # it — each carries its own version in its manifest and bumps independently
 # on its own semver cadence.
-version = "0.4.3"
+version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/ja7ad/hydra"
-homepage = "https://github.com/ja7ad/hydra"
+repository = "https://github.com/leeymxz/playdl"
+homepage = "https://github.com/leeymxz/playdl"
 
 [workspace.dependencies]
-hya-core = { path = "crates/hydra-core" }
-hya-net = {  path = "crates/hydra-net" }
-# HLS/DASH manifests and segment assembly. Depends on nothing of Hydra's, so
-# both the GPL binaries and a permissive consumer can use it.
-hya-stream = { path = "crates/hydra-stream" }
-# The C ABI over the engine. Depends on hya-core and hya-net only — never on
-# the GPL CLI/GUI crates, so it stays embeddable under MIT/Apache-2.0.
-hya-ffi = { path = "crates/hydra-ffi" }
-# In-process update machinery shared by the GUI (startup check + download) and
-# the CLI (`hydra update`); also builds the `hydra-updater` finisher binary.
-hya-updater = { path = "crates/hydra-updater" }
+pdl-core = { path = "crates/hydra-core" }
+pdl-net = {  path = "crates/hydra-net" }
+# HLS/DASH manifests and segment assembly.
+pdl-stream = { path = "crates/hydra-stream" }
+# The C ABI over the engine.
+pdl-ffi = { path = "crates/hydra-ffi" }
+# In-process update machinery shared by the GUI and CLI.
+pdl-updater = { path = "crates/hydra-updater" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "fs", "sync", "signal"] }
 clap = { version = "4", features = ["derive"] }
 # Shell completion-script generation for `hydra completions` (bash, zsh, fish,

@@ -19,7 +19,7 @@
 //! Arguments (all optional):
 //! - first positional: the version to advertise (default `9.9.9`)
 //! - second positional: a real archive to serve as the GUI asset
-//! - `--size-mb N`: size of the generated payload (default 24) â€” big enough
+//! - `--size-mb N`: size of the generated payload (default 24) â€?big enough
 //!   that the GUI's progress bar visibly fills
 //! - `--rate-mbps N`: throttle asset downloads to N MB/s (default 4; `0`
 //!   sends at full speed)
@@ -31,8 +31,8 @@
 //! Both release assets are published: the GUI bundle (`hydra-â€¦`) and the
 //! standalone CLI archive (`hydra-cli-â€¦`), so `hydra update` and the GUI
 //! each find theirs. Generated bundles contain only file names no real
-//! install has (`hydra-mock-payload`, â€¦), so even a full "Update Now" run
-//! swaps nothing on disk â€” it proves download progress, checksum,
+//! install has (`hydra-mock-payload`, â€?, so even a full "Update Now" run
+//! swaps nothing on disk â€?it proves download progress, checksum,
 //! extraction, and the finisher launch, harmlessly. Pass a real release
 //! archive to rehearse an actual swap.
 
@@ -156,7 +156,7 @@ fn main() {
         // version, which the release pipeline leaves without the tag's
         // `-rc` suffix (a `v0.3.2-rc` tag ships `hydra-0.3.2-â€¦` files), so
         // the mock rehearses the updater's fallback to that spelling.
-        Some(rc) => make_assets(hya_updater::version_core(rc), None),
+        Some(rc) => make_assets(pdl_updater::version_core(rc), None),
         None => Vec::new(),
     };
 
@@ -215,7 +215,7 @@ fn main() {
         Ok(l) => l,
         Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
             eprintln!(
-                "mock_server: port {} is already in use â€” another mock_server is \
+                "mock_server: port {} is already in use â€?another mock_server is \
                  probably still running (stop it, or pass --port <other>).",
                 cfg.port
             );
@@ -327,7 +327,7 @@ fn serve_one(
     if sock.write_all(head.as_bytes()).is_err() {
         return;
     }
-    // Only the blob (the actual archive) is throttled â€” checks stay instant.
+    // Only the blob (the actual archive) is throttled â€?checks stay instant.
     let throttle = rate_mbps > 0 && path.starts_with("/blob/");
     if !throttle {
         let _ = sock.write_all(body);

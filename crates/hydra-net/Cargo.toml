@@ -1,15 +1,15 @@
 [package]
-name = "hya-net"
-version = "0.4.2"
+name = "pdl-net"
+version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
-description = "HTTP/1.1 range transport driving the hya-core scheduler"
+description = "HTTP/1.1 range transport driving the pdl-core scheduler"
 readme = "README.md"
 
 [dependencies]
-hya-core = { workspace = true }
+pdl-core = { workspace = true }
 tokio = { workspace = true }
 rustls = { workspace = true }
 tokio-rustls = { workspace = true }
@@ -17,9 +17,6 @@ webpki-roots = { workspace = true }
 rustls-pki-types = { workspace = true }
 memchr = { workspace = true }
 sha2 = { workspace = true }
-# Metalink 3.0 <pieces> are overwhelmingly SHA-1 (the format took the choice from
-# BitTorrent). Verifying them needs the algorithm; `manifest::ChunkAlgo` documents
-# why it is admitted for detection and barred from driving a parity repair.
 sha1 = { workspace = true }
 blake3 = { workspace = true }
 reed-solomon-simd = { workspace = true }
@@ -29,8 +26,6 @@ serde_json = { workspace = true }
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "fs", "sync"] }
 criterion = { workspace = true }
-# Writes the fixture archives the `zipdir` tests read back: a real archiver's
-# output, ZIP64 included, rather than bytes laid out by the code under test.
 zip = { version = "8", default-features = false, features = ["deflate"] }
 
 [[bench]]

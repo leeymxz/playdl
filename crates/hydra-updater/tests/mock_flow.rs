@@ -1,13 +1,13 @@
 // Copyright (C) 2026 Javad Rajabzadeh
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! End-to-end update flow against a mock release server: check â†’ pick asset
-//! â†’ download (with a redirect hop, progress, checksum) â†’ extract â†’ apply.
+//! End-to-end update flow against a mock release server: check â†?pick asset
+//! â†?download (with a redirect hop, progress, checksum) â†?extract â†?apply.
 //!
 //! This is the same code path the GUI's "Update Now" and the CLI's
-//! `hydra update` run â€” only the endpoint differs, and the endpoint is a
+//! `hydra update` run â€?only the endpoint differs, and the endpoint is a
 //! parameter. Once the flow is proven on every platform, production simply
-//! uses the GitHub default in [`hya_updater::api_base`].
+//! uses the GitHub default in [`pdl_updater::api_base`].
 
 use std::io::Write as _;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -18,12 +18,12 @@ use tokio::net::TcpListener;
 /// Serve a canned mock release over plain HTTP on an ephemeral port.
 ///
 /// Routes:
-/// - `GET /repos/ja7ad/hydra/releases/latest` â€” release JSON pointing back
+/// - `GET /repos/ja7ad/hydra/releases/latest` â€?release JSON pointing back
 ///   at this server
-/// - `GET /assets/<name>` â€” 302 redirect to `/blob/<name>` (GitHub's asset
+/// - `GET /assets/<name>` â€?302 redirect to `/blob/<name>` (GitHub's asset
 ///   URLs redirect to a CDN; the client must follow)
-/// - `GET /blob/<name>` â€” the archive bytes
-/// - `GET /assets/SHA256SUMS.txt` â€” checksums for the archive
+/// - `GET /blob/<name>` â€?the archive bytes
+/// - `GET /assets/SHA256SUMS.txt` â€?checksums for the archive
 async fn mock_server(
     archive_name: String,
     archive: Vec<u8>,
@@ -39,7 +39,7 @@ async fn mock_server(
             .unwrap()
             .write_all(&archive)
             .unwrap();
-        let s = hya_updater::file_sha256(&tmp).unwrap();
+        let s = pdl_updater::file_sha256(&tmp).unwrap();
         let _ = std::fs::remove_file(&tmp);
         s
     };
@@ -159,11 +159,11 @@ async fn full_gui_update_flow_against_mock() {
     let (base, server) = mock_server(archive_name.clone(), archive).await;
 
     // 1. Check: the mock reports a newer release with notes and assets.
-    let rel = hya_updater::check_latest_at(&base, "ja7ad/hydra", "hydra-test/0.0")
+    let rel = pdl_updater::check_latest_at(&base, "ja7ad/hydra", "hydra-test/0.0")
         .await
         .unwrap();
     assert_eq!(rel.version(), "9.9.9");
-    assert!(hya_updater::is_newer(rel.version(), "0.2.3"));
+    assert!(pdl_updater::is_newer(rel.version(), "0.2.3"));
     assert!(rel.body.contains("Everything is faster"));
     let asset = rel.asset(&archive_name).expect("asset listed");
 
@@ -172,7 +172,7 @@ async fn full_gui_update_flow_against_mock() {
     let dest = stage.join(&archive_name);
     let seen = Arc::new(AtomicU64::new(0));
     let seen2 = seen.clone();
-    hya_updater::http::download_to_file(
+    pdl_updater::http::download_to_file(
         &asset.browser_download_url,
         "hydra-test/0.0",
         &dest,
@@ -187,18 +187,18 @@ async fn full_gui_update_flow_against_mock() {
     assert!(seen.load(Ordering::SeqCst) > 0);
 
     // 3. Verify against the published checksums.
-    let sums = hya_updater::http::get_bytes(
+    let sums = pdl_updater::http::get_bytes(
         &rel.asset("SHA256SUMS.txt").unwrap().browser_download_url,
         "hydra-test/0.0",
         1024 * 1024,
     )
     .await
     .unwrap();
-    let want = hya_updater::sum_for(&String::from_utf8(sums).unwrap(), &archive_name).unwrap();
-    assert_eq!(hya_updater::file_sha256(&dest).unwrap(), want);
+    let want = pdl_updater::sum_for(&String::from_utf8(sums).unwrap(), &archive_name).unwrap();
+    assert_eq!(pdl_updater::file_sha256(&dest).unwrap(), want);
 
     // 4. Extract; the bundle directory becomes the root.
-    let extracted = hya_updater::extract(&dest, &stage.join("unpacked")).unwrap();
+    let extracted = pdl_updater::extract(&dest, &stage.join("unpacked")).unwrap();
     assert!(extracted.ends_with(bundle));
     assert!(extracted.join("hydra-gui").is_file());
 
@@ -208,7 +208,7 @@ async fn full_gui_update_flow_against_mock() {
     std::fs::write(install.join("hydra-gui"), b"OLD GUI").unwrap();
     std::fs::write(install.join("hydra"), b"OLD CLI").unwrap();
     // No hydra-updater in the install dir: it must be skipped, not created.
-    let report = hya_updater::apply(&extracted, &install).unwrap();
+    let report = pdl_updater::apply(&extracted, &install).unwrap();
     assert_eq!(
         std::fs::read(install.join("hydra-gui")).unwrap(),
         b"NEW GUI v9.9.9"
@@ -234,12 +234,12 @@ async fn zip_archives_extract_and_apply() {
     let archive = stage.join("hydra-9.9.9-windows-amd64.zip");
     std::fs::write(&archive, make_zip(bundle, files)).unwrap();
 
-    let extracted = hya_updater::extract(&archive, &stage.join("unpacked")).unwrap();
+    let extracted = pdl_updater::extract(&archive, &stage.join("unpacked")).unwrap();
     assert!(extracted.join("hydra-gui.exe").is_file());
 
     let install = temp_dir("zip-install");
     std::fs::write(install.join("hydra-gui.exe"), b"OLD").unwrap();
-    hya_updater::apply(&extracted, &install).unwrap();
+    pdl_updater::apply(&extracted, &install).unwrap();
     assert_eq!(
         std::fs::read(install.join("hydra-gui.exe")).unwrap(),
         b"NEW GUI"
@@ -260,7 +260,7 @@ async fn cancelled_download_removes_the_partial_file() {
 
     let stage = temp_dir("cancel");
     let dest = stage.join(&archive_name);
-    let err = hya_updater::http::download_to_file(
+    let err = pdl_updater::http::download_to_file(
         &format!("{base}/assets/{archive_name}"),
         "hydra-test/0.0",
         &dest,
@@ -338,11 +338,11 @@ async fn beta_channel_offers_the_rc_only_while_it_is_ahead() {
 
     // rc ahead of stable: stable channel stays put, beta gets the rc.
     let (base, server) = mock_channel_server("0.2.4", Some("0.3.0-rc1")).await;
-    let stable = hya_updater::check_channel_at(&base, "ja7ad/hydra", ua, false)
+    let stable = pdl_updater::check_channel_at(&base, "ja7ad/hydra", ua, false)
         .await
         .unwrap();
     assert_eq!(stable.version(), "0.2.4");
-    let beta = hya_updater::check_channel_at(&base, "ja7ad/hydra", ua, true)
+    let beta = pdl_updater::check_channel_at(&base, "ja7ad/hydra", ua, true)
         .await
         .unwrap();
     assert_eq!(beta.version(), "0.3.0-rc1");
@@ -350,7 +350,7 @@ async fn beta_channel_offers_the_rc_only_while_it_is_ahead() {
 
     // Stable caught up with the rc's core version: beta falls back to it.
     let (base, server) = mock_channel_server("0.3.0", Some("0.3.0-rc1")).await;
-    let beta = hya_updater::check_channel_at(&base, "ja7ad/hydra", ua, true)
+    let beta = pdl_updater::check_channel_at(&base, "ja7ad/hydra", ua, true)
         .await
         .unwrap();
     assert_eq!(beta.version(), "0.3.0");
@@ -358,7 +358,7 @@ async fn beta_channel_offers_the_rc_only_while_it_is_ahead() {
 
     // No pre-release published: both channels serve the stable release.
     let (base, server) = mock_channel_server("0.2.4", None).await;
-    let beta = hya_updater::check_channel_at(&base, "ja7ad/hydra", ua, true)
+    let beta = pdl_updater::check_channel_at(&base, "ja7ad/hydra", ua, true)
         .await
         .unwrap();
     assert_eq!(beta.version(), "0.2.4");
@@ -369,11 +369,11 @@ async fn beta_channel_offers_the_rc_only_while_it_is_ahead() {
 async fn up_to_date_release_is_not_an_upgrade() {
     let archive = make_tar_gz("hydra-9.9.9-x-y", &[("hydra", b"x")]);
     let (base, server) = mock_server("hydra-9.9.9-x-y.tar.gz".into(), archive).await;
-    let rel = hya_updater::check_latest_at(&base, "ja7ad/hydra", "hydra-test/0.0")
+    let rel = pdl_updater::check_latest_at(&base, "ja7ad/hydra", "hydra-test/0.0")
         .await
         .unwrap();
     // A client already on (or past) the published version stays put.
-    assert!(!hya_updater::is_newer(rel.version(), "9.9.9"));
-    assert!(!hya_updater::is_newer(rel.version(), "10.0.0"));
+    assert!(!pdl_updater::is_newer(rel.version(), "9.9.9"));
+    assert!(!pdl_updater::is_newer(rel.version(), "10.0.0"));
     server.abort();
 }

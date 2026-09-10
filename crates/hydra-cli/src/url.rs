@@ -4,7 +4,7 @@
 //! scheme, authority, and path. Parsing that by hand is a dozen lines and avoids
 //! a dependency that would imply support for schemes this client cannot honour.
 
-use hya_net::Target;
+use pdl_net::Target;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -90,7 +90,7 @@ impl Url {
     pub fn parse(s: &str) -> Option<Self> {
         let (scheme, rest) = s.split_once("://")?;
         let scheme = scheme.to_ascii_lowercase();
-        if !hya_net::scheme::supported().contains(&scheme.as_str()) {
+        if !pdl_net::scheme::supported().contains(&scheme.as_str()) {
             return None;
         }
         let (auth, path) = match rest.find('/') {
@@ -138,8 +138,8 @@ impl Url {
     }
 
     /// Build a protocol-neutral endpoint for the scheme layer.
-    pub fn to_endpoint(&self, proxy: Option<(&str, u16)>) -> hya_net::scheme::Endpoint {
-        let mut e = hya_net::scheme::Endpoint::new(&self.host, self.port, &self.path);
+    pub fn to_endpoint(&self, proxy: Option<(&str, u16)>) -> pdl_net::scheme::Endpoint {
+        let mut e = pdl_net::scheme::Endpoint::new(&self.host, self.port, &self.path);
         e.tls = self.scheme == "https";
         e.origin = proxy.map(|(h, p)| (h.to_string(), p));
         // Credentials reach the endpoint only for FTP. Attaching them for HTTP would put
@@ -155,8 +155,8 @@ impl Url {
     ///
     /// Handles the three forms servers actually send: an absolute URL, a
     /// scheme-relative `//host/path`, and a path-relative `/path`. Needed because a
-    /// redirect commonly crosses hosts â€” a GitHub release asset redirects to a
-    /// different domain entirely â€” so the new target cannot be built by patching the
+    /// redirect commonly crosses hosts â€?a GitHub release asset redirects to a
+    /// different domain entirely â€?so the new target cannot be built by patching the
     /// old one's path.
     pub fn join(&self, location: &str) -> Option<Url> {
         let loc = location.trim();
@@ -220,14 +220,14 @@ impl Url {
     /// Build a transport target, routing through `proxy` when one is configured.
     ///
     /// Both schemes are supported. A proxied `https` target keeps `tls: true` so
-    /// the connector opens a CONNECT tunnel before handshaking â€” the proxy has to
+    /// the connector opens a CONNECT tunnel before handshaking â€?the proxy has to
     /// read the request line in cleartext, and an encrypted one cannot be read.
     pub fn to_target(&self, proxy: Option<(&str, u16)>) -> Result<Target, String> {
         let tls = self.scheme == "https";
         let mut t = match proxy {
             // The proxy authority must ALWAYS carry an explicit port. `authority()`
             // omits the default one because a `Host` header should, but a CONNECT
-            // request line without a port is rejected by proxies â€” so the two
+            // request line without a port is rejected by proxies â€?so the two
             // spellings are deliberately different here.
             Some((ph, pp)) => Target::via_proxy(ph, pp, &self.proxy_authority(), &self.path),
             None if tls => Target::direct_tls(&self.host, self.port, &self.path),
@@ -347,7 +347,7 @@ mod tests {
     #[test]
     fn redirect_locations_resolve_in_all_three_forms() {
         let base = Url::parse("https://github.com/o/r/releases/download/v1/asset").unwrap();
-        // Absolute, crossing hosts â€” what a release asset actually returns.
+        // Absolute, crossing hosts â€?what a release asset actually returns.
         let a = base
             .join("https://release-assets.githubusercontent.com/x/y?token=abc")
             .unwrap();

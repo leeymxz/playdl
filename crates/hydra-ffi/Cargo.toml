@@ -1,50 +1,31 @@
 [package]
-name = "hya-ffi"
-# Versioned independently of the product (like hya-core and hya-net): this
-# crate's compatibility promise is about the ABI, not about the CLI/GUI release
-# it happens to ship next to. The ABI has its own integer version on top of
-# this one — see `HYDRA_FFI_ABI_VERSION` in `src/lib.rs`.
-version = "0.3.0"
+name = "pdl-ffi"
+version = "0.1.0"
 edition.workspace = true
-# MIT OR Apache-2.0, matching hya-core and hya-net and NOT the GPL CLI: the
-# whole point of this crate is that third parties can embed the engine. It must
-# therefore never gain a dependency on hya-cli, hya-gui or hya-host.
-# See LICENSING.md.
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
-description = "Stable C ABI over the hydra download engine (hya-core + hya-net)"
+description = "Stable C ABI over the PlayDL download engine (pdl-core + pdl-net)"
 readme = "README.md"
 
 [lib]
-# `hydra`, not `hya_ffi`: this is what names the artifact the C world links
-# against — libhydra.a / libhydra.so / libhydra.dylib / hydra.dll.
-name = "hydra"
-# staticlib is the primary deliverable; cdylib so the same header works against
-# a shared build; rlib so the crate's own integration tests can link it.
+name = "playdl"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dependencies]
-hya-core = { workspace = true }
-hya-net = { workspace = true }
+pdl-core = { workspace = true }
+pdl-net = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-# Whole-file verification after a transfer completes. Ranges arrive out of
-# order, so the object can only be hashed once it is complete — the streaming
-# digest in hya-net cannot serve this path.
 sha2 = { workspace = true }
 sha1 = { workspace = true }
 md-5 = { workspace = true }
 blake3 = { workspace = true }
 
 [dev-dependencies]
-# The ABI suite drives a real loopback HTTP origin and hashes what came back,
-# so it needs the same digest the tests compare against.
 sha2 = { workspace = true }
-# The metalink tests build documents over those origins and compare the hex the
-# engine reports, so they need the same hex encoder the engine uses.
-hya-net = { workspace = true }
+pdl-net = { workspace = true }
 
 [lints]
 workspace = true

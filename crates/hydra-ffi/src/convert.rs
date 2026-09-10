@@ -271,10 +271,10 @@ pub(crate) unsafe fn job_cfg(
         let pc = unsafe { *c.proxy };
         let kind = match enum_in_range(pc.kind, 4, "proxy_config.type")? {
             0 => None,
-            1 => Some(hya_net::ProxyKind::Http),
-            2 => Some(hya_net::ProxyKind::Socks4),
-            3 => Some(hya_net::ProxyKind::Socks4a),
-            _ => Some(hya_net::ProxyKind::Socks5),
+            1 => Some(pdl_net::ProxyKind::Http),
+            2 => Some(pdl_net::ProxyKind::Socks4),
+            3 => Some(pdl_net::ProxyKind::Socks4a),
+            _ => Some(pdl_net::ProxyKind::Socks5),
         };
         match kind {
             None => None,

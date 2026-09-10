@@ -3,24 +3,24 @@
 
 //! `hydra --preview <url>`: what is inside a ZIP archive, without the archive.
 //!
-//! The same peek the GUI's Preview button makes â€” `hya_net::zipdir` reads
-//! the index off the file's tail â€” drawn as a table for a terminal. One
+//! The same peek the GUI's Preview button makes â€?`pdl_net::zipdir` reads
+//! the index off the file's tail â€?drawn as a table for a terminal. One
 //! probe to find the object and its size, one small ranged GET, and the
 //! listing is on screen whatever the archive weighs.
 
-use hya_net::zipdir::{self, DosTime, Entry, PeekError};
+use pdl_net::zipdir::{self, DosTime, Entry, PeekError};
 
 pub async fn run(url: &str, args: &crate::cli::Cli) -> Result<(), String> {
     let Some(u) = crate::url::Url::parse(url) else {
         return Err(format!("{url} is not an http, https or ftp URL"));
     };
-    let conn = hya_net::TlsCapableConnector::with_insecure(args.insecure)
+    let conn = pdl_net::TlsCapableConnector::with_insecure(args.insecure)
         .map_err(|e| format!("tls setup failed: {e}"))?;
     let (probe, url) = crate::download::probe_public(&conn, &u, args).await?;
     if probe.status >= 400 {
         return Err(format!(
             "the server answered {} for {url}",
-            hya_net::describe_status(probe.status)
+            pdl_net::describe_status(probe.status)
         ));
     }
     let total = probe.size;

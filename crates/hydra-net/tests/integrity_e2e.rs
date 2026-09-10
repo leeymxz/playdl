@@ -3,9 +3,9 @@
 //! Tests that corrupt chunks are localized, targeted refetches repair damaged
 //! spans, and persistent errors are properly caught and reported.
 
-use hya_net::manifest::{ChunkAlgo, ChunkList, ChunkVerifier, Manifest, ObjectMeta, Trust};
-use hya_net::origin::{byte_at, OriginSet};
-use hya_net::{fetch_range_retry, SparseSink, Target};
+use pdl_net::manifest::{ChunkAlgo, ChunkList, ChunkVerifier, Manifest, ObjectMeta, Trust};
+use pdl_net::origin::{byte_at, OriginSet};
+use pdl_net::{fetch_range_retry, SparseSink, Target};
 use std::sync::Arc;
 
 const FORMAT_VERSION: u32 = 1;

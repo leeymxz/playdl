@@ -6,14 +6,14 @@
 //! network latency, so optimizing it would be measuring the wrong thing.
 //!
 //! `chunked_baseline` below is a faithful transcription of the decoder as it is
-//! written in `lib.rs` at the time this harness was added â€” same `windows(2)`
+//! written in `lib.rs` at the time this harness was added â€?same `windows(2)`
 //! CRLF scan, same `drain` after every token. It exists so the "before" number
 //! in the comparison table is the shipped algorithm rather than a strawman, and
 //! it must not be edited when the real decoder is optimized.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use hya_net::digest::to_lower_hex;
-use hya_net::stream_digest::StreamDigest;
+use pdl_net::digest::to_lower_hex;
+use pdl_net::stream_digest::StreamDigest;
 use std::hint::black_box;
 
 const READ_BUF: usize = 64 * 1024;
@@ -95,11 +95,11 @@ fn chunked_baseline(body: &[u8], read_size: usize) -> u64 {
     }
 }
 
-/// The same state machine driven by `FrameBuf` â€” the shape `stream_chunked` now
+/// The same state machine driven by `FrameBuf` â€?the shape `stream_chunked` now
 /// uses. Kept beside `chunked_baseline` so before and after are measured in one
 /// process on one set of inputs, rather than compared across two runs.
 fn chunked_optimized(body: &[u8], read_size: usize) -> u64 {
-    use hya_net::framebuf::FrameBuf;
+    use pdl_net::framebuf::FrameBuf;
     let mut buf = FrameBuf::new();
     let mut state = St::Size;
     let mut written = 0u64;
@@ -245,7 +245,7 @@ fn bench_sink(c: &mut Criterion) {
     // filesystem, which is what the atomic counter change affects.
     g.bench_function("discarding", |b| {
         b.iter(|| {
-            let sink = hya_net::SparseSink::discarding();
+            let sink = pdl_net::SparseSink::discarding();
             let mut off = 0u64;
             while off < TOTAL {
                 sink.write_at(off, black_box(&block)).expect("discard sink");

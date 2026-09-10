@@ -1,0 +1,249 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  rpm-spec:
+    name: RPM Spec
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install rpmbuild
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
+      - name: Render the spec and build a source RPM
+        run: |
+          set -euo pipefail
+          # The release workflow ships whatever this produces to Copr, which
+          # rebuilds the SRPM from the imported spec with no defines of its own.
+          # Building one here catches a broken render, a stale placeholder or a
+          # malformed spec at PR time instead of at release time.
+          VERSION=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
+          RPM_TOP="$RUNNER_TEMP/rpmbuild"
+          mkdir -p "$RPM_TOP"/{SOURCES,SRPMS,SPECS,BUILD}
+          git archive --format=tar.gz --prefix="hydra-${VERSION}/" HEAD \
+            > "$RPM_TOP/SOURCES/hydra-${VERSION}.tar.gz"
+
+          scripts/render-rpm-spec.sh "" "$RPM_TOP/SPECS/hydra.spec"
+          grep -q "^%global _version ${VERSION}$" "$RPM_TOP/SPECS/hydra.spec"
+
+          rpmbuild -bs --define "_topdir $RPM_TOP" "$RPM_TOP/SPECS/hydra.spec"
+          ls "$RPM_TOP"/SRPMS/hydra-${VERSION}-*.src.rpm
+
+  fmt:
+    name: Code Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check code formatting
+        run: cargo fmt --all -- --check
+
+  clippy:
+    name: Clippy Linter
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies (ALSA, X11)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libasound2-dev libx11-dev libxrandr-dev \
+            libxcb1-dev libxkbcommon-dev
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Set up Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run clippy checks
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  test:
+    name: Test
+    needs: [fmt, clippy]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies (ALSA, X11)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libasound2-dev libx11-dev libxrandr-dev \
+            libxcb1-dev libxkbcommon-dev
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run debug tests
+        run: cargo test --all-targets --all-features
+
+      - name: Run release tests
+        run: cargo test --release --all-targets --all-features
+
+  ffi-abi:
+    name: FFI ABI Conformance
+    needs: [fmt, clippy]
+    # Three platforms, because the failures this job exists to catch are
+    # platform-specific by nature: a struct that packs differently, a symbol the
+    # linker cannot find, a system library the static archive needs and does not
+    # declare. A Linux-only run would find none of them.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      # fetch-depth: 0, and only in this job. The old-header check compiles
+      # every include/hydra.h this project has ever published against the
+      # library built here, and it finds them by tag. A shallow clone has no
+      # tags and the check would have nothing to run.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cbindgen
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cbindgen
+
+      # The committed header is a published ABI artifact. If it no longer
+      # matches the Rust definitions it was generated from, third parties are
+      # compiling against a description of a library that does not exist.
+      - name: Check include/hydra.h is up to date
+        if: runner.os != 'Windows'
+        run: scripts/gen-ffi-header.sh --check
+
+      - name: Run the FFI test suite
+        run: cargo test -p hya-ffi --all-targets
+
+      # The Windows runners ship MSVC but do not put cl.exe on PATH, so a C
+      # compiler has to be arranged for before anything can be compiled.
+      - name: Set up the MSVC environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      # The checks Rust tests structurally cannot perform: that a C compiler and
+      # a C++ compiler both accept the header, that all three sides agree on
+      # struct layout, that a second #include is harmless, and that every symbol
+      # the header promises is really in the archive.
+      #
+      # One script on all three platforms - it drives cl where cl is the
+      # toolchain. A second copy of it in PowerShell here would be a copy that
+      # nobody can run locally and that drifts from the real one.
+      - name: Build and run the C ABI smoke test
+        shell: bash
+        env:
+          MSYS_NO_PATHCONV: '1'
+          MSYS2_ARG_CONV_EXCL: '*'
+          MSYS2_ENV_CONV_EXCL: '*'
+          # No published header may be skipped silently. Without this a
+          # checkout that somehow has no tags would report a pass for a check
+          # that never ran.
+          HYDRA_REQUIRE_LEGACY_HEADERS: '1'
+        run: scripts/ffi-c-example.sh
+
+      # The same script again under the other Linux compiler. GCC and Clang
+      # disagree about which warnings exist and, historically, about how a
+      # struct with mixed field widths is padded - and the header is a
+      # published artifact that has to survive both. Only on Linux: macOS has
+      # one system compiler and Windows has MSVC, both already covered above.
+      - name: Build and run the C ABI smoke test with Clang
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          CC: clang
+          CXX: clang++
+          HYDRA_REQUIRE_LEGACY_HEADERS: '1'
+        run: scripts/ffi-c-example.sh
+
+      # And whether the change was ALLOWED. header-check above proves the header
+      # still matches the Rust; this proves the Rust did not move anything ABI 1
+      # froze. Last, because it also verifies that every symbol the baseline
+      # promises is really in the archive - and the archive is what the step
+      # above builds. The rules, and what to do when this fails, are in
+      # docs/ffi/ABI.md.
+      - name: Check the ABI 1 stability contract
+        shell: bash
+        run: scripts/ffi-abi-compat.sh
+
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    needs: [fmt, clippy]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies (ALSA, X11)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libasound2-dev libx11-dev libxrandr-dev \
+            libxcb1-dev libxkbcommon-dev
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools
+
+      - name: Set up Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      - name: Generate coverage report
+        run: |
+          cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info \
+            --ignore-filename-regex '(/examples/|/benches/)'
+
+      - name: Coverage summary
+        run: |
+          cargo llvm-cov report --summary-only \
+            --ignore-filename-regex '(/examples/|/benches/)'
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
+          fail_ci_if_error: false

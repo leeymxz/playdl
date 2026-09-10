@@ -10,14 +10,14 @@
 //! rest sit in silence. Nothing errors, so nothing the error path could see
 //! ever happens. Measured on `saimei.ftp.acc.umu.se` with `-x 8`: two
 //! connections delivered, six sat at 0 B/s for the whole stall timeout, all six
-//! flipped to `hung` at once, were reclaimed, re-requested, and starved again â€”
+//! flipped to `hung` at once, were reclaimed, re-requested, and starved again â€?
 //! a fresh handshake and a lost congestion window every round, and a transfer
 //! 2.2x SLOWER than a single connection against the same object.
 //!
 //! The transport has to read that silence as the refusal it is.
 
-use hya_core::{LimitReason, Scheduler, Source};
-use hya_net::{run_transfer_observed, Target, TlsCapableConnector};
+use pdl_core::{LimitReason, Scheduler, Source};
+use pdl_net::{run_transfer_observed, Target, TlsCapableConnector};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -37,7 +37,7 @@ fn byte_at(off: u64) -> u8 {
 }
 
 /// Serves ranges to [`ALLOWED`] requests at a time. Every further request is
-/// read in full and then left hanging â€” no status line, no bytes â€” until the
+/// read in full and then left hanging â€?no status line, no bytes â€?until the
 /// client gives up on it.
 async fn spawn_starving_origin(starved: Arc<AtomicUsize>, grants: Arc<AtomicUsize>) -> u16 {
     let l = TcpListener::bind("127.0.0.1:0").await.expect("bind");
@@ -75,7 +75,7 @@ async fn spawn_starving_origin(starved: Arc<AtomicUsize>, grants: Arc<AtomicUsiz
                     starved.fetch_add(1, Ordering::SeqCst);
                     // Silence. The client sends nothing further on a request it
                     // has made, so this read returns only when the client closes
-                    // the connection â€” which is the only way out of here.
+                    // the connection â€?which is the only way out of here.
                     let mut one = [0u8; 1];
                     let _ = s.read(&mut one).await;
                     return;
@@ -170,7 +170,7 @@ async fn silent_starvation_lowers_the_connection_count_like_a_refusal_does() {
     // The opening burst is unavoidable: no client can know the limit before it has
     // been felt. Everything after it is the client failing to learn. Without a
     // response to starvation this origin starved another six requests every stall
-    // timeout for the whole transfer â€” measured 49 on this fixture. Learning it
+    // timeout for the whole transfer â€?measured 49 on this fixture. Learning it
     // costs two rounds, because the cap halves rather than jumping: eight to four
     // starves six, four to two starves two more, and then nothing. Measured 8-10
     // across runs, the spread being a live connection re-requesting in the

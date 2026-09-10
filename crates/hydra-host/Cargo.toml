@@ -1,18 +1,15 @@
-# Copyright (C) 2026 Javad Rajabzadeh
-# SPDX-License-Identifier: GPL-3.0-or-later
-
 [package]
-name = "hya-host"
+name = "pdl-host"
 version.workspace = true
 edition = "2021"
 license = "GPL-3.0-or-later"
 repository.workspace = true
 homepage.workspace = true
-description = "Native-messaging host bridging browser extensions to the Hydra GUI"
+description = "Native-messaging host bridging browser extensions to the PlayDL GUI"
 publish = false
 
 [[bin]]
-name = "hydra-host"
+name = "playdl-host"
 path = "src/main.rs"
 
 [dependencies]

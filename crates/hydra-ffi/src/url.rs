@@ -90,7 +90,7 @@ impl Url {
         if !matches!(scheme.as_str(), "http" | "https" | "ftp") {
             return Err(format!(
                 "unsupported scheme {scheme:?} (supported: {})",
-                hya_net::scheme::supported().join(", ")
+                pdl_net::scheme::supported().join(", ")
             ));
         }
         let rest = rest.split('#').next().unwrap_or(rest);

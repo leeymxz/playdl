@@ -3,11 +3,11 @@
 //! `IntervalSet` is touched once per completed range, not once per byte, so it
 //! is not expected to be a bottleneck. It is measured anyway because the
 //! scheduler's coverage audit sums over it, and a resumed transfer with a
-//! fragmented `.part` file can build a set with thousands of entries â€” the case
+//! fragmented `.part` file can build a set with thousands of entries â€?the case
 //! where an O(n) insert becomes O(n^2) over the transfer.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use hya_core::intervals::{IntervalSet, Range};
+use pdl_core::intervals::{IntervalSet, Range};
 use std::hint::black_box;
 
 fn bench_insert(c: &mut Criterion) {

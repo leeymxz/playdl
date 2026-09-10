@@ -25,7 +25,7 @@
 //!
 //! With that model the correct repair count on a stationary transfer is zero.
 
-use hya_core::{Action, Scheduler, Source};
+use pdl_core::{Action, Scheduler, Source};
 
 /// Deterministic PRNG, so a run is reproducible.
 struct Rng(u64);
@@ -62,7 +62,7 @@ struct Flow {
     /// at equal rates: the share goes as roughly 1/RTT, and cwnd history makes
     /// the asymmetry outlive any single round trip. This is the term the
     /// existing simulator omits, and it is a property of the PATH, so a repair
-    /// cannot move it â€” handing a laggard's bytes to a fast flow does not make
+    /// cannot move it â€?handing a laggard's bytes to a fast flow does not make
     /// the laggard faster, it just costs one more setup.
     weight: f64,
 }
@@ -359,9 +359,9 @@ fn main() {
     // Everything above is a STATIONARY transfer, where the correct repair count is
     // zero and every repair is waste. That makes it the right test for a storm and
     // the wrong test for the mechanism: a scheduler that simply never repaired
-    // would score perfectly on it. So run the opposite scenario too â€” one
+    // would score perfectly on it. So run the opposite scenario too â€?one
     // connection's share of the bottleneck collapses to 5% at 30% of the way
-    // through â€” and check that repairs still fire and still help.
+    // through â€?and check that repairs still fire and still help.
     println!("\ncollapse arm: connection 0 drops to 5% of its share at 30% progress");
     println!(
         "{:>3}  {:>9}  {:>7}  {:>8}  {:>8}",

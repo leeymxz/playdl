@@ -9,7 +9,7 @@
 //!
 //! 1. waits a beat for the parent to finish exiting,
 //! 2. copies the new files over the installed ones (retrying while the old
-//!    executables are still locked â€” the retry loop is the "wait for exit"
+//!    executables are still locked â€?the retry loop is the "wait for exit"
 //!    on Windows, where a running exe cannot be replaced but can be renamed),
 //! 3. re-runs itself through the platform's authorisation prompt when the
 //!    install turns out to be root-owned (`--apply-only`, no relaunch: the
@@ -97,7 +97,7 @@ fn main() -> std::process::ExitCode {
         std::thread::sleep(std::time::Duration::from_millis(1200));
     }
 
-    let opts = hya_updater::ApplyOptions {
+    let opts = pdl_updater::ApplyOptions {
         version: args.app_version.clone(),
     };
     // An AppImage is replaced as one file; every other install is a
@@ -109,8 +109,8 @@ fn main() -> std::process::ExitCode {
         &args.src_dir,
         &args.install_dir,
     ) {
-        (Some(dest), Some(src), _, _) => hya_updater::replace_appimage(src, dest),
-        (_, _, Some(src), Some(dir)) => hya_updater::apply_with(src, dir, &opts),
+        (Some(dest), Some(src), _, _) => pdl_updater::replace_appimage(src, dest),
+        (_, _, Some(src), Some(dir)) => pdl_updater::apply_with(src, dir, &opts),
         _ => Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
             "need --src-dir with --install-dir, or --src-file with --appimage",
@@ -127,7 +127,7 @@ fn main() -> std::process::ExitCode {
             }
         }
         // Root owns the install (a tarball unpacked with sudo, an app copied
-        // by another admin). The files are still ours to replace â€” with the
+        // by another admin). The files are still ours to replace â€?with the
         // user's authorisation, which is what the elevated re-run asks for.
         Err(e) if !args.apply_only && e.kind() == std::io::ErrorKind::PermissionDenied => {
             log.line(&format!("update needs authorisation: {e}"));
@@ -157,7 +157,7 @@ fn main() -> std::process::ExitCode {
 /// app relaunched by the elevated process would run as root and write
 /// root-owned files into the user's config directory.
 fn elevate(args: &Args, log: &mut Log) -> std::io::Result<()> {
-    let Some(how) = hya_updater::elevation() else {
+    let Some(how) = pdl_updater::elevation() else {
         return Err(std::io::Error::other(
             "no authorisation helper on this system (osascript, pkexec)",
         ));
@@ -189,7 +189,7 @@ fn elevate(args: &Args, log: &mut Log) -> std::io::Result<()> {
         argv.push(OsStr::new(v));
     }
     log.line(&format!("asking for authorisation via {how:?}"));
-    hya_updater::run_elevated(&how, &argv)?;
+    pdl_updater::run_elevated(&how, &argv)?;
     log.line("elevated swap finished");
     Ok(())
 }
@@ -205,7 +205,7 @@ fn relaunch(args: &Args, log: &mut Log) {
     // `open` hands it to LaunchServices, which is what gives the process its
     // Dock icon, its product name and the TCC identity the user granted
     // Downloads access to.
-    if let Some(bundle) = hya_updater::app_bundle_root(exe) {
+    if let Some(bundle) = pdl_updater::app_bundle_root(exe) {
         let mut cmd = std::process::Command::new("/usr/bin/open");
         cmd.arg("-a").arg(&bundle);
         if !args.relaunch_args.is_empty() {
@@ -252,7 +252,7 @@ struct Log(Option<std::fs::File>);
 
 impl Log {
     fn open() -> Log {
-        let dir = hya_updater::staging_dir();
+        let dir = pdl_updater::staging_dir();
         let _ = std::fs::create_dir_all(&dir);
         Log(std::fs::OpenOptions::new()
             .create(true)

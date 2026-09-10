@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Javad Rajabzadeh
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Application state and update logic â€” every window shares this one `App`.
+//! Application state and update logic â€?every window shares this one `App`.
 
 use crate::engine::{self, Cmd, StartSpec};
 use crate::model::{
@@ -122,7 +122,7 @@ pub enum MenuAction {
     Shortcuts,
     /// Open the session log in the system's default viewer.
     Logs,
-    /// Help > Check for updates: a manual, user-visible version check â€”
+    /// Help > Check for updates: a manual, user-visible version check â€?
     /// unlike the silent startup check it also reports "up to date" and
     /// connection failures.
     CheckUpdates,
@@ -270,13 +270,13 @@ pub struct AddUrlState {
     /// right after `add_item` so a background start already sends it.
     pub capture_cookies: Option<String>,
     /// Filename the browser had already resolved (Content-Disposition et
-    /// al.) â€” better than what the URL path implies.
+    /// al.) â€?better than what the URL path implies.
     pub capture_name: Option<String>,
     /// Page the browser was on when it captured this file. A CDN with
     /// hotlink protection answers `403` without it.
     pub capture_referer: Option<String>,
     /// What the address turned out to be, when it is a manifest. A stream
-    /// has to be asked which rendition BEFORE it starts â€” there is no
+    /// has to be asked which rendition BEFORE it starts â€?there is no
     /// changing your mind halfway through a hundred segments.
     pub stream: Option<crate::engine::StreamProbe>,
     /// The address `stream` describes, so an edited address invalidates it.
@@ -308,7 +308,7 @@ pub struct AddUrlState {
 /// there are more than it shows. Kept as a function of what the panel DRAWS
 /// rather than inlined at the call site because the two have to agree and
 /// nothing at run time notices when they do not: the window simply opens too
-/// short and the OK button is below the bottom edge â€” which is how the stream
+/// short and the OK button is below the bottom edge â€?which is how the stream
 /// panel shipped a probed manifest whose quality picker could not be reached.
 ///
 /// `MAX_ROWS` is the same cap `windows::add_url` draws to.
@@ -429,7 +429,7 @@ pub struct ProgState {
 
 /// A virus scan over one finished file: what the scanner has printed so far,
 /// and the verdict once it exits. Lives beside the download rather than in
-/// it â€” a scan belongs to this session, not to the persisted item.
+/// it â€?a scan belongs to this session, not to the persisted item.
 #[derive(Debug, Default)]
 pub struct ScanState {
     /// Console output, oldest first (see `scan::MAX_LINES` for the cap).
@@ -545,7 +545,7 @@ pub enum ZipPeek {
     /// The tail is being fetched.
     #[default]
     Loading,
-    Listed(Vec<hya_net::zipdir::Entry>),
+    Listed(Vec<pdl_net::zipdir::Entry>),
     /// A translated sentence.
     Failed(String),
 }
@@ -650,7 +650,7 @@ pub struct BatchState {
     /// Column the table is ordered by and whether ascending; `None` keeps
     /// the pasted order.
     pub sort: Option<(BatchSortKey, bool)>,
-    /// Drop links that resolve to web pages (`.html`, `.php`, â€¦): what a
+    /// Drop links that resolve to web pages (`.html`, `.php`, â€?: what a
     /// page-wide "download all links" mostly turns up.
     pub hide_html: bool,
     /// Show each distinct URL once, however often it was pasted.
@@ -675,7 +675,7 @@ impl Default for BatchState {
             sort: None,
             hide_html: false,
             // A duplicate never adds a second download, so hiding it is the
-            // sensible default â€” the same one  ships with.
+            // sensible default â€?the same one  ships with.
             hide_dups: true,
         }
     }
@@ -695,7 +695,7 @@ pub enum BatchSortKey {
 /// probe where it has answered, destination from the Save To choice.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BatchRow {
-    /// Index into `BatchState::checks` â€” the row's identity across filtering
+    /// Index into `BatchState::checks` â€?the row's identity across filtering
     /// and sorting, so a checkbox toggles the link it shows.
     pub idx: usize,
     pub url: String,
@@ -728,7 +728,7 @@ pub fn batch_rows(
             }
             // The probe's answer where there is one: a redirector link
             // (`href.li/?<url>`) has no filename of its own and would
-            // otherwise list â€” and save â€” as `index.html`.
+            // otherwise list â€?and save â€?as `index.html`.
             let name = st
                 .names
                 .get(url)
@@ -756,7 +756,7 @@ pub fn batch_rows(
         .collect();
     if let Some((key, asc)) = st.sort {
         // Stable, so ties keep the pasted order. Unknown sizes stay at the
-        // bottom whichever way the column is sorted â€” "biggest first" must
+        // bottom whichever way the column is sorted â€?"biggest first" must
         // not put the files nobody has measured yet on top.
         rows.sort_by(|a, b| {
             let flip = |o: std::cmp::Ordering| if asc { o } else { o.reverse() };
@@ -868,7 +868,7 @@ pub enum Message {
     NativeMenu(String),
     /// One second of the "when done" power-action countdown. Subscribed only
     /// while that countdown is on screen, and at a fixed 1 s whatever power
-    /// save does to the main tick â€” the dialog shows the number.
+    /// save does to the main tick â€?the dialog shows the number.
     PowerTick,
     /// Run the pending power action without waiting the countdown out.
     PowerNow,
@@ -885,7 +885,7 @@ pub enum Message {
     MenuHover(MenuBarKind),
     MenuClose,
     /// Hovering (or clicking) a dropdown entry: `Some(i)` opens entry `i`'s
-    /// flyout, `None` closes it â€” macOS submenu behaviour.
+    /// flyout, `None` closes it â€?macOS submenu behaviour.
     SubmenuHover(Option<usize>),
     Menu(MenuAction),
     TreeSelect(TreeSel),
@@ -907,7 +907,7 @@ pub enum Message {
     /// Drives the virtual row window in `ui::table`.
     TableScrolled(f32, f32, f32),
     Mods(iced::keyboard::Modifiers),
-    /// A key press no widget consumed, with the window it was aimed at â€”
+    /// A key press no widget consumed, with the window it was aimed at â€?
     /// `close_window` has to know which one to shut.
     RawKey(iced::keyboard::Key, iced::keyboard::Modifiers, window::Id),
     SelectAll,
@@ -954,7 +954,7 @@ pub enum Message {
     FiCancel,
     /// Preview: list the archive's contents without downloading it.
     FiPreview,
-    ZipPeeked(DlId, Result<Vec<hya_net::zipdir::Entry>, String>),
+    ZipPeeked(DlId, Result<Vec<pdl_net::zipdir::Entry>, String>),
     // progress dialog
     ProgTabSet(DlId, ProgTab),
     ProgToggleDetails(DlId),
@@ -1218,7 +1218,7 @@ pub struct App {
     /// Next capture-dialog window (File Info / Confirm / Batch) must be
     /// forced above the browser: at capture time this app is usually a
     /// background tray process, and a normal-level window opens behind the
-    /// browser unfocused â€” the dialog floats on top.
+    /// browser unfocused â€?the dialog floats on top.
     pub capture_raise: bool,
     /// Open split-button dropdown on the toolbar: Some(true)=Start queue,
     /// Some(false)=Stop queue.
@@ -1227,16 +1227,16 @@ pub struct App {
     /// touched. `None` while a drag that started on empty space has not
     /// reached a row yet.
     pub list_press: Option<DlId>,
-    /// A left button is down somewhere in the download list â€” on a row or on
+    /// A left button is down somewhere in the download list â€?on a row or on
     /// the empty ruled area below it. Drag-selection only extends while this
     /// is set, so plain hovering never moves the selection.
     pub list_drag: bool,
     /// Rubber-band rectangle of the drag in progress, as (press point,
-    /// current point) in window coordinates â€” the translucent box the sweep
+    /// current point) in window coordinates â€?the translucent box the sweep
     /// paints over the list.
     pub band: Option<(Point, Point)>,
     /// The drag started on the empty ruled area, which is always *below* the
-    /// last item â€” so the band's fixed edge is the end of the list, not a row
+    /// last item â€?so the band's fixed edge is the end of the list, not a row
     /// the sweep happened to touch. Keeping it positional means a fast sweep
     /// whose motion events coalesce still selects every row it passed.
     pub list_drag_from_empty: bool,
@@ -1258,7 +1258,7 @@ pub struct App {
     /// has to shift its column hairlines by hand.
     pub table_scroll_x: f32,
     pub table_vh: f32,
-    /// Pointer position, kept without a message per motion event â€” see
+    /// Pointer position, kept without a message per motion event â€?see
     /// [`crate::ui::probe`]. Read through [`App::cursor_now`].
     pub cursor_cell: std::sync::Arc<crate::ui::probe::CursorCell>,
     /// Live results shown in the Permissions window.
@@ -1290,7 +1290,7 @@ pub struct PowerPrompt {
     /// Seconds left. Counts down to zero, then the action runs.
     pub secs: u8,
     /// Quit Hydra when the countdown ends even if the action leaves the
-    /// session up â€” a queue's "Exit Hydra when done", which is set
+    /// session up â€?a queue's "Exit Hydra when done", which is set
     /// independently of the power action and outlives cancelling it.
     pub exit_after: bool,
 }
@@ -1342,7 +1342,7 @@ impl App {
 
     /// Folder a download filed under `cat` saves into, honouring Options >
     /// Save to > "Do not create category folders". `None` means the named
-    /// category is gone â€” the caller keeps whatever folder it already had.
+    /// category is gone â€?the caller keeps whatever folder it already had.
     pub fn cat_dir(&self, cat: Option<&str>) -> Option<String> {
         crate::model::category_dir(
             &self.cfg.categories,
@@ -1397,7 +1397,7 @@ impl App {
     /// Re-tick the menu bar for a setting it displays, without rebuilding it.
     ///
     /// muda ticks a check item on click, whatever the app then does with the
-    /// activation, so the menu has to be set back to what the settings say â€”
+    /// activation, so the menu has to be set back to what the settings say â€?
     /// see `macos_menu::sync`. Only the language and the queue submenus need
     /// a rebuild; a toggle does not, and rebuilding for one used to leave
     /// View > Font showing two sizes ticked at once.
@@ -1444,7 +1444,7 @@ impl App {
     /// Not every window is the main window's: a progress box and a Download
     /// File Info dialog belong to their download, are opened by browser
     /// capture with no main window at all, and have to keep working after
-    /// the main window closes to the tray â€” an owned window would be hidden
+    /// the main window closes to the tray â€?an owned window would be hidden
     /// with its owner. Those, the main window itself, and any dialog opened
     /// while the main window is closed stay top-level.
     fn attach_to_main(&self, id: window::Id) -> Task<Message> {
@@ -1481,7 +1481,7 @@ impl App {
     }
 
     /// Re-fits a dialog already open at `kind` to whatever [`Self::window_size`]
-    /// now answers for it â€” a row that only shows up in some states (an
+    /// now answers for it â€?a row that only shows up in some states (an
     /// error, a credentials row) otherwise has nowhere to go until the
     /// dialog is closed and reopened.
     fn resize_open(&self, kind: WinKind) -> Task<Message> {
@@ -1530,7 +1530,7 @@ impl App {
         let (key, asc) = self.sort;
         // Name and Status build a key per item instead of comparing on the
         // fly: `to_lowercase` and `status_text` each allocate, and this runs
-        // on every rebuild â€” two allocations per *comparison* put O(n log n)
+        // on every rebuild â€?two allocations per *comparison* put O(n log n)
         // of them on the pointer's event rate during a drag.
         match key {
             SortKey::Name => sort_keyed(&mut v, asc, |d| d.file_name.to_lowercase()),
@@ -1563,7 +1563,7 @@ impl App {
     }
 
     /// Mark the download list for persistence. The actual write happens in
-    /// [`Self::flush_saves`] â€” `model::save_state` rewrites the whole redb
+    /// [`Self::flush_saves`] â€?`model::save_state` rewrites the whole redb
     /// table, so per-mutation writes made a 200-link batch add O(nÂ²) and put
     /// a full serialise-and-commit on the UI thread every second.
     fn save_state(&mut self) {
@@ -1594,7 +1594,7 @@ impl App {
     /// Attach what the browser knew that `add_item` could not: session
     /// cookies, the page the file was linked from, and the already-resolved
     /// filename. Must run before any start so the first request carries the
-    /// `Cookie` and `Referer` headers â€” a hotlink-protected CDN answers
+    /// `Cookie` and `Referer` headers â€?a hotlink-protected CDN answers
     /// `403` without the referer, whatever the cookies say. Renaming re-runs
     /// categorization because the URL-derived name may have had no extension
     /// at all.
@@ -1609,7 +1609,7 @@ impl App {
             return;
         }
         // Resolved before the item is borrowed mutably, and through
-        // `cat_dir` â€” the one accessor that honours Options > Save to > "Do
+        // `cat_dir` â€?the one accessor that honours Options > Save to > "Do
         // not create category folders". Reading the category's own `dir`
         // here ignored that setting, so `add_item` filed the download in the
         // single General folder the user asked for and this overwrote it
@@ -1688,7 +1688,7 @@ impl App {
         let (w, h) = match kind {
             WinKind::Main => unreachable!("handled above"),
             // Base layout plus the credentials row when "Use authorization"
-            // is on, plus the error/blocked-site line when one is showing â€”
+            // is on, plus the error/blocked-site line when one is showing â€?
             // both add a real row that the fixed base height has no room
             // for, so the message otherwise runs past the window's bottom.
             WinKind::AddUrl => {
@@ -1709,7 +1709,7 @@ impl App {
                 // the quality and container pickers, and for a live stream
                 // the record-minutes row. None of it was accounted for, so a
                 // probed manifest pushed its own pickers past the bottom of
-                // the window â€” the quality list the user is being asked to
+                // the window â€?the quality list the user is being asked to
                 // choose from was exactly the part that fell off.
                 h += match &self.add_url.stream {
                     _ if self.add_url.stream_probing => 28.0,
@@ -1759,7 +1759,7 @@ impl App {
         (w * s, h * s)
     }
 
-    /// Open a download's progress box as part of *starting* it â€” the only
+    /// Open a download's progress box as part of *starting* it â€?the only
     /// case "Start download progress dialog minimized" covers. Explicitly
     /// asking to see a transfer (double-click, File Properties) still opens
     /// the box in front.
@@ -1779,7 +1779,7 @@ impl App {
         if let Some(id) = self.win_of(kind) {
             return window::gain_focus(id);
         }
-        // One File Info dialog at a time â€” see close_file_info_windows for
+        // One File Info dialog at a time â€?see close_file_info_windows for
         // why a second one strands the first. The download behind the
         // dismissed dialog is already in the list (and may be pulling bytes
         // in the background), so nothing is lost by closing its window.
@@ -1818,7 +1818,7 @@ impl App {
             ..Default::default()
         };
         // Linux: the app id is how the desktop matches a window back to its
-        // .desktop file â€” GNOME/KDE read the Wayland app_id (and the X11
+        // .desktop file â€?GNOME/KDE read the Wayland app_id (and the X11
         // WM_CLASS) and look up Icon= there for the dock, the alt-tab
         // switcher and the process list. winit leaves it empty by default,
         // and Wayland has no per-window icon protocol, so the `icon:` field
@@ -1864,7 +1864,7 @@ impl App {
 
     /// Re-assert "Hide from taskbar" on one window. Windows carries the flag
     /// at creation and macOS hides the whole app through the Dock policy, so
-    /// this only does anything on Linux â€” where it is an X11 window-manager
+    /// this only does anything on Linux â€?where it is an X11 window-manager
     /// hint (Wayland has no equivalent; see `linux_taskbar`).
     #[allow(unused_variables)]
     fn skip_taskbar_task(&self, id: window::Id) -> Task<Message> {
@@ -1889,13 +1889,13 @@ impl App {
     }
 
     /// Close every Download File Info window, whichever download each one
-    /// was opened for â€” and any Zip preview, which is a File Info dialog's
+    /// was opened for â€?and any Zip preview, which is a File Info dialog's
     /// sub-dialog and has nothing to show once its dialog is gone.
     ///
     /// The dialog's state is a single slot (`self.file_info`) while the
     /// window identity carries a `DlId`, so two of them can never be
     /// consistent: both windows render the newer download, and the older
-    /// one's buttons act on it and close the *other* window â€” after which
+    /// one's buttons act on it and close the *other* window â€?after which
     /// they close nothing at all and the dialog is stuck on screen. The
     /// dialog is therefore opened one at a time, and its buttons dismiss
     /// whatever File Info window exists rather than one specific id.
@@ -1957,7 +1957,7 @@ impl App {
     /// Charge freshly arrived bytes against the current window.
     ///
     /// The caller passes the delta rather than a running total because
-    /// `downloaded` can move *backwards* â€” a repair shrinks the held set â€”
+    /// `downloaded` can move *backwards* â€?a repair shrinks the held set â€?
     /// and a repair must not refund bytes that crossed the wire.
     fn quota_account(&mut self, bytes: u64) {
         if bytes == 0 || quota_cap(&self.cfg.settings).is_none() {
@@ -2027,7 +2027,7 @@ impl App {
     /// start again immediately.
     fn quota_release(&mut self) -> Task<Message> {
         let released = quota_release_targets(&mut self.state.downloads);
-        // The common case, on every tick: nothing was parked, nothing to do â€”
+        // The common case, on every tick: nothing was parked, nothing to do â€?
         // and in particular nothing to mark dirty, since a save rewrites the
         // whole download table.
         if released.is_empty() {
@@ -2127,9 +2127,9 @@ impl App {
             };
         }
         // A resume is only a resume while the staging file still matches the
-        // spans we recorded for it. Persisted spans are sanitized first â€”
+        // spans we recorded for it. Persisted spans are sanitized first â€?
         // `mark_done` must never be handed overlapping or inverted ranges
-        // from a stale state file â€” and the `.part` is checked by length AND
+        // from a stale state file â€?and the `.part` is checked by length AND
         // allocation, because `SparseSink::create` calls `set_len(size)`
         // before the first byte: a file that received 1 byte and a file that
         // received everything both report `size`, so length alone would let
@@ -2165,7 +2165,7 @@ impl App {
             adaptive,
             remote_time,
             // A Metalink item carries its mirrors, its attested size and its
-            // digests into every start â€” including a resume after a restart,
+            // digests into every start â€?including a resume after a restart,
             // which is why they are persisted with the item rather than held
             // only in the dialog that created it.
             mirrors: d
@@ -2281,7 +2281,7 @@ impl App {
         self.remove_item_opts(id, false);
     }
 
-    /// The "Download complete" dialog for `dl` is going away â€” by its Close
+    /// The "Download complete" dialog for `dl` is going away â€?by its Close
     /// button, by Open, or by the window's own close button. When Options >
     /// Downloads asks for it, this is the moment the finished row leaves the
     /// list: it outlived the transfer only so the dialog had something to
@@ -2311,7 +2311,7 @@ impl App {
     }
 
     /// Create a new list entry for a URL; returns its id. Every download
-    /// belongs to a queue (the first one â€” "Main download queue" â€” unless the
+    /// belongs to a queue (the first one â€?"Main download queue" â€?unless the
     /// caller names another), so Start/Stop Queue always govern the whole
     /// list.
     pub fn add_item(
@@ -2381,7 +2381,7 @@ impl App {
     ///
     /// One item per file entry, because one download fetches one object and a
     /// document may describe several. Each carries the whole mirror list, the
-    /// document's size and digest, and its `<pieces>` â€” which is the difference
+    /// document's size and digest, and its `<pieces>` â€?which is the difference
     /// between a list of URLs and a mirror list: the size admits every agreeing
     /// mirror without the `ETag` match independent operators cannot produce, the
     /// surplus mirrors become a reserve bench, and a corrupt chunk costs one
@@ -2422,8 +2422,8 @@ impl App {
                 d.category = cat;
                 d.save_dir = dir;
                 d.size = f.info.size;
-                // Every mirror in the list honours ranges â€” a source that does
-                // not is dropped at probe time â€” and the document's size is
+                // Every mirror in the list honours ranges â€?a source that does
+                // not is dropped at probe time â€?and the document's size is
                 // what makes resuming across them safe.
                 d.resume = Some(true);
                 d.metalink = Some(f.info.clone());
@@ -2468,7 +2468,7 @@ impl App {
     // -------------------------------------------------------- virus scan
 
     /// Hand a finished file to the configured scanner. `true` when a scan
-    /// really started â€” the caller then defers the completion tail
+    /// really started â€?the caller then defers the completion tail
     /// ([`Self::finish_completion`]) until the verdict arrives.
     fn start_virus_scan(&mut self, id: DlId) -> bool {
         let program = self.cfg.settings.virus_scanner.trim().to_string();
@@ -2538,7 +2538,7 @@ impl App {
     ///
     /// Nothing happens to the machine here: the dialog goes up, ticks down
     /// from [`POWER_COUNTDOWN_SECS`], and only then calls the OS. State is
-    /// flushed up front all the same â€” the countdown ends in a call that can
+    /// flushed up front all the same â€?the countdown ends in a call that can
     /// stop the process where it stands.
     ///
     /// `exit_after` quits Hydra once the countdown resolves even if the
@@ -2588,7 +2588,7 @@ impl App {
         }
     }
 
-    /// Call the pending power action off â€” the Cancel button, or the OS
+    /// Call the pending power action off â€?the Cancel button, or the OS
     /// close button on the countdown window. "Exit Hydra when done" is a
     /// separate instruction and still stands.
     fn cancel_power_action(&mut self) -> Task<Message> {
@@ -2696,7 +2696,7 @@ impl App {
             .map(|id| self.start_download(id, false))
             .collect();
         // A running queue with nothing active and nothing queued is finished:
-        // apply its "when done" actions â€” but only when this run actually
+        // apply its "when done" actions â€?but only when this run actually
         // processed something. A queue started with nothing to do (or whose
         // scheduled start found no members) must not play the stop sound or
         // fire `exit_when_done` on the very tick it began.
@@ -2842,7 +2842,7 @@ impl App {
     // -------------------------------------------------------------- engine
 
     /// Adopt what a probe learned about `id`: its size, and the name the
-    /// object actually landed under â€” a `Content-Disposition`, or the last
+    /// object actually landed under â€?a `Content-Disposition`, or the last
     /// segment of a URL the engine had to resolve redirects to reach.
     ///
     /// Shared by the two places a probe can answer, because both must produce
@@ -2852,7 +2852,7 @@ impl App {
     fn adopt_probed(&mut self, id: DlId, name: Option<String>, size: Option<u64>) -> Task<Message> {
         let mut adopted = false;
         if let Some(d) = self.item_mut(id) {
-            // A probe answers once, so its size is adopted once â€” but a
+            // A probe answers once, so its size is adopted once â€?but a
             // stream has no probe. Its size is a running projection from the
             // segments that have landed, and it gets better as they do, so
             // for those the newer number always wins. Without this the bar
@@ -2921,7 +2921,7 @@ impl App {
                 if let Some(d) = self.item_mut(id) {
                     d.resume = Some(ranges);
                     // The state stays Connecting: the probe answered, but no
-                    // byte has arrived â€” the first Progress event promotes to
+                    // byte has arrived â€?the first Progress event promotes to
                     // Receiving. (Jumping early made the Status column show
                     // "0.00%" while the dialog still said Connecting.)
                 }
@@ -2979,7 +2979,7 @@ impl App {
             engine::Event::Finished { id, elapsed, size } => {
                 crate::log::log(&format!("#{id} complete: {size} bytes in {elapsed:.1}s"));
                 // A delete was pending but the transfer won the race and
-                // finished: honour the delete anyway â€” the row must not
+                // finished: honour the delete anyway â€?the row must not
                 // reappear as Complete after the user removed it.
                 if self.pending_delete.iter().any(|(x, _)| *x == id) {
                     self.pending_delete.retain(|(x, _)| *x != id);
@@ -3240,7 +3240,7 @@ impl App {
                     ]);
                 }
                 // A progress box asked to start minimized goes down instead
-                // of being focused â€” focusing it would restore it, which is
+                // of being focused â€?focusing it would restore it, which is
                 // what made a manually started download pop up in front.
                 let reveal = if self.minimize_on_open.remove(&id) {
                     window::minimize(id, true)
@@ -3267,7 +3267,7 @@ impl App {
                             // Hydra lives on in the system tray; Exit is in
                             // the tray menu (and the app menu on macOS).
                             // Without a tray there would be no way back to
-                            // the app, so closing quits instead â€” and so it
+                            // the app, so closing quits instead â€?and so it
                             // does when Options > General turns close-to-tray
                             // off, which asks for a plain quit.
                             self.main_id = None;
@@ -3309,7 +3309,7 @@ impl App {
                     Some(WinKind::Update) => {
                         // OS close button is Cancel: stop an in-flight
                         // download and forget the offer (unless the finisher
-                        // is already live â€” then the exit is imminent).
+                        // is already live â€?then the exit is imminent).
                         if self.updater.phase != UpdatePhase::Restarting {
                             if let Some(c) = &self.updater.cancel {
                                 c.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -3443,7 +3443,7 @@ impl App {
                 }
             }
             Message::SystemTheme(mode) => {
-                // `Mode::None` is "the platform did not say" â€” iced answers
+                // `Mode::None` is "the platform did not say" â€?iced answers
                 // it until a window exists, and it must not overwrite the
                 // appearance read at startup.
                 match mode {
@@ -3626,7 +3626,7 @@ impl App {
             }
             Message::RawKey(key, mods, win) => {
                 // Escape backs out of an inline rename, leaving the queue
-                // under its old name â€” the draft is only committed on Enter.
+                // under its old name â€?the draft is only committed on Enter.
                 if key == iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape)
                     && self.renaming_queue.is_some()
                 {
@@ -4364,7 +4364,7 @@ impl App {
                     // "Remember this folder" writes where the folder is
                     // actually read from: the named category normally, and
                     // the General one while category folders are switched
-                    // off â€” otherwise the tick would silently do nothing.
+                    // off â€?otherwise the tick would silently do nothing.
                     let target = if self.cfg.settings.no_category_dirs {
                         self.cfg.categories.first().map(|c| c.name.clone())
                     } else {
@@ -4385,7 +4385,7 @@ impl App {
                     .unwrap_or(false)
                     && engine::parse_url(fi.url.trim()).is_ok();
                 if url_changed {
-                    // Mirror switch: keep the held byte spans â€” the engine
+                    // Mirror switch: keep the held byte spans â€?the engine
                     // verifies the new source reports the same size and
                     // continues where mirror A stopped.
                     crate::log::info(&format!("#{} mirror -> {}", fi.dl, fi.url.trim()));
@@ -4477,7 +4477,7 @@ impl App {
                 let close = self.close_file_info_windows();
                 if fi.is_new {
                     // The dialog was aborted: the auto-started item goes away
-                    // with its temp data on cancel â€” and with the finished
+                    // with its temp data on cancel â€?and with the finished
                     // file too when the background transfer beat the user to
                     // Cancel. A small file that landed while the dialog was
                     // open used to stay on disk under the server's name, and
@@ -4584,7 +4584,7 @@ impl App {
             Message::ProgScanSkip(id) => {
                 // Instant, not "ask the scanner to stop and wait": the file
                 // is downloaded, the user said move on. The killed process
-                // reports nothing back â€” its Done is never sent.
+                // reports nothing back â€?its Done is never sent.
                 crate::scan::skip(id);
                 self.scans.remove(&id);
                 if let Some(d) = self.item_mut(id) {
@@ -4757,7 +4757,7 @@ impl App {
                 self.save_config();
                 // Re-assert Dock policy for the new setting. Windows are
                 // still open here (Options itself), so this stays Regular;
-                // the actual hide happens when the last window closes â€”
+                // the actual hide happens when the last window closes â€?
                 // Accessory apps get no menu bar, so hiding the Dock while
                 // a window is up would strip every Hydra menu.
                 #[cfg(target_os = "macos")]
@@ -5208,7 +5208,7 @@ impl App {
                         );
                         self.batch.metalinks.insert(url, doc);
                     }
-                    // Not a mirror list after all â€” a `.meta4` that 404s, or a
+                    // Not a mirror list after all â€?a `.meta4` that 404s, or a
                     // document this build cannot use. Fill the row in from the
                     // URL alone rather than re-probing: `BatchProbed` routes a
                     // metalink `Content-Type` straight back here, so a document
@@ -5280,7 +5280,7 @@ impl App {
             }
             Message::BatchBrowseDir => {
                 // Synchronous picker on purpose: AppKit dialogs must run on
-                // the main thread â€” the async variant on a worker hangs.
+                // the main thread â€?the async variant on a worker hangs.
                 if let Some(p) = rfd::FileDialog::new().pick_folder() {
                     self.batch.dir = p.to_string_lossy().into_owned();
                     self.batch.to_dir = true;
@@ -5581,8 +5581,8 @@ impl App {
     }
 
     /// May this new download start on its own behind the File Info dialog?
-    /// Only for a file type still listed under Options > File types â€” a type
-    /// the user took out of that list waits for Start Download â€” and only
+    /// Only for a file type still listed under Options > File types â€?a type
+    /// the user took out of that list waits for Start Download â€?and only
     /// for a host that isn't on the "don't start downloading automatically"
     /// site list.
     fn auto_start_type(&self, id: DlId) -> bool {
@@ -5601,8 +5601,8 @@ impl App {
     /// Without either, nothing would answer what this file is called or how
     /// big it is: the fields would keep whatever the URL implied until the
     /// user pressed Start. That is wrong for any link whose name is not in
-    /// its own path â€” a redirector (`href.li/?<url>`) reads as `index.html`
-    /// â€” so ask the network the question the transfer would have asked.
+    /// its own path â€?a redirector (`href.li/?<url>`) reads as `index.html`
+    /// â€?so ask the network the question the transfer would have asked.
     fn file_info_prefetch(&mut self, id: DlId) -> Task<Message> {
         if self.cfg.settings.bg_download && self.auto_start_type(id) {
             return self.start_download(id, false);
@@ -5691,7 +5691,7 @@ impl App {
                 self.batch.category = "General".into();
                 let open = self.open_window(WinKind::Batch);
                 // Synchronous picker on purpose: AppKit dialogs must run on
-                // the main thread â€” the async variant on a worker hangs.
+                // the main thread â€?the async variant on a worker hangs.
                 let text = rfd::FileDialog::new()
                     .add_filter("Text", &["txt", "text", "lst"])
                     .pick_file()
@@ -6225,7 +6225,7 @@ impl App {
 }
 
 /// Default main-window size: scaled from the primary display's logical
-/// resolution at the reference ratio (1009x606 on a 1512x982 screen â€” i.e.
+/// resolution at the reference ratio (1009x606 on a 1512x982 screen â€?i.e.
 /// two thirds of the width, ~62% of the height), clamped to the layout's
 /// 900x600 floor. Falls back to 1009x606 when the display cannot be queried.
 /// Stable sort on a precomputed key, applied in place.
@@ -6243,7 +6243,7 @@ fn sort_keyed<'a, K: Ord>(v: &mut [&'a DownloadItem], asc: bool, key: impl Fn(&D
 
 /// Shuts down, logs off or sleeps the machine for a "when done" action.
 /// Errors (no permission, an unsupported desktop session) only get a log
-/// line â€” by the time this runs, the queue or download it was guarding is
+/// line â€?by the time this runs, the queue or download it was guarding is
 /// already done.
 fn run_power_action(action: PowerAction) {
     let result = match action {
@@ -6313,7 +6313,7 @@ pub fn type_listed(ext: &str, auto_types: &str) -> bool {
 /// Auto-start policy for the "Download File Info" dialog. A type the user
 /// removed from Options > File types must not pull bytes on its own, so only
 /// a listed extension qualifies. A name that carries no extension at all
-/// cannot be judged by the list and stays allowed â€” the list filters types,
+/// cannot be judged by the list and stays allowed â€?the list filters types,
 /// it is not a whitelist of links.
 pub fn auto_start_type(file_name: &str, url: &str, auto_types: &str) -> bool {
     let ext = file_name
@@ -6333,7 +6333,7 @@ pub fn auto_start_type(file_name: &str, url: &str, auto_types: &str) -> bool {
 /// Does this URL's host match an entry in the Options > File types
 /// "Don't start downloading automatically from the following sites" list?
 /// Entries are separated by whitespace or commas; a host matches a pattern
-/// when it equals it or is one of its subdomains â€” the optional `*.`
+/// when it equals it or is one of its subdomains â€?the optional `*.`
 /// prefix some entries carry is cosmetic, mirroring the browser
 /// extensions' `siteSkipped`.
 pub fn site_blocked(url: &str, dont_start_sites: &str) -> bool {
@@ -6378,7 +6378,7 @@ pub fn find_login<'a>(url: &str, logins: &'a [SiteLogin]) -> Option<&'a SiteLogi
 }
 
 /// Times a click against the one before it, for rows that cannot use
-/// `mouse_area::on_double_click` â€” a `button` captures the mouse event
+/// `mouse_area::on_double_click` â€?a `button` captures the mouse event
 /// before an enclosing area is asked, so the area's own detection never
 /// runs. Two clicks on the same `name` within 400ms (the window the
 /// download table already uses) read as a double; a click on a different
@@ -6402,7 +6402,7 @@ pub fn double_click(last: &mut Option<(String, Instant)>, name: Option<&str>) ->
 }
 
 /// Directory comparison for collision checks: `/a/b` and `/a/b/` (or a `..`
-/// variant) are the same place on disk and must compare equal â€” a raw string
+/// variant) are the same place on disk and must compare equal â€?a raw string
 /// comparison let two spellings of one directory collide silently.
 /// Existing directories canonicalize (resolving symlinks and case); paths
 /// not on disk yet fall back to a structural normalisation.
@@ -6427,7 +6427,7 @@ pub fn normalize_dir(p: &str) -> std::path::PathBuf {
 /// May a probe's name replace the one the item carries?
 ///
 /// The byte counts alone cannot answer this. A probe belongs to the transfer
-/// that issued it, so its answer arrives while `downloaded` is still zero â€”
+/// that issued it, so its answer arrives while `downloaded` is still zero â€?
 /// which is to say AFTER `Start Download` wrote the name the user typed into
 /// the File Info dialog. Reading "no bytes yet" as "nobody has named this
 /// file" therefore handed every rename straight back to the server, and did
@@ -6445,7 +6445,7 @@ fn may_adopt_name(d: &DownloadItem) -> bool {
 /// while choosing options"), and a small file lands before the person has
 /// finished typing. The completion used to close the dialog and drop
 /// everything in it: the name they had just written, the folder they had just
-/// picked. Measured on a 2.6 MB archive over a fast link â€” it finished in
+/// picked. Measured on a 2.6 MB archive over a fast link â€?it finished in
 /// about a second, under the provisional `_1` name the duplicate prompt had
 /// given it, while a Persian suffix was still being typed into the name box.
 ///
@@ -6495,8 +6495,8 @@ fn adopt_dialog_edits(
 /// `is_file` rather than `exists`, because the dialog's answer is "Open
 /// existing file": with Options > Save to > "Do not create category folders"
 /// on, the one download folder is also where the category directories sit,
-/// and a capture named after one of them â€” the extension sends the page
-/// title, which carries no extension â€” matched a directory and offered to
+/// and a capture named after one of them â€?the extension sends the page
+/// title, which carries no extension â€?matched a directory and offered to
 /// open it as though it were the file.
 fn collision_file(dir: &str, name: &str, named: bool) -> Option<String> {
     if !named {
@@ -6621,7 +6621,7 @@ pub fn sanitize_file_name(raw: &str) -> String {
     // page-title capture from becoming an unreadable line of text. The byte
     // cap is what the filesystem actually enforces: ext4, APFS and exFAT stop
     // at 255 bytes, and 120 characters of Hangul, Persian or Chinese is 360
-    // of them â€” a cap counted only in characters passes every Latin test and
+    // of them â€?a cap counted only in characters passes every Latin test and
     // fails the write with ENAMETOOLONG on exactly the names that need it.
     // The margin under 255 is for the extension callers append afterwards.
     const MAX_BYTES: usize = 250;
@@ -6656,12 +6656,12 @@ pub fn sanitize_spans(spans: &[(u64, u64)], size: Option<u64>) -> Vec<(u64, u64)
 
 /// Does the `.part` staging file plausibly contain the recorded spans?
 ///
-/// Length must match the recorded size exactly â€” `SparseSink::create` calls
+/// Length must match the recorded size exactly â€?`SparseSink::create` calls
 /// `set_len(size)` up front, so any other length means another object or a
 /// truncation. On unix the allocated blocks are checked against the bytes
 /// the spans claim: holes are not allocated, so a `.part` that received one
 /// byte cannot pass for one that received everything (file length says
-/// nothing about completeness â€” the lesson the CLI already recorded).
+/// nothing about completeness â€?the lesson the CLI already recorded).
 pub fn part_matches(part: &std::path::Path, size: Option<u64>, held: &[(u64, u64)]) -> bool {
     let Ok(meta) = std::fs::metadata(part) else {
         return false;
@@ -6737,7 +6737,7 @@ pub fn quota_cap(s: &crate::model::Settings) -> Option<u64> {
 }
 
 /// Window length in seconds. Zero hours would describe a window that never
-/// rolls â€” a permanent block once the cap is hit â€” so it floors at one.
+/// rolls â€?a permanent block once the cap is hit â€?so it floors at one.
 pub fn quota_window_secs(s: &crate::model::Settings) -> i64 {
     (s.dl_limit_hours.max(1) as i64).saturating_mul(3600)
 }
@@ -6755,7 +6755,7 @@ pub fn quota_window_elapsed(s: &crate::model::Settings, q: &DlQuota, now: i64) -
 }
 
 /// Everything the download limit must park: whatever is transferring, plus
-/// what is merely waiting for a slot â€” a queued item would otherwise be
+/// what is merely waiting for a slot â€?a queued item would otherwise be
 /// started by the very next `queue_tick` and immediately blocked, leaving
 /// the list saying "Queued" when nothing can move for hours.
 pub fn quota_park_targets(downloads: &[DownloadItem]) -> Vec<DlId> {
@@ -6771,7 +6771,7 @@ pub fn quota_park_targets(downloads: &[DownloadItem]) -> Vec<DlId> {
 ///
 /// Queue members go back to `Queued` so their queue paces them against
 /// `files_at_once`; every released id is returned, paired with whether the
-/// queue took it back â€” the caller starts the rest itself.
+/// queue took it back â€?the caller starts the rest itself.
 pub fn quota_release_targets(downloads: &mut [DownloadItem]) -> Vec<(DlId, bool)> {
     let mut released = vec![];
     for d in downloads {
@@ -6815,7 +6815,7 @@ fn prog_state_seed(speed_limit: Option<u64>) -> ProgState {
     }
 }
 
-/// Normalize a key press into a combo string ("cmd+shift+v"). `cmd` is âŒ˜ on
+/// Normalize a key press into a combo string ("cmd+shift+v"). `cmd` is âŒ?on
 /// macOS and Ctrl elsewhere (`Modifiers::command()`); presses without a
 /// command modifier are not shortcuts.
 pub fn combo_string(key: &iced::keyboard::Key, mods: iced::keyboard::Modifiers) -> Option<String> {
@@ -7249,7 +7249,7 @@ mod tests {
         // Overrunning the limit cannot draw more than a full bar.
         assert!((live_progress(Some(300), Some(400.0)) - 1.0).abs() < 1e-6);
         // No limit set, or nothing recorded yet: there is no fraction to
-        // show, and bytes must not stand in for one â€” a live stream has no
+        // show, and bytes must not stand in for one â€?a live stream has no
         // size for them to be a fraction OF.
         assert_eq!(live_progress(None, Some(150.0)), 0.0);
         assert_eq!(live_progress(Some(300), None), 0.0);
@@ -7313,7 +7313,7 @@ mod tests {
         assert_eq!(sanitize_file_name("a\u{0}b\nc"), "a b c");
         assert!(sanitize_file_name(&"x".repeat(400)).chars().count() <= 120);
         // 120 CHARACTERS of Hangul is 360 bytes, which no mainstream
-        // filesystem will store â€” the cap has to bind in bytes too, on a
+        // filesystem will store â€?the cap has to bind in bytes too, on a
         // character boundary, with room left for the extension the stream
         // path appends.
         let korean = sanitize_file_name(&"ì„¤ì¹˜í”„ë¡œê·¸ëž¨".repeat(60));
@@ -7354,7 +7354,7 @@ mod tests {
 
         // The user typed a name in the File Info dialog and pressed Start
         // Download. The probe belongs to the transfer that press started, so
-        // it answers here â€” with zero bytes in and nothing held, which is
+        // it answers here â€?with zero bytes in and nothing held, which is
         // what used to make it look like a fresh item.
         d.file_name = "MyName.zip".into();
         d.name_locked = true;
@@ -7387,7 +7387,7 @@ mod tests {
         assert!(collision_file(&dir_s, "setup.exe", true).is_some());
 
         // Same file, but the name is only the `index.html` placeholder
-        // invented for a URL that named nothing â€” the probe has not answered
+        // invented for a URL that named nothing â€?the probe has not answered
         // yet, so this download is not headed here at all.
         assert_eq!(collision_file(&dir_s, "setup.exe", false), None);
 
@@ -7411,7 +7411,7 @@ mod tests {
         assert!(!part_matches(&path, Some(1000), &[(0, 1000)]));
 
         // Sparse file: set_len only, no byte written. Length matches, but
-        // nothing is allocated â€” claiming the whole object must fail.
+        // nothing is allocated â€?claiming the whole object must fail.
         let f = std::fs::File::create(&path).unwrap();
         f.set_len(1_000_000).unwrap();
         drop(f);
@@ -7519,7 +7519,7 @@ mod tests {
         assert!(!quota_window_elapsed(&s, &q, 1000 + 5 * 3600 - 1));
         assert!(quota_window_elapsed(&s, &q, 1000 + 5 * 3600));
         // A window that never opened has nothing to roll, whatever the clock
-        // says â€” otherwise a fresh install would "reset" on every tick.
+        // says â€?otherwise a fresh install would "reset" on every tick.
         let never = DlQuota {
             used: 0,
             window_start: 0,
@@ -7567,7 +7567,7 @@ mod tests {
         assert!(!downloads[0].limit_paused && !downloads[1].limit_paused);
         // Hand-paused: untouched.
         assert_eq!(downloads[2].state, DlState::Paused);
-        // Idempotent â€” a second tick releases nothing.
+        // Idempotent â€?a second tick releases nothing.
         assert!(quota_release_targets(&mut downloads).is_empty());
     }
 

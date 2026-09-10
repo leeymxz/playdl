@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! `hydra update`: report whether a newer release exists, with its notes and
-//! the download link for this OS/arch. Deliberately report-only â€” the CLI is
+//! the download link for this OS/arch. Deliberately report-only â€?the CLI is
 //! frequently installed by package managers or scripts that own the binary,
 //! so replacing itself behind their back would be wrong. The GUI has the
 //! self-updating flow.
@@ -18,22 +18,22 @@ use std::process::ExitCode;
 
 pub async fn run(json: bool, beta: bool) -> ExitCode {
     let current = env!("CARGO_PKG_VERSION");
-    let ua = format!("hydra-cli/{current}");
-    let rel = match hya_updater::check_channel(&ua, beta).await {
+    let ua = format!("playdl-cli/{current}");
+    let rel = match pdl_updater::check_channel(&ua, beta).await {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("hydra: update check failed: {e}");
+            eprintln!("playdl: update check failed: {e}");
             return ExitCode::FAILURE;
         }
     };
     let latest = rel.version().to_string();
     // GitHub's generated notes open with an HTML comment naming the config
     // that produced them; it is not release content.
-    let notes = hya_updater::clean_notes(&rel.body);
-    let newer = hya_updater::is_newer(&latest, current);
+    let notes = pdl_updater::clean_notes(&rel.body);
+    let newer = pdl_updater::is_newer(&latest, current);
     // Inside an AppImage the standalone CLI tarball is the wrong answer:
     // this binary lives in the image, and the image is what gets replaced.
-    let appimage = hya_updater::appimage_path();
+    let appimage = pdl_updater::appimage_path();
     let asset = match &appimage {
         Some(_) => rel.appimage_asset(),
         None => rel.cli_asset(),
@@ -78,7 +78,7 @@ pub async fn run(json: bool, beta: bool) -> ExitCode {
     };
     println!("{kind}: {latest} (you have {current})");
     if !rel.published_at.is_empty() {
-        // `2026-08-19T00:00:00Z` â€” the date part reads fine on its own.
+        // `2026-08-19T00:00:00Z` â€?the date part reads fine on its own.
         let date = rel.published_at.split('T').next().unwrap_or("");
         println!("Published: {date}");
     }
@@ -118,17 +118,17 @@ pub async fn run(json: bool, beta: bool) -> ExitCode {
 /// its own architecture spelling, everything else by the release archives'.
 fn platform(appimage: &Option<std::path::PathBuf>) -> String {
     match appimage {
-        Some(_) => format!("{} AppImage", hya_updater::appimage_arch()),
-        None => format!("{}-{}", hya_updater::os_tag(), hya_updater::arch_tag()),
+        Some(_) => format!("{} AppImage", pdl_updater::appimage_arch()),
+        None => format!("{}-{}", pdl_updater::os_tag(), pdl_updater::arch_tag()),
     }
 }
 
-/// Whether a package manager owns this binary â€” a deb or rpm in `/usr/bin`,
+/// Whether a package manager owns this binary â€?a deb or rpm in `/usr/bin`,
 /// a `.pkg` in `/Applications`. A tarball or Homebrew install is not one,
 /// even though `dpkg` exists on the same machine.
 fn package_managed() -> bool {
     std::env::current_exe()
         .ok()
         .and_then(|exe| exe.parent().map(std::path::Path::to_path_buf))
-        .is_some_and(|dir| !hya_updater::update_method(&dir).is_self_update())
+        .is_some_and(|dir| !pdl_updater::update_method(&dir).is_self_update())
 }

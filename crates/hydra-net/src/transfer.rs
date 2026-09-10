@@ -9,7 +9,7 @@ use crate::http::fetch_range;
 use crate::polite::Pace;
 use crate::sink::SparseSink;
 use crate::{Arrival, Connector, Target};
-use hya_core::{Action, Scheduler};
+use pdl_core::{Action, Scheduler};
 use std::io;
 use std::sync::Arc;
 use std::time::Instant;
@@ -107,8 +107,8 @@ pub async fn run_transfer_observed<C: Connector>(
 /// As [`run_transfer_observed`], with an aggregate rate cap.
 ///
 /// Separate from [`run_transfer_observed`] rather than an extra argument on it
-/// because almost every caller â€” the cross-validation harness, the benchmark
-/// runner, the e2e tests â€” has no cap to apply, and threading `Pace::unlimited()`
+/// because almost every caller â€?the cross-validation harness, the benchmark
+/// runner, the e2e tests â€?has no cap to apply, and threading `Pace::unlimited()`
 /// through all of them buys nothing. `--limit-rate` is the one caller that does.
 #[allow(clippy::too_many_arguments)]
 pub async fn run_transfer_paced<C: Connector>(
@@ -145,7 +145,7 @@ pub async fn run_transfer_paced<C: Connector>(
 /// and survived an interrupted run.
 ///
 /// A caller that also wants the object's digest attaches one to the sink with
-/// [`SparseSink::with_digest`] before handing it over â€” the sink is the one place
+/// [`SparseSink::with_digest`] before handing it over â€?the sink is the one place
 /// every fragment passes through, so it is where a stream observer belongs.
 #[allow(clippy::too_many_arguments)]
 pub async fn run_transfer_into<C: Connector>(
@@ -179,7 +179,7 @@ pub async fn run_transfer_into<C: Connector>(
 /// This is the GUI's Pause/Cancel: setting `cancel` makes the loop abort every
 /// in-flight fetch and return `ErrorKind::Interrupted` at the next tick, so the
 /// caller gets the socket teardown the scheduler's own `Action::Cancel` path
-/// performs â€” not detached tasks streaming on. Bytes already written through
+/// performs â€?not detached tasks streaming on. Bytes already written through
 /// the sink stay valid at their offsets; a later run resumes by `mark_done`.
 /// `None` is exactly the previous behaviour, which is how every existing entry
 /// point calls it.
@@ -225,13 +225,13 @@ pub type OnSubstitute<'a> = Option<&'a mut (dyn FnMut(usize, &Reserve) + Send)>;
 /// # Why the bench is a STREAM and not a snapshot
 ///
 /// Filling it needs a probe per mirror, and those probes are paid entirely
-/// before the first byte â€” so a transfer that waits for the whole list waits
+/// before the first byte â€?so a transfer that waits for the whole list waits
 /// for its slowest host to answer a HEAD, in order to learn about mirrors it
 /// will not touch unless something fails. Measured against a real twelve-mirror
 /// Fedora document, that was 2.0 s of dead time in front of a 5 s transfer.
 ///
 /// Splitting the two lets the caller start as soon as it has enough mirrors to
-/// SEAT â€” which is the only thing the scheduler needs up front â€” and keep
+/// SEAT â€?which is the only thing the scheduler needs up front â€?and keep
 /// probing the rest while bytes move. Reserves that arrive late are just as
 /// useful as reserves that arrived early: nothing consults the bench until a
 /// source fails.
@@ -258,7 +258,7 @@ impl Bench {
 pub struct Reserve {
     pub target: Target,
     /// Ranking and any ceiling the source stated about itself.
-    pub plan: hya_core::SourcePlan,
+    pub plan: pdl_core::SourcePlan,
     /// Host name, for the caller's progress view after a substitution.
     pub host: String,
 }
@@ -266,7 +266,7 @@ pub struct Reserve {
 /// Consecutive failures charged to one SOURCE before it is replaced.
 ///
 /// Two, not one: a single 5xx from one node of a CDN, or one refused connection
-/// during a deploy, is worth another attempt on the same host â€” substituting on
+/// during a deploy, is worth another attempt on the same host â€?substituting on
 /// the first error would burn the bench on transient faults and leave nothing
 /// for the failure that is real. Two consecutive failures with no byte of
 /// progress in between is no longer transient.
@@ -288,8 +288,8 @@ const SOURCE_STALLS_BEFORE_SUBSTITUTION: u32 = 3;
 /// The scheduler already handles a merely-slow source, and handles it better
 /// than a swap would: repair reassigns BYTES away from it continuously, on
 /// measurement, at the cost of nothing but a range boundary. Substituting is the
-/// blunter instrument â€” it pays a fresh connection setup and throws away
-/// everything measured about the host â€” so it is only worth doing when the
+/// blunter instrument â€?it pays a fresh connection setup and throws away
+/// everything measured about the host â€?so it is only worth doing when the
 /// source has stopped being a meaningful contributor at all.
 ///
 /// Eight-to-one is that point. A mirror at half the speed of the best one is
@@ -303,8 +303,8 @@ const LAGGARD_RATIO: f64 = 8.0;
 ///
 /// A rate estimate dips for reasons that are not the mirror's fault: a range
 /// boundary, a repair, one slow read, a moment of congestion on the client's own
-/// link. Ten seconds is many rate samples â€” the estimate is windowed and
-/// smoothed before it is ever read here â€” so none of those survive it, while it
+/// link. Ten seconds is many rate samples â€?the estimate is windowed and
+/// smoothed before it is ever read here â€?so none of those survive it, while it
 /// is still short enough to act on inside a transfer with minutes left to run.
 const LAGGARD_SECONDS: f64 = 10.0;
 
@@ -323,7 +323,7 @@ const LAGGARD_MIN_PAYOFF_SECONDS: f64 = 5.0;
 ///
 /// # What the bench is for
 ///
-/// A mirror list names far more sources than politeness authorises sockets for â€”
+/// A mirror list names far more sources than politeness authorises sockets for â€?
 /// a distribution image's Metalink commonly lists fifteen to twenty hosts
 /// against four connections. Without substitution the surplus is decoration: the
 /// transfer survives on the mirrors it opened with or it does not, and a client
@@ -331,7 +331,7 @@ const LAGGARD_MIN_PAYOFF_SECONDS: f64 = 5.0;
 ///
 /// A source is replaced when it has failed [`SOURCE_FAILS_BEFORE_SUBSTITUTION`]
 /// times consecutively with no progress in between, or stalled
-/// [`SOURCE_STALLS_BEFORE_SUBSTITUTION`] times â€” the second case being the one a
+/// [`SOURCE_STALLS_BEFORE_SUBSTITUTION`] times â€?the second case being the one a
 /// pure error count misses, because a black-holing mirror never returns an error
 /// at all. Substitution happens IN PLACE: the failed source's connections are
 /// relabelled rather than added to, so the socket count stays what politeness
@@ -382,7 +382,7 @@ pub async fn run_transfer_with_reserves<C: Connector>(
     // connection, a closed socket, a truncated body, a 503 and a protocol
     // violation were all indistinguishable from a connection that was merely
     // slow. The only thing that eventually noticed was the scheduler's stall
-    // timeout, seconds later â€” see `Scheduler::on_conn_error` for what that costs
+    // timeout, seconds later â€?see `Scheduler::on_conn_error` for what that costs
     // and why the endgame is where it shows.
     //
     // The generation number is not decoration: a task can finish in the same
@@ -410,14 +410,14 @@ pub async fn run_transfer_with_reserves<C: Connector>(
     // ZERO bytes in thirty seconds, one refusal every two seconds, each aborting
     // whatever the other seven had in flight.
     //
-    // The ceiling moves the way congestion control moves â€” down hard on a refusal,
-    // back up one at a time on evidence that the limit has lifted â€” for the same
+    // The ceiling moves the way congestion control moves â€?down hard on a refusal,
+    // back up one at a time on evidence that the limit has lifted â€?for the same
     // reason: the client cannot see the origin's limit, only whether it is over it.
     // The ramp is clamped to it too, since a ramp that re-raises what a refusal
     // lowered is the same livelock with a longer period.
     let mut throttle_cap = sched.n_conns().max(1);
     // One reduction per refusal ROUND, not per refusal. Refusals arrive in bursts
-    // â€” six of eight requests, in the same instant, all reporting the one fact
+    // â€?six of eight requests, in the same instant, all reporting the one fact
     // that eight was too many. Halving once per burst converges on the limit;
     // halving six times converges on one connection and stays there, which is a
     // transfer at a fraction of the rate the origin was willing to serve.
@@ -430,8 +430,8 @@ pub async fn run_transfer_with_reserves<C: Connector>(
     // every time one survives.
     //
     // A fixed interval treats every refusal as momentary. Against an origin whose
-    // limit is a standing configuration â€” nginx `limit_conn`, a CDN's per-address
-    // cap â€” the probe is refused every single time, so the transfer pays a wasted
+    // limit is a standing configuration â€?nginx `limit_conn`, a CDN's per-address
+    // cap â€?the probe is refused every single time, so the transfer pays a wasted
     // handshake, a refusal, and a re-halved ceiling once per interval for its whole
     // life, and the ceiling never gets to sit still at the number that works.
     // Backing off converges on leaving a real limit alone without giving up on a
@@ -483,14 +483,14 @@ pub async fn run_transfer_with_reserves<C: Connector>(
     // The live far end of each connection's in-flight range, shared with the task
     // streaming it. A repair lowers the victim's entry and the running task sees
     // it on its next read, which is what makes range preemption cost what the
-    // theory says it costs â€” see `crate::Watermark`.
+    // theory says it costs â€?see `crate::Watermark`.
     let mut bounds: std::collections::HashMap<usize, crate::Watermark> =
         std::collections::HashMap::new();
 
     // Draw the next reserve mirror and put it in a failed source's place.
     //
     // A macro rather than a closure because it needs `&mut` on the scheduler,
-    // the target list, the bench, and all three per-connection maps at once â€”
+    // the target list, the bench, and all three per-connection maps at once â€?
     // which a closure would have to borrow for its whole lifetime, and the
     // surrounding loop needs them too.
     //
@@ -543,13 +543,13 @@ pub async fn run_transfer_with_reserves<C: Connector>(
                             gen_of.remove(&j);
                         }
                     }
-                    // The setup cost carries over â€” it is a property of this
-                    // client's path, not of the dead host â€” but nothing else
+                    // The setup cost carries over â€?it is a property of this
+                    // client's path, not of the dead host â€?but nothing else
                     // does. Inheriting the failed mirror's rate estimate would
                     // price the replacement by the failure it is replacing.
                     sched.replace_source(
                         src,
-                        hya_core::Source {
+                        pdl_core::Source {
                             priority: r.plan.priority,
                             delta_est: sched.worst_delta().max(1e-3),
                             ..Default::default()
@@ -576,11 +576,11 @@ pub async fn run_transfer_with_reserves<C: Connector>(
     // One pool for the whole transfer, shared by every connection. This is the
     // case connection reuse was missing from most: `n` ranges against one origin
     // used to mean `n` handshakes, and every repair another. The pool only ever
-    // receives connections whose response ended where the client predicted â€” see
-    // `crate::pool` â€” so a shrunk connection is dropped rather than reused.
+    // receives connections whose response ended where the client predicted â€?see
+    // `crate::pool` â€?so a shrunk connection is dropped rather than reused.
     //
     // Taken from the connector when it offers one, so a caller that already spoke
-    // to this origin â€” the CLI's size probe does, on every run â€” can hand over the
+    // to this origin â€?the CLI's size probe does, on every run â€?can hand over the
     // connection it is holding instead of letting the transfer redial. Measured on
     // a live TLS path: 1.6-2.0 s of setup before the first byte on a short transfer.
     // The gap was almost entirely handshakes that had already been paid for once.
@@ -599,7 +599,7 @@ pub async fn run_transfer_with_reserves<C: Connector>(
     // The scheduler detects a stalled connection and reclaims its range, but
     // reclaiming is not recovering: it returns the bytes to the unassigned set,
     // and only a *different* live source can turn that into progress. With one
-    // source â€” or with every source dead â€” the reclaimed range is handed back to
+    // source â€?or with every source dead â€?the reclaimed range is handed back to
     // the same silent connection on the next tick and the loop spins.
     //
     // This is invisible to scheduler core invariants (bytes are tracked, and
@@ -625,8 +625,8 @@ pub async fn run_transfer_with_reserves<C: Connector>(
 
     // Extra patience earned by DELIBERATE scheduler pauses, and the ceiling on it.
     //
-    // `backoff_grace` accumulates only while every source is suspended â€” silence the
-    // scheduler chose â€” and is added to the no-progress deadline. The cap is what
+    // `backoff_grace` accumulates only while every source is suspended â€?silence the
+    // scheduler chose â€?and is added to the no-progress deadline. The cap is what
     // keeps this from becoming unbounded patience: a source that black-holes from the
     // first byte generates a fresh suspension after every stall, so an uncapped grace
     // would forgive deadline after deadline and the transfer would never fail.
@@ -644,14 +644,14 @@ pub async fn run_transfer_with_reserves<C: Connector>(
     // Enabled by the caller starting the scheduler below its full connection count
     // (`Scheduler::with_active_limit`). The ramp then admits connections while the
     // aggregate rate says they pay for themselves, measuring on the real transfer
-    // instead of on probe traffic â€” see `hya_core::ramp` for why the probe was a
+    // instead of on probe traffic â€?see `pdl_core::ramp` for why the probe was a
     // net loss (1.96x slower on a 3 MB object, p = 0.004).
     let mut ramp = if sched.active_limit() < sched.n_conns() {
         // Start at the scheduler's active limit, which the caller set deliberately,
         // rather than at one. The CLI sets it to 1 for `--adaptive`, so the search
         // begins at the configuration that measured fastest in the field and only
-        // admits more on evidence of headroom â€” see `ConcurrencyRamp::starting_at`.
-        let mut r = hya_core::ConcurrencyRamp::starting_at(
+        // admits more on evidence of headroom â€?see `ConcurrencyRamp::starting_at`.
+        let mut r = pdl_core::ConcurrencyRamp::starting_at(
             0.15,
             sched.active_limit().max(1),
             sched.n_conns(),
@@ -660,7 +660,7 @@ pub async fn run_transfer_with_reserves<C: Connector>(
         // Measure levels, not handshakes. `delta` is the per-request cost on a
         // pooled connection; opening a new one costs a TCP and a TLS handshake on
         // top of it, which on a high-RTT path outlasts the whole measurement window
-        // â€” so the level read as no better than the one below it and the search
+        // â€?so the level read as no better than the one below it and the search
         // settled at one connection. The gate holds the window shut until the
         // level's connections are actually on the wire.
         r.arm_warmup(0.0, sched.worst_delta().max(1e-3));
@@ -677,11 +677,11 @@ pub async fn run_transfer_with_reserves<C: Connector>(
     // and an origin lifting its limit says nothing about whether the extra
     // connections pay. Without it, one refusal anywhere in a transfer let the
     // recovery walk the count back up to the budget and silently discard the
-    // measurement â€” including on the origins this search exists to handle, where
+    // measurement â€?including on the origins this search exists to handle, where
     // one connection beat eight.
     let mut settled_limit: Option<usize> = None;
     if ramp.is_some() {
-        sched.set_limit_reason(hya_core::LimitReason::Measuring);
+        sched.set_limit_reason(pdl_core::LimitReason::Measuring);
     }
 
     loop {
@@ -727,7 +727,7 @@ pub async fn run_transfer_with_reserves<C: Connector>(
             };
             let now = t0.elapsed().as_secs_f64();
             if trace_errors {
-                eprintln!("[trace] t={now:.2} conn {conn}: {} â€” {e}", e.kind());
+                eprintln!("[trace] t={now:.2} conn {conn}: {} â€?{e}", e.kind());
             }
             fail_streak = fail_streak.saturating_add(1);
             let failed_src = sched.conn_source(conn);
@@ -742,8 +742,8 @@ pub async fn run_transfer_with_reserves<C: Connector>(
             // A streak rather than the first one, because a single 5xx from one
             // node of a CDN is worth another attempt.
             //
-            // Reporting matters as much as stopping. An expired pre-signed URL â€”
-            // a GitHub release asset, an S3 link â€” starts answering 403 part-way
+            // Reporting matters as much as stopping. An expired pre-signed URL â€?
+            // a GitHub release asset, an S3 link â€?starts answering 403 part-way
             // through, and every request after that fails the same way. Spinning
             // on it until the no-progress deadline tells the user only that
             // nothing is arriving; failing on it tells them what the server said.
@@ -787,13 +787,13 @@ pub async fn run_transfer_with_reserves<C: Connector>(
                     // been sent and has neither failed nor finished.
                     //
                     // Suspending on `streaming == 0` alone is what made an origin
-                    // like `ash-speed.hetzner.com` â€” two connections per address,
-                    // the rest refused â€” collapse the whole transfer. Every request
+                    // like `ash-speed.hetzner.com` â€?two connections per address,
+                    // the rest refused â€?collapse the whole transfer. Every request
                     // in the opening burst leaves within milliseconds of the others,
                     // and a 429 is a 162-byte body that comes back a round trip
                     // ahead of the first body bytes of the 206s beside it. So at the
                     // instant the first refusal is handled NOTHING has delivered
-                    // yet, `streaming` is 0, and the source stood down â€” aborting
+                    // yet, `streaming` is 0, and the source stood down â€?aborting
                     // the two requests the origin had just GRANTED, closing their
                     // sockets, and paying both handshakes again on the retry.
                     // Measured on a 100 MB object over that origin: 162 requests and
@@ -854,8 +854,8 @@ pub async fn run_transfer_with_reserves<C: Connector>(
                         // t=30.7s of a transfer that takes 12, because a peak of 2
                         // from the opening burst outlived it. Re-basing on what is
                         // delivering right now keeps the guard against
-                        // over-reduction â€” a connection between ranges is still
-                        // counted through `streaming` â€” while letting the next
+                        // over-reduction â€?a connection between ranges is still
+                        // counted through `streaming` â€?while letting the next
                         // round judge the new cap on the new cap's evidence.
                         served_peak_cur = streaming;
                         served_peak_prev = 0;
@@ -874,11 +874,11 @@ pub async fn run_transfer_with_reserves<C: Connector>(
                     // Assignment reserves work for connections that are still to be
                     // admitted. Above the ceiling none are, so the reserve is work
                     // nobody comes for and the transfer re-requests it a share at a
-                    // time â€” a round trip each, and against an origin that refuses,
+                    // time â€?a round trip each, and against an origin that refuses,
                     // a fresh handshake each.
                     sched.set_conn_ceiling(throttle_cap);
                     if throttle_cap < sched.n_conns() {
-                        sched.set_limit_reason(hya_core::LimitReason::Refused {
+                        sched.set_limit_reason(pdl_core::LimitReason::Refused {
                             serving: throttle_cap,
                         });
                     }
@@ -892,8 +892,8 @@ pub async fn run_transfer_with_reserves<C: Connector>(
                     }
                     // Back off the upward probe as well. A ceiling that has been
                     // refused once is likely to be refused again, and probing it on
-                    // a fixed interval spends one wasted request â€” a handshake, a
-                    // refusal, and a re-halved ceiling â€” every interval for the whole
+                    // a fixed interval spends one wasted request â€?a handshake, a
+                    // refusal, and a re-halved ceiling â€?every interval for the whole
                     // transfer. Doubling the wait converges on leaving a real limit
                     // alone while still recovering from a momentary one.
                     probe_backoff = (probe_backoff * 2.0).min(MAX_PROBE_BACKOFF);
@@ -966,7 +966,7 @@ pub async fn run_transfer_with_reserves<C: Connector>(
                 // still below it now serves one more than it did, and a row the
                 // SEARCH is holding back must not stay labelled a server limit.
                 {
-                    use hya_core::LimitReason as R;
+                    use pdl_core::LimitReason as R;
                     sched.set_limit_reason(if ramp.is_some() {
                         R::Measuring
                     } else if throttle_cap >= sched.n_conns() {
@@ -1003,7 +1003,7 @@ pub async fn run_transfer_with_reserves<C: Connector>(
         // A connection counts as delivering once its cursor has moved off the start
         // of its range: bytes have arrived on THIS request, so its handshake, its
         // request and its first byte are all behind it. The scheduler's rate
-        // estimate is not the same test â€” it survives a connection going idle, so
+        // estimate is not the same test â€?it survives a connection going idle, so
         // it would report a connection as warm before its replacement request has
         // produced anything.
         //
@@ -1036,8 +1036,8 @@ pub async fn run_transfer_with_reserves<C: Connector>(
             ramp_last_held = held;
             r.note_delivering(live);
             match r.poll(now_tick, sched.worst_delta().max(1e-3)) {
-                hya_core::Ramp::Raise(n) => sched.set_active_limit(n.min(throttle_cap)),
-                hya_core::Ramp::Settled(settled) => {
+                pdl_core::Ramp::Raise(n) => sched.set_active_limit(n.min(throttle_cap)),
+                pdl_core::Ramp::Settled(settled) => {
                     let n = settled.min(throttle_cap);
                     sched.set_active_limit(n);
                     // Say what was decided and why, in numbers the user can check
@@ -1045,7 +1045,7 @@ pub async fn run_transfer_with_reserves<C: Connector>(
                     // that only reads "waiting" after this looks like a dropped
                     // connection; "measured slower" is a decision.
                     if n >= sched.n_conns() {
-                        sched.set_limit_reason(hya_core::LimitReason::None);
+                        sched.set_limit_reason(pdl_core::LimitReason::None);
                     } else if settled <= throttle_cap {
                         if let Some(v) = r.verdict() {
                             // A search that rejected a level it MEASURED has made a
@@ -1056,7 +1056,7 @@ pub async fn run_transfer_with_reserves<C: Connector>(
                             if v.tried > v.chosen {
                                 settled_limit = Some(n);
                             }
-                            sched.set_limit_reason(hya_core::LimitReason::Measured {
+                            sched.set_limit_reason(pdl_core::LimitReason::Measured {
                                 chosen: n,
                                 chosen_rate: v.chosen_rate,
                                 tried: v.tried,
@@ -1065,7 +1065,7 @@ pub async fn run_transfer_with_reserves<C: Connector>(
                         }
                     }
                     // Otherwise a refusal or starvation clamped the search, and
-                    // that reason â€” already recorded â€” is the one that explains
+                    // that reason â€?already recorded â€?is the one that explains
                     // the count.
                     // The search is over, so nothing is waiting to be admitted and
                     // the reserve assignment was keeping for later admissions is
@@ -1077,13 +1077,13 @@ pub async fn run_transfer_with_reserves<C: Connector>(
                     // re-pay its cost on a decision already made.
                     ramp = None;
                 }
-                hya_core::Ramp::Hold => {}
+                pdl_core::Ramp::Hold => {}
             }
         }
         if sched.is_complete() {
             // Observe the FINAL state before leaving. The loop breaks here, above
-            // the per-tick `observe` call, so without this the last arrivals â€” the
-            // ones that completed the transfer â€” are never reported: the progress
+            // the per-tick `observe` call, so without this the last arrivals â€?the
+            // ones that completed the transfer â€?are never reported: the progress
             // bar stops short of 100%, and a caller deriving completeness from the
             // observed count concludes the transfer is short by whatever landed in
             // the final tick. Measured on an 11 200 900-byte resume: 2 876 bytes
@@ -1103,8 +1103,8 @@ pub async fn run_transfer_with_reserves<C: Connector>(
 
         // 1c. replace a source that has gone SILENT rather than wrong.
         //
-        // A black-holing mirror â€” one that accepts connections and sends nothing
-        // â€” never returns an error, so the failure count above never sees it.
+        // A black-holing mirror â€?one that accepts connections and sends nothing
+        // â€?never returns an error, so the failure count above never sees it.
         // The scheduler's own stall accounting does, and it is the only signal
         // there is for this case. Checked before the tick so the reclaimed
         // ranges are reassigned to the replacement in the same round rather than
@@ -1122,14 +1122,14 @@ pub async fn run_transfer_with_reserves<C: Connector>(
         // 1d. replace a source that is WORKING and hopeless.
         //
         // Distinct from both cases above: this mirror answers, delivers bytes,
-        // and never errors â€” it is simply so much slower than the others that
+        // and never errors â€?it is simply so much slower than the others that
         // the sockets it holds are worth more on a different host. That is not a
         // fault the error count or the stall count can see, and the ranking the
         // publisher supplied cannot see it either: a document says which mirrors
         // it EXPECTS to serve well, and the whole reason this scheduler measures
         // is that the expectation is often wrong.
         //
-        // Deliberately conservative â€” a wide ratio, a long window, and only
+        // Deliberately conservative â€?a wide ratio, a long window, and only
         // while there is enough of the object left for a fresh handshake to pay
         // for itself. Repair already moves bytes away from a slow source
         // continuously and for free; swapping is the blunter instrument and is
@@ -1160,7 +1160,7 @@ pub async fn run_transfer_with_reserves<C: Connector>(
                     (true, Some(since)) if now - since >= LAGGARD_SECONDS => {
                         if trace_errors {
                             eprintln!(
-                                "[trace] t={now:.2} source {src}: {:.0} B/s against {best:.0} B/s for {:.0}s â€” replacing",
+                                "[trace] t={now:.2} source {src}: {:.0} B/s against {best:.0} B/s for {:.0}s â€?replacing",
                                 rate[src],
                                 now - since
                             );
@@ -1180,7 +1180,7 @@ pub async fn run_transfer_with_reserves<C: Connector>(
         // retried the same losing configuration for its whole life. Measured on
         // `saimei.ftp.acc.umu.se` at `-x 8`: two connections delivered, six sat
         // at 0 B/s for the whole stall timeout, all six were reclaimed at once,
-        // re-requested, starved again, and the cycle repeated â€” a fresh handshake
+        // re-requested, starved again, and the cycle repeated â€?a fresh handshake
         // and a lost congestion window each round, 2.2x slower than ONE
         // connection. The adaptive search handled the same origin correctly,
         // because it measures; only the fixed count had nothing to learn from.
@@ -1257,7 +1257,7 @@ pub async fn run_transfer_with_reserves<C: Connector>(
                         sched.set_active_limit(throttle_cap);
                     }
                     sched.set_conn_ceiling(throttle_cap);
-                    sched.set_limit_reason(hya_core::LimitReason::Starved {
+                    sched.set_limit_reason(pdl_core::LimitReason::Starved {
                         serving: throttle_cap,
                     });
                     if let Some(r) = ramp.as_mut() {
@@ -1293,7 +1293,7 @@ pub async fn run_transfer_with_reserves<C: Connector>(
                 // A repair moved this connection's far end down. Publishing it is
                 // the entire mechanism: the victim's own loop stops at the new
                 // boundary, so the span handed to the taker crosses the wire once
-                // rather than twice. No `abort` and no request â€” that is the point,
+                // rather than twice. No `abort` and no request â€?that is the point,
                 // the connection keeps streaming the part it still owns.
                 Action::Shrink { conn, hi } => {
                     if trace_repair {
@@ -1343,8 +1343,8 @@ pub async fn run_transfer_with_reserves<C: Connector>(
 
         // Wait for the TICK, and only the tick.
         //
-        // This used to also wake on every arrival â€” `Some(a) = rx.recv()` beside
-        // the ticker â€” which turned the tick loop into a per-read loop: every 16
+        // This used to also wake on every arrival â€?`Some(a) = rx.recv()` beside
+        // the ticker â€?which turned the tick loop into a per-read loop: every 16
         // to 64 KiB that landed on any socket woke this task, credited one
         // arrival, and then ran the whole loop body again, the stalled-connection
         // scan, the repair evaluation, the reason bookkeeping, the progress
@@ -1364,7 +1364,7 @@ pub async fn run_transfer_with_reserves<C: Connector>(
         observe(&sched, sched.bytes_held());
 
         // Watchdog: any byte of progress resets the clock, so this fires only
-        // when the whole transfer â€” not merely one connection â€” has been silent.
+        // when the whole transfer â€?not merely one connection â€?has been silent.
         // A slow-but-moving source is never killed by it, however slow.
         // Accrue grace for time spent under a deliberate suspension. Measured as
         // elapsed wall clock since the previous iteration rather than as the
@@ -1395,12 +1395,12 @@ pub async fn run_transfer_with_reserves<C: Connector>(
             // has DELIBERATELY spent with every source suspended, capped.
             //
             // Silence the scheduler asked for is not a stall. After repeated stalls a
-            // source is suspended for a backoff interval, and with a single source â€”
-            // one URL, one CDN, the common case â€” nothing can move until it expires.
+            // source is suspended for a backoff interval, and with a single source â€?
+            // one URL, one CDN, the common case â€?nothing can move until it expires.
             // Charging that against the no-progress deadline made hydra abort
             // transfers it had itself paused: on a 121.7 MiB GitHub release asset, 4
             // of 8 multi-connection runs died at "no progress for 16s", three of them
-            // holding 126.9-127.0 MB of 127.6 MB â€” 99.6% fetched, reported as failed.
+            // holding 126.9-127.0 MB of 127.6 MB â€?99.6% fetched, reported as failed.
             //
             // The grace is CAPPED, and the cap is the whole design. An uncapped
             // version (reset the clock whenever every source is suspended) hangs

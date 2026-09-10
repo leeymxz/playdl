@@ -3,7 +3,7 @@
 
 //! HLS and DASH on the command line.
 //!
-//! `hydra <url>` takes a manifest the same way it takes a file â€” the URL is
+//! `hydra <url>` takes a manifest the same way it takes a file â€?the URL is
 //! fetched, and if the body turns out to be a playlist or an MPD it goes to
 //! the stream path instead of the range scheduler. That is why detection
 //! reads the BODY rather than the extension: a `.m3u8` URL that answers with
@@ -18,8 +18,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 
-use hya_net::{Target, TlsCapableConnector};
-use hya_stream::{dash, hls};
+use pdl_net::{Target, TlsCapableConnector};
+use pdl_stream::{dash, hls};
 
 /// What the caller asked for.
 #[derive(Clone, Debug, Default)]
@@ -46,7 +46,7 @@ pub struct Job {
     /// Segments in flight (`-x`). 0 takes the library's default.
     ///
     /// Fixed: `--adaptive` governs ranged file downloads and is not applied
-    /// to segments. See `hya_stream::hls::Concurrency` for the measurement
+    /// to segments. See `pdl_stream::hls::Concurrency` for the measurement
     /// behind that.
     pub conns: usize,
 }
@@ -70,7 +70,7 @@ pub enum Verdict {
 }
 
 fn target(seg: &hls::Segment, job: &Job) -> Result<Target, String> {
-    let u = hya_stream::parse_url(&seg.url)?;
+    let u = pdl_stream::parse_url(&seg.url)?;
     let base = if u.tls {
         Target::direct_tls(&u.host, u.port, &u.path)
     } else {
@@ -86,12 +86,12 @@ fn target(seg: &hls::Segment, job: &Job) -> Result<Target, String> {
 }
 
 /// A segment redirected elsewhere: the same segment at the address the
-/// origin named. The byte RANGE travels with it â€” a playlist that carves
+/// origin named. The byte RANGE travels with it â€?a playlist that carves
 /// segments out of one file, redirected to an edge, would otherwise fetch
 /// the whole file per segment.
 fn redirect_target(seg: &hls::Segment, e: &std::io::Error) -> Option<hls::Segment> {
-    let loc = &hya_net::Redirect::of(e)?.location;
-    let url = hya_stream::join(&seg.url, loc)?;
+    let loc = &pdl_net::Redirect::of(e)?.location;
+    let url = pdl_stream::join(&seg.url, loc)?;
     Some(hls::Segment {
         url,
         range: seg.range,
@@ -105,7 +105,7 @@ fn redirect_target(seg: &hls::Segment, e: &std::io::Error) -> Option<hls::Segmen
 const MAX_REDIRECTS: usize = 5;
 
 /// Fetch a manifest, following redirects, and report the URL it finally came
-/// from â€” every relative URI inside it resolves against THAT, not against
+/// from â€?every relative URI inside it resolves against THAT, not against
 /// the address originally asked for.
 async fn get_at(
     conn: &Arc<TlsCapableConnector>,
@@ -117,15 +117,15 @@ async fn get_at(
     for _ in 0..MAX_REDIRECTS {
         let t = target(&hls::Segment::new(&at), job)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
-        match hya_net::fetch_small(conn.as_ref(), &t, cap).await {
+        match pdl_net::fetch_small(conn.as_ref(), &t, cap).await {
             Ok(body) => return Ok((body, at)),
             Err(e) => {
                 // `fetch_small` hands back the destination; a redirect is a
                 // hop to take, not a failure to report.
-                let Some(r) = hya_net::Redirect::of(&e) else {
+                let Some(r) = pdl_net::Redirect::of(&e) else {
                     return Err(e);
                 };
-                let Some(next) = hya_stream::join(&at, &r.location) else {
+                let Some(next) = pdl_stream::join(&at, &r.location) else {
                     return Err(e);
                 };
                 at = next;
@@ -311,7 +311,7 @@ async fn run_hls(
     }
 
     if playlist.live {
-        // `Plan::build` â€” which refuses DRM and encryption â€” is only reached
+        // `Plan::build` â€?which refuses DRM and encryption â€?is only reached
         // by the VOD path below, so its refusals are restated here. The
         // recorder cannot decrypt (keys rotate mid-live and nothing fetches
         // them), and appending ciphertext would finish "successfully" over a
@@ -431,11 +431,11 @@ fn fetcher(
     conn: &Arc<TlsCapableConnector>,
     job: &Job,
     cancel: &Arc<AtomicBool>,
-) -> impl hya_stream::Fetcher {
+) -> impl pdl_stream::Fetcher {
     // ONE limiter for the whole transfer, built here rather than inside the
     // closure. A limiter per segment is a limit per segment: with eight in
     // flight, `--limit-rate 1M` would have allowed eight.
-    let limiter = Arc::new(hya_net::polite::RateLimiter::new(job.limit_rate));
+    let limiter = Arc::new(pdl_net::polite::RateLimiter::new(job.limit_rate));
     let (conn, job, cancel) = (conn.clone(), job.clone(), cancel.clone());
     move |seg: hls::Segment, dest: String, counter: Arc<AtomicU64>| {
         let (conn, job, cancel, limiter) =
@@ -446,12 +446,12 @@ fn fetcher(
             for hop in 0..=MAX_REDIRECTS {
                 let t = target(&seg, &job)
                     .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
-                let pace = hya_net::polite::Pace::shared(limiter.clone());
+                let pace = pdl_net::polite::Pace::shared(limiter.clone());
                 // Keep the socket: a playlist is hundreds of small objects on
                 // one origin, and a handshake each would dominate the
                 // transfer.
-                let pool = hya_net::Connector::pool(conn.as_ref());
-                match hya_net::fetch_object(
+                let pool = pdl_net::Connector::pool(conn.as_ref());
+                match pdl_net::fetch_object(
                     conn.as_ref(),
                     &t,
                     &dest,
@@ -880,7 +880,7 @@ async fn record(
                 }
                 init_done[i] = true;
             }
-            // Planned in order, fetched concurrently â€” the same shape the
+            // Planned in order, fetched concurrently â€?the same shape the
             // GUI recorder uses. The checks below are stateful, so they must
             // run in sequence; the fetching need not, and taking one segment
             // at a time made a recording run on a single connection however
@@ -1077,7 +1077,7 @@ fn append(src: &str, out: &mut std::fs::File) -> std::io::Result<()> {
 /// says about the object, without downloading it.
 ///
 /// Everything here comes from ONE request's headers, which is why it is
-/// worth having â€” the alternative is starting a download to find out how big
+/// worth having â€?the alternative is starting a download to find out how big
 /// it is, what it is called, and whether it can be resumed.
 pub async fn inspect_file(job: &Job) -> Result<(), String> {
     let conn = TlsCapableConnector::with_insecure(job.insecure).map_err(|e| e.to_string())?;
@@ -1086,7 +1086,7 @@ pub async fn inspect_file(job: &Job) -> Result<(), String> {
 
     let probe = loop {
         let t = target(&hls::Segment::new(&url), job)?;
-        let p = hya_net::probe_resilient(&conn, &t)
+        let p = pdl_net::probe_resilient(&conn, &t)
             .await
             .map_err(|e| format!("could not reach {url}: {e}"))?;
         // A redirector's own headers describe the redirect, not the file.
@@ -1094,7 +1094,7 @@ pub async fn inspect_file(job: &Job) -> Result<(), String> {
             let Some(next) = p
                 .location
                 .as_deref()
-                .and_then(|loc| hya_stream::join(&url, loc))
+                .and_then(|loc| pdl_stream::join(&url, loc))
             else {
                 break p;
             };
@@ -1164,7 +1164,7 @@ pub async fn inspect_file(job: &Job) -> Result<(), String> {
 ///
 /// RFC 9110 requires GMT on the wire, which is right for the protocol and
 /// unhelpful on a terminal: "was this newer than my copy?" is a question
-/// about local time. The original is left alone when it cannot be parsed â€”
+/// about local time. The original is left alone when it cannot be parsed â€?
 /// a wrong local time would be worse than an honest GMT one.
 fn to_local(http_date: &str) -> String {
     use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};

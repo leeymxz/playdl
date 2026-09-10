@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Application self-update: the startup version check and the "Update Now"
-//! pipeline (download â†’ checksum â†’ extract â†’ launch the finisher â†’ exit).
+//! pipeline (download â†?checksum â†?extract â†?launch the finisher â†?exit).
 //!
 //! The heavy lifting lives in the `hya-updater` crate; this module adapts it
-//! to iced â€” the check is a one-shot `Task::perform` future, the update run
+//! to iced â€?the check is a one-shot `Task::perform` future, the update run
 //! is a `Task::run` stream so the dialog can draw live progress. Endpoints
-//! come from `hya_updater::api_base()`, so `HYDRA_UPDATE_API` pointed at the
+//! come from `pdl_updater::api_base()`, so `HYDRA_UPDATE_API` pointed at the
 //! mock server (`cargo run -p hya-updater --example mock_server`) exercises
 //! this whole path without touching real releases.
 
@@ -33,7 +33,7 @@ pub struct UpdateInfo {
     /// the dialog then offers the installer instead.
     pub in_place: bool,
     /// Whether finishing the update will ask for an administrator password
-    /// â€” a root-owned install (a tarball unpacked into `/usr/local` with
+    /// â€?a root-owned install (a tarball unpacked into `/usr/local` with
     /// sudo) that Hydra may still replace, once the user authorises it.
     pub needs_auth: bool,
     /// The `.deb`/`.rpm` for this machine, when the install is packaged and
@@ -62,18 +62,18 @@ fn user_agent() -> String {
 /// pre-releases when one is ahead of the stable release.
 ///
 /// `Ok(None)` covers both "up to date" and "newer release exists but has no
-/// asset for this OS/arch" â€” the dialog can only offer what it can install.
+/// asset for this OS/arch" â€?the dialog can only offer what it can install.
 pub async fn check(beta: bool) -> Result<Option<UpdateInfo>, String> {
-    let rel = hya_updater::check_channel(&user_agent(), beta)
+    let rel = pdl_updater::check_channel(&user_agent(), beta)
         .await
         .map_err(|e| e.to_string())?;
-    if !hya_updater::is_newer(rel.version(), env!("CARGO_PKG_VERSION")) {
+    if !pdl_updater::is_newer(rel.version(), env!("CARGO_PKG_VERSION")) {
         return Ok(None);
     }
     // Running from an AppImage, the update IS the new AppImage: the release
     // tarball would only be unpackable over a read-only mount that stops
     // existing when this process does.
-    let appimage = hya_updater::appimage_path();
+    let appimage = pdl_updater::appimage_path();
     let asset = match &appimage {
         Some(_) => rel.appimage_asset(),
         None => rel.gui_asset(),
@@ -83,15 +83,15 @@ pub async fn check(beta: bool) -> Result<Option<UpdateInfo>, String> {
             "update {} available but has no {} bundle",
             rel.version(),
             match &appimage {
-                Some(_) => format!("{}.AppImage", hya_updater::appimage_arch()),
-                None => format!("{}-{}", hya_updater::os_tag(), hya_updater::arch_tag()),
+                Some(_) => format!("{}.AppImage", pdl_updater::appimage_arch()),
+                None => format!("{}-{}", pdl_updater::os_tag(), pdl_updater::arch_tag()),
             }
         ));
         return Ok(None);
     };
     // Can the finisher actually rewrite this install? Everything Hydra put
-    // there itself â€” an unpacked archive, a macOS `.app`, a per-user
-    // Windows install â€” it can replace; a root-owned copy takes an
+    // there itself â€?an unpacked archive, a macOS `.app`, a per-user
+    // Windows install â€?it can replace; a root-owned copy takes an
     // authorisation prompt; only a package manager's files (`/usr/bin` from
     // a deb or rpm, a `.pkg` receipt in `/Applications`) are off limits,
     // because dpkg's database has to keep describing what is on disk.
@@ -101,11 +101,11 @@ pub async fn check(beta: bool) -> Result<Option<UpdateInfo>, String> {
         .and_then(|exe| exe.parent().map(PathBuf::from));
     let method = install_dir
         .as_deref()
-        .map(hya_updater::update_method)
-        .unwrap_or(hya_updater::UpdateMethod::Package);
+        .map(pdl_updater::update_method)
+        .unwrap_or(pdl_updater::UpdateMethod::Package);
     let in_place = method.is_self_update();
     // For an AppImage the install is the image file, not the mount
-    // `current_exe()` reports â€” say so in the log, that is the path the
+    // `current_exe()` reports â€?say so in the log, that is the path the
     // finisher will rewrite.
     let where_ = appimage
         .as_deref()
@@ -123,8 +123,8 @@ pub async fn check(beta: bool) -> Result<Option<UpdateInfo>, String> {
             "update {} available; {where_} updates {}",
             rel.version(),
             match method {
-                hya_updater::UpdateMethod::Elevated => "in place, after authorisation",
-                hya_updater::UpdateMethod::AppImage => "by replacing the image file",
+                pdl_updater::UpdateMethod::Elevated => "in place, after authorisation",
+                pdl_updater::UpdateMethod::AppImage => "by replacing the image file",
                 _ => "in place",
             }
         ));
@@ -135,7 +135,7 @@ pub async fn check(beta: bool) -> Result<Option<UpdateInfo>, String> {
         .map(|a| (a.name.clone(), a.browser_download_url.clone(), a.size));
     Ok(Some(UpdateInfo {
         version: rel.version().to_string(),
-        notes: hya_updater::clean_notes(&rel.body),
+        notes: pdl_updater::clean_notes(&rel.body),
         html_url: rel.html_url.clone(),
         asset_name: asset.name.clone(),
         asset_url: asset.browser_download_url.clone(),
@@ -145,10 +145,10 @@ pub async fn check(beta: bool) -> Result<Option<UpdateInfo>, String> {
             .map(|a| a.browser_download_url.clone()),
         in_place,
         needs_auth: match method {
-            hya_updater::UpdateMethod::Elevated => true,
+            pdl_updater::UpdateMethod::Elevated => true,
             // The image may sit in /opt or /usr/local/bin; the finisher
             // elevates on its own, but the dialog should warn first.
-            hya_updater::UpdateMethod::AppImage => hya_updater::appimage_needs_auth(),
+            pdl_updater::UpdateMethod::AppImage => pdl_updater::appimage_needs_auth(),
             _ => false,
         },
         package,
@@ -184,7 +184,7 @@ async fn drive(
 ) -> std::io::Result<()> {
     use iced::futures::SinkExt;
     let ua = user_agent();
-    let stage = hya_updater::staging_dir();
+    let stage = pdl_updater::staging_dir();
     let archive = stage.join(&info.asset_name);
 
     // Download. Progress goes through try_send: a full channel drops a
@@ -192,7 +192,7 @@ async fn drive(
     {
         let mut progress_tx = tx.clone();
         let cancel = cancel.clone();
-        hya_updater::http::download_to_file(&info.asset_url, &ua, &archive, move |got, total| {
+        pdl_updater::http::download_to_file(&info.asset_url, &ua, &archive, move |got, total| {
             let _ = progress_tx.try_send(UpdateEvent::Progress(got, total));
             !cancel.load(Ordering::Relaxed)
         })
@@ -202,14 +202,14 @@ async fn drive(
     // Verify against the release's published checksums when it has any.
     if let Some(sums_url) = &info.sums_url {
         let _ = tx.send(UpdateEvent::Verifying).await;
-        let sums = hya_updater::http::get_bytes(sums_url, &ua, 1024 * 1024).await?;
+        let sums = pdl_updater::http::get_bytes(sums_url, &ua, 1024 * 1024).await?;
         let sums = String::from_utf8_lossy(&sums).into_owned();
-        if let Some(want) = hya_updater::sum_for(&sums, &info.asset_name) {
-            let got = hya_updater::file_sha256(&archive)?;
+        if let Some(want) = pdl_updater::sum_for(&sums, &info.asset_name) {
+            let got = pdl_updater::file_sha256(&archive)?;
             if got != want {
                 let _ = std::fs::remove_file(&archive);
                 return Err(std::io::Error::other(
-                    "checksum mismatch â€” the downloaded archive was discarded",
+                    "checksum mismatch â€?the downloaded archive was discarded",
                 ));
             }
         }
@@ -219,20 +219,20 @@ async fn drive(
     // An AppImage download is the finished article: one executable file that
     // replaces the installed one. Everything else arrives as an archive of
     // binaries to unpack and copy over.
-    let appimage = hya_updater::appimage_path();
+    let appimage = pdl_updater::appimage_path();
     let bundle = match &appimage {
         Some(_) => None,
         None => {
             let unpack = stage.join("unpacked");
             let _ = std::fs::remove_dir_all(&unpack);
-            Some(hya_updater::extract(&archive, &unpack)?)
+            Some(pdl_updater::extract(&archive, &unpack)?)
         }
     };
 
     // The finisher: prefer the NEW release's copy (version-matched to what it
     // installs), fall back to the one shipped next to the running app. Either
     // way it runs from the staging dir so the swap never overwrites it. An
-    // AppImage has only the second option â€” the download is a squashfs image,
+    // AppImage has only the second option â€?the download is a squashfs image,
     // not a directory, and mounting it to fish one binary out would buy
     // nothing the shipped finisher cannot already do.
     let updater_name = if cfg!(target_os = "windows") {
@@ -268,7 +268,7 @@ async fn drive(
     let mut cmd = std::process::Command::new(&updater);
     match (&appimage, &bundle) {
         // Replace the image file the user launched, and relaunch that same
-        // path â€” not `current_exe()`, which points into a mount that will
+        // path â€?not `current_exe()`, which points into a mount that will
         // not exist a moment from now.
         (Some(img), _) => {
             cmd.arg("--src-file")
@@ -322,13 +322,13 @@ async fn drive(
 pub fn sweep_leftovers() {
     // The AppImage case first: the previous image was renamed aside next to
     // itself, and `current_exe()` points at a mount that never holds one.
-    if let Some(img) = hya_updater::appimage_path() {
-        hya_updater::sweep_appimage_leftover(&img);
+    if let Some(img) = pdl_updater::appimage_path() {
+        pdl_updater::sweep_appimage_leftover(&img);
         return;
     }
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
-            hya_updater::sweep_old_files(dir);
+            pdl_updater::sweep_old_files(dir);
         }
     }
 }

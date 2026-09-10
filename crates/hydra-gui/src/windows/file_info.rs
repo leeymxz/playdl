@@ -7,9 +7,9 @@
 //! greyed under the checkbox, the file-type icon and size in a side column,
 //! and the buttons left-aligned under the fields.
 //!
-//! * New download â€” "Download File Info": category/save-as/description while
+//! * New download â€?"Download File Info": category/save-as/description while
 //!   the transfer already runs in the background.
-//! * Existing download â€” "File Properties": status/size, editable Address
+//! * Existing download â€?"File Properties": status/size, editable Address
 //!   (switch mirrors and CONTINUE the same bytes), login/password, cookies,
 //!   last try and result.
 
@@ -94,7 +94,7 @@ pub fn view(app: &App) -> El<'_> {
     }
 
     // Address: read-only while the fresh probe is running, editable on an
-    // existing entry â€” that edit is the mirror switch.
+    // existing entry â€?that edit is the mirror switch.
     let addr: El<'_> = if st.is_new {
         text_input("", &st.url)
             .size(theme::FONT_SIZE)
@@ -166,7 +166,7 @@ pub fn view(app: &App) -> El<'_> {
                 .into(),
         ));
         form = form.push(indented(
-            // Off â€” and honestly so â€” for a file type that is not in
+            // Off â€?and honestly so â€?for a file type that is not in
             // Options > File types: nothing is running behind this dialog.
             checkbox(app.cfg.settings.bg_download && !st.bg_blocked)
                 .label(tr("Download in background while choosing options"))
@@ -232,10 +232,10 @@ pub fn view(app: &App) -> El<'_> {
     }
 
     // Side column: file-type icon with the size under it, level with the
-    // Category/Save As rows, and Preview button beneath â€” live for an
+    // Category/Save As rows, and Preview button beneath â€?live for an
     // archive whose index can be read off its tail (see `engine::peek_zip`),
     // greyed for everything else so the column keeps one shape.
-    let previewable = hya_net::zipdir::is_zip_name(&st.file_name);
+    let previewable = pdl_net::zipdir::is_zip_name(&st.file_name);
     let side = column![
         iced::widget::space::vertical().height(if st.is_new { 30.0 } else { 86.0 }),
         svg(crate::ui::categories::cat_icon(&st.category))

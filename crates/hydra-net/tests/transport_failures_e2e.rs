@@ -5,14 +5,14 @@
 //! transport could not see: it spawned a fetch and discarded its result, so a
 //! closed socket, a truncated body and a protocol violation were all
 //! indistinguishable from a connection that was merely slow. What noticed, in
-//! every case, was the stall timeout â€” 4 to 45 s of dead air per occurrence.
+//! every case, was the stall timeout â€?4 to 45 s of dead air per occurrence.
 //!
 //! The first case is the one users hit, and the reason they hit it near the end:
 //!
 //! Every real origin closes idle keep-alive sockets on its own schedule, and it
 //! does so silently: a FIN, not a `Connection: close` on the previous response.
 //! The client is holding that socket for reuse and cannot tell it apart from a
-//! live one until the next request's first read returns zero â€” the write goes
+//! live one until the next request's first read returns zero â€?the write goes
 //! through, because only the server's write half is closed.
 //!
 //! This is the endgame case: near completion, the remaining work is carried by
@@ -23,9 +23,9 @@
 //! LOUDLY was discarded by the transport just as completely, so a truncated body
 //! also cost a stall timeout before anything re-requested the remainder.
 
-use hya_core::{Scheduler, Source};
-use hya_net::origin::{byte_at, OriginSet};
-use hya_net::{run_transfer_tick, Target};
+use pdl_core::{Scheduler, Source};
+use pdl_net::origin::{byte_at, OriginSet};
+use pdl_net::{run_transfer_tick, Target};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
@@ -70,8 +70,8 @@ async fn an_origin_that_closes_pooled_connections_does_not_stall_the_transfer() 
     )
     // The GUI's shipping configuration: the budget is open but only one
     // connection starts active, so the in-band ramp admits the rest. That is what
-    // produces a stream of short range requests â€” and therefore pooled-connection
-    // reuse â€” instead of one maximal range per connection.
+    // produces a stream of short range requests â€?and therefore pooled-connection
+    // reuse â€?instead of one maximal range per connection.
     .with_active_limit(1)
     .with_stall_timeout(3.0);
 
@@ -107,7 +107,7 @@ async fn a_truncated_response_is_re_requested_without_waiting_for_the_stall_time
     let (port, ctl) = net.spawn(SIZE, 16 * 1024 * 1024);
     // Every third response is cut in half: the CDN node recycled mid-body, the
     // load balancer that drops a connection. The client gets a real error from
-    // the fetch â€” which is exactly the point, because the transport used to throw
+    // the fetch â€?which is exactly the point, because the transport used to throw
     // that error away and let the stall detector rediscover it seconds later.
     ctl.truncate_every.store(3, Ordering::Relaxed);
 
@@ -158,7 +158,7 @@ async fn a_truncated_response_is_re_requested_without_waiting_for_the_stall_time
 /// The scheduler-driven transport used to discard fetch errors entirely, so a
 /// protocol violation it could never recover from looked exactly like slowness:
 /// every connection failed instantly, was re-requested on the next tick, failed
-/// again, and the only thing that ever ended it was the no-progress deadline â€”
+/// again, and the only thing that ever ended it was the no-progress deadline â€?
 /// which then blamed the symptom ("every source stalled or unreachable") instead
 /// of the cause the server had stated on every single response.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]

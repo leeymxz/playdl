@@ -1,28 +1,33 @@
 [package]
-name = "hya-cli"
+name = "pdl-cli"
 version.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later"
 repository.workspace = true
 homepage.workspace = true
-description = "Multi-source download accelerator and file retriever CLI"
+description = "PlayDL - Multi-source download accelerator and file retriever CLI"
 publish = false
 
 [[bin]]
-name = "hydra"
+name = "playdl"
+path = "src/main.rs"
+
+# 缩写别名：pdl === playdl
+[[bin]]
+name = "pdl"
 path = "src/main.rs"
 
 [dependencies]
-hya-core = { workspace = true }
-hya-net = { workspace = true }
+pdl-core = { workspace = true }
+pdl-net = { workspace = true }
 # HLS/DASH manifests and segment assembly, shared with the desktop app so
 # both produce the same file from the same manifest.
-hya-stream = { workspace = true }
+pdl-stream = { workspace = true }
 # Local-time rendering for `--inspect`: servers state Last-Modified in GMT,
 # which is right on the wire and unhelpful on a terminal.
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
-# `hydra update`: release check + download-link resolution (report-only).
-hya-updater = { workspace = true }
+# `playdl update`: release check + download-link resolution (report-only).
+pdl-updater = { workspace = true }
 tokio = { workspace = true }
 clap = { workspace = true }
 crossterm = { workspace = true }
@@ -37,7 +42,7 @@ clap_complete = { workspace = true }
 [target.'cfg(target_os = "windows")'.dependencies]
 # Cross-compiling to windows-msvc: MSVC's arm64_neon.h is not clang-parsable,
 # so blake3's C NEON path cannot build — the pure-Rust implementation is
-# feature-unified in for Windows targets only, same as hydra-gui. Portable
+# feature-unified in for Windows targets only, same as playdl-gui. Portable
 # blake3 still hashes well above the network rates the scheduler works at.
 blake3 = { version = "1", features = ["pure"] }
 

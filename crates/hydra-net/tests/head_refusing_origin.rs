@@ -2,14 +2,14 @@
 //! stream.
 //!
 //! `ash-speed.hetzner.com` answers a HEAD by closing the connection with an empty
-//! reply. `probe` reports that as a successful response â€” status 0, no length, no
-//! range support â€” because a peer that hangs up after a complete header block is
+//! reply. `probe` reports that as a successful response â€?status 0, no length, no
+//! range support â€?because a peer that hangs up after a complete header block is
 //! merely impolite, and the read loop cannot tell "impolite" from "said nothing".
 //! Believing it sends a ten-gigabyte object down the single-stream path: unknown
 //! size, no resume, one connection. The same URL answers `bytes=0-0` with `206`,
 //! its full length and a strong ETag, which is what `probe_resilient` asks for.
 
-use hya_net::{fetch_streaming_observed, polite::Pace, probe, probe_resilient, Target};
+use pdl_net::{fetch_streaming_observed, polite::Pace, probe, probe_resilient, Target};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -114,7 +114,7 @@ async fn spawn_origin() -> u16 {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_head_refusing_origin_still_yields_size_and_range_support() {
     let port = spawn_origin().await;
-    let conn = Arc::new(hya_net::TlsCapableConnector::new().expect("client must build"));
+    let conn = Arc::new(pdl_net::TlsCapableConnector::new().expect("client must build"));
     let t = Target::direct("127.0.0.1", port, "/10GB.bin");
 
     // What the bare HEAD reports, and why it cannot be trusted: a complete
@@ -141,7 +141,7 @@ async fn a_head_refusing_origin_still_yields_size_and_range_support() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_zero_length_object_is_answered_by_head_alone() {
     let port = spawn_origin().await;
-    let conn = Arc::new(hya_net::TlsCapableConnector::new().expect("client must build"));
+    let conn = Arc::new(pdl_net::TlsCapableConnector::new().expect("client must build"));
     let t = Target::direct("127.0.0.1", port, "/empty");
 
     let p = probe_resilient(conn.as_ref(), &t)
@@ -154,7 +154,7 @@ async fn a_zero_length_object_is_answered_by_head_alone() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_streaming_fetch_reports_progress_and_stops_when_cancelled() {
     let port = spawn_origin().await;
-    let conn = Arc::new(hya_net::TlsCapableConnector::new().expect("client must build"));
+    let conn = Arc::new(pdl_net::TlsCapableConnector::new().expect("client must build"));
     let t = Target::direct("127.0.0.1", port, "/10GB.bin");
     let out = std::env::temp_dir().join("hydra_stream_cancel.bin");
     let outs = out.to_string_lossy().to_string();

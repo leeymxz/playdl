@@ -6,8 +6,8 @@
 //! * Multi-origin downloads from independent hosts serving identical files;
 //! * Comparison against single-stream baseline transfers.
 
-use hya_core::{Admission, Admit, DeltaEstimator, Scheduler, Source};
-use hya_net::{fetch_range_retry, run_transfer_tick, SparseSink, Target, TcpConnector};
+use pdl_core::{Admission, Admit, DeltaEstimator, Scheduler, Source};
+use pdl_net::{fetch_range_retry, run_transfer_tick, SparseSink, Target, TcpConnector};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -23,7 +23,7 @@ pub struct RealObject {
 /// The size ladder for the scaling experiment.
 ///
 /// Five sizes spanning 33x (0.42 MB to 13.94 MB), every one served by both CRAN
-/// mirrors with byte-identical strong ETags â€” verified against both mirrors before
+/// mirrors with byte-identical strong ETags â€?verified against both mirrors before
 /// the run, since two mirrors that disagree cannot be assembled from and the
 /// experiment would be measuring the wrong thing.
 ///
@@ -109,7 +109,7 @@ fn digest(path: &str, expect_len: u64) -> Option<String> {
 /// Single sequential stream baseline.
 async fn run_single(obj: &RealObject) -> Option<(f64, String)> {
     let t = targets(obj, 1).remove(0);
-    let out = std::env::temp_dir().join(format!("hydra_real_single_{}", obj.name));
+    let out = std::env::temp_dir().join(format!("playdl_real_single_{}", obj.name));
     let outs = out.to_string_lossy().to_string();
     let sink = Arc::new(SparseSink::create(&outs, obj.size).ok()?);
     let c = Arc::new(TcpConnector);
@@ -141,7 +141,7 @@ async fn run_hydra(obj: &RealObject, n_origins: usize, conns: usize) -> Option<(
             ..Default::default()
         })
         .collect();
-    let out = std::env::temp_dir().join(format!("hydra_real_{}_{}x{}", obj.name, n_origins, conns));
+    let out = std::env::temp_dir().join(format!("playdl_real_{}_{}x{}", obj.name, n_origins, conns));
     let outs = out.to_string_lossy().to_string();
     let sched = Scheduler::new(obj.size, sources, &per).with_stall_timeout(8.0);
     let c = Arc::new(TcpConnector);
@@ -176,7 +176,7 @@ async fn run_hydra_adaptive(obj: &RealObject, max_per_origin: usize) -> Option<A
         // that the previous level populated.
         let base = probe_off % (obj.size.saturating_sub(PROBE_TOTAL * 2)).max(1);
         let slice = PROBE_TOTAL / level as u64;
-        let probe_out = std::env::temp_dir().join(format!("hydra_probe_{}", obj.name));
+        let probe_out = std::env::temp_dir().join(format!("playdl_probe_{}", obj.name));
         let po = probe_out.to_string_lossy().to_string();
         let sink = Arc::new(SparseSink::create(&po, obj.size).ok()?);
         let t0 = Instant::now();
@@ -237,7 +237,7 @@ async fn run_hydra_adaptive(obj: &RealObject, max_per_origin: usize) -> Option<A
             ..Default::default()
         })
         .collect();
-    let out = std::env::temp_dir().join(format!("hydra_adaptive_{}", obj.name));
+    let out = std::env::temp_dir().join(format!("playdl_adaptive_{}", obj.name));
     let outs = out.to_string_lossy().to_string();
     let sched = Scheduler::new(obj.size, sources, &per)
         .with_stall_timeout((8.0 * delta).max(4.0))

@@ -9,7 +9,7 @@
 //! ask why a mirror list needs its own entry point at all. The answer is that
 //! the URLs are the least valuable thing in the document. Handing the engine a
 //! bare list of mirrors leaves it with no size it can trust, no digest, no
-//! ranking, and â€” decisively â€” no way to admit a second source: mirror assembly
+//! ranking, and â€?decisively â€?no way to admit a second source: mirror assembly
 //! is gated on every source agreeing about a strong validator, and independent
 //! mirror operators running independent web servers cannot share an `ETag`. A
 //! nineteen-mirror list passed as nineteen URLs downloads from exactly one of
@@ -31,7 +31,7 @@
 //!
 //! [`hydra_metalink_files`](crate::exports::hydra_metalink_files) and
 //! [`hydra_metalink_mirrors`](crate::exports::hydra_metalink_mirrors) let a host
-//! application show the user what a document offers before anything is fetched â€”
+//! application show the user what a document offers before anything is fetched â€?
 //! which matters most on mobile, where a 4 GB image on a metered link is a
 //! decision and not a detail.
 //! [`hydra_job_create_from_metalink`](crate::exports::hydra_job_create_from_metalink)
@@ -42,19 +42,19 @@
 
 use crate::abi::hydra_error_code_t as E;
 use crate::err::Detail;
-use hya_core::SourcePlan;
-use hya_net::metalink::{MetalinkFile, NO_PRIORITY};
+use pdl_core::SourcePlan;
+use pdl_net::metalink::{MetalinkFile, NO_PRIORITY};
 
 /// Largest document fetched over the network.
 ///
 /// The document is fetched before anything about it is known, so an unbounded
 /// read of a body chosen by whoever answers is a memory-exhaustion primitive no
 /// amount of care in the parser can fix.
-pub(crate) const FETCH_CAP: usize = hya_net::metalink::MAX_DOCUMENT;
+pub(crate) const FETCH_CAP: usize = pdl_net::metalink::MAX_DOCUMENT;
 
 /// A parsed document, behind the opaque handle the C side holds.
 pub(crate) struct Doc {
-    pub inner: hya_net::Metalink,
+    pub inner: pdl_net::Metalink,
     /// Where it came from, for the `attested by` line in a job's log.
     pub origin: String,
 }
@@ -68,7 +68,7 @@ pub(crate) struct Chosen {
     pub size: Option<u64>,
     /// `algorithm:hex`, the strongest digest the document published.
     pub digest: Option<String>,
-    pub pieces: Option<hya_net::manifest::Manifest>,
+    pub pieces: Option<pdl_net::manifest::Manifest>,
 }
 
 fn invalid(msg: impl Into<String>) -> Detail {
@@ -87,7 +87,7 @@ pub(crate) fn parse(text: &str, origin: &str) -> Result<Doc, Detail> {
             text.len()
         )));
     }
-    hya_net::metalink::parse(text)
+    pdl_net::metalink::parse(text)
         .map(|inner| Doc {
             inner,
             origin: origin.to_string(),
@@ -103,10 +103,10 @@ pub(crate) fn open(path: &str) -> Result<Doc, Detail> {
 
 /// Fetch a document over HTTP and read it.
 ///
-/// Redirects are followed because mirror redirectors use them constantly â€” the
+/// Redirects are followed because mirror redirectors use them constantly â€?the
 /// document lives behind a load balancer as often as not.
 pub(crate) async fn fetch(
-    conn: &std::sync::Arc<hya_net::TlsCapableConnector>,
+    conn: &std::sync::Arc<pdl_net::TlsCapableConnector>,
     url: &str,
     headers: &[String],
     agent: &str,
@@ -128,15 +128,15 @@ pub(crate) async fn fetch(
         // object is. Routing it through a job's proxy would attach one job's
         // configuration to a document that may describe several.
         let t = if cur.tls() {
-            hya_net::Target::direct_tls(&cur.host, cur.port, &cur.path)
+            pdl_net::Target::direct_tls(&cur.host, cur.port, &cur.path)
         } else {
-            hya_net::Target::direct(&cur.host, cur.port, &cur.path)
+            pdl_net::Target::direct(&cur.host, cur.port, &cur.path)
         }
         .with_headers(headers.to_vec(), Some(agent.to_string()));
         // A HEAD first, only to learn whether this is a redirect. A GET that
         // lands on a 302 would have to be re-issued anyway, and this way the
         // capped body fetch happens exactly once against the final host.
-        if let Ok(pr) = hya_net::probe(conn.as_ref(), &t).await {
+        if let Ok(pr) = pdl_net::probe(conn.as_ref(), &t).await {
             if pr.is_redirect() {
                 let loc = pr.location.clone().unwrap_or_default();
                 match cur.join(&loc) {
@@ -148,7 +148,7 @@ pub(crate) async fn fetch(
                 }
             }
         }
-        let body = hya_net::fetch_small(conn.as_ref(), &t, FETCH_CAP)
+        let body = pdl_net::fetch_small(conn.as_ref(), &t, FETCH_CAP)
             .await
             .map_err(|e| net(format!("cannot fetch metalink {url}: {e}")))?;
         let text = String::from_utf8(body)
@@ -161,7 +161,7 @@ pub(crate) async fn fetch(
 /// The mirrors of one entry, best-first, as a dense rank.
 ///
 /// Dense rather than the document's own numbers because one number reaches
-/// [`hya_core::plan::allocate`] and it decides both who is seated and how much
+/// [`pdl_core::plan::allocate`] and it decides both who is seated and how much
 /// share they get. A Metalink 3.0 `preference` maps into 1..101 while an
 /// unranked mirror sits at [`NO_PRIORITY`], so arithmetic on the document's
 /// values cannot express "this one first" consistently across dialects.
@@ -171,7 +171,7 @@ pub(crate) async fn fetch(
 /// earlier: a reader should be able to SEE the whole list, and only a source
 /// list has to exclude them.
 pub(crate) fn ranked(f: &MetalinkFile) -> Vec<(String, SourcePlan, Option<String>, String, u32)> {
-    let mut urls: Vec<&hya_net::MetaUrl> = f.fetchable_urls();
+    let mut urls: Vec<&pdl_net::MetaUrl> = f.fetchable_urls();
     // Transport first, the publisher's ranking within it: HTTP(S) mirrors can
     // be spliced and repaired per chunk, an FTP source is a single sequential
     // stream, and real documents rank ftp:// first (metalinker.org's own
@@ -220,7 +220,7 @@ pub(crate) fn choose(doc: &Doc, index: usize) -> Result<Chosen, Detail> {
     }
     // One TRANSPORT per job. `ranked` keeps every fetchable mirror so
     // `hydra_metalink_mirrors` can show the whole list, but the engine splices
-    // over HTTP and builds HTTP targets for its probes and reserves â€” an
+    // over HTTP and builds HTTP targets for its probes and reserves â€?an
     // `ftp://` entry in a mixed job is a request sent to port 21. The leading
     // tier carries the transfer; an all-ftp entry keeps its ftp mirrors and
     // takes the single-stream path.
@@ -230,7 +230,7 @@ pub(crate) fn choose(doc: &Doc, index: usize) -> Result<Chosen, Detail> {
     // object; applying it anyway would report every chunk as corrupt. Dropped
     // with the whole-file digest still in place rather than failing the job,
     // because the object itself is still perfectly fetchable.
-    let pieces = hya_net::manifest::from_metalink(f).ok();
+    let pieces = pdl_net::manifest::from_metalink(f).ok();
     Ok(Chosen {
         name,
         urls: ranked.iter().map(|(u, ..)| u.clone()).collect(),
@@ -244,10 +244,10 @@ pub(crate) fn choose(doc: &Doc, index: usize) -> Result<Chosen, Detail> {
 /// The transport tier of a scheme string, as `ranked` reports it.
 ///
 /// A thin bridge: `ranked` hands its consumers the scheme as a string, and the
-/// tier logic lives on [`hya_net::metalink::UrlKind`] where every frontend
+/// tier logic lives on [`pdl_net::metalink::UrlKind`] where every frontend
 /// shares it.
 fn tier_of(proto: &str) -> u8 {
-    hya_net::metalink::UrlKind::from_url(&format!("{proto}://x")).transport_tier()
+    pdl_net::metalink::UrlKind::from_url(&format!("{proto}://x")).transport_tier()
 }
 
 /// Index of the entry whose name matches `want`, by full name or base name.
@@ -264,20 +264,20 @@ pub(crate) fn index_of(doc: &Doc, want: &str) -> Option<usize> {
 /// The digest spec a document published, as the ABI's checksum pair.
 ///
 /// `None` when the algorithm is one this build does not compare (a CRC), which
-/// is reported as "not checked" rather than as a pass â€” a verification that
+/// is reported as "not checked" rather than as a pass â€?a verification that
 /// means nothing is worse than an honest absence.
 pub(crate) fn checksum_of(spec: &str) -> Option<(crate::engine::Algo, Vec<u8>)> {
     use crate::engine::Algo;
     let (a, hex) = spec.split_once(':')?;
-    let algo = match hya_net::digest::Algo::parse(a)? {
-        hya_net::digest::Algo::Md5 => Algo::Md5,
-        hya_net::digest::Algo::Sha1 => Algo::Sha1,
-        hya_net::digest::Algo::Sha256 => Algo::Sha256,
-        hya_net::digest::Algo::Sha512 => Algo::Sha512,
-        hya_net::digest::Algo::Crc32 | hya_net::digest::Algo::Crc32c => return None,
+    let algo = match pdl_net::digest::Algo::parse(a)? {
+        pdl_net::digest::Algo::Md5 => Algo::Md5,
+        pdl_net::digest::Algo::Sha1 => Algo::Sha1,
+        pdl_net::digest::Algo::Sha256 => Algo::Sha256,
+        pdl_net::digest::Algo::Sha512 => Algo::Sha512,
+        pdl_net::digest::Algo::Crc32 | pdl_net::digest::Algo::Crc32c => return None,
     };
     // The parser already refuses malformed document digests, so this cannot
-    // fire from a real `Attested` â€” but this function is the boundary the
+    // fire from a real `Attested` â€?but this function is the boundary the
     // verifier's `want` comes through, and a truncated digest that slipped in
     // any other way would report a GOOD file as a checksum failure. "Not
     // checked" is the honest answer for a spec that cannot be checked.
@@ -295,8 +295,8 @@ pub(crate) fn checksum_of(spec: &str) -> Option<(crate::engine::Algo, Vec<u8>)> 
 pub(crate) fn version_of(doc: &Doc) -> crate::abi::hydra_metalink_version_t {
     use crate::abi::hydra_metalink_version_t as V;
     match doc.inner.version {
-        Some(hya_net::metalink::Version::V3) => V::HYDRA_METALINK_V3,
-        Some(hya_net::metalink::Version::V4) => V::HYDRA_METALINK_V4,
+        Some(pdl_net::metalink::Version::V3) => V::HYDRA_METALINK_V3,
+        Some(pdl_net::metalink::Version::V4) => V::HYDRA_METALINK_V4,
         None => V::HYDRA_METALINK_UNKNOWN,
     }
 }
@@ -383,7 +383,7 @@ mod tests {
     fn a_job_takes_one_transport_while_the_mirror_listing_shows_them_all() {
         // `hydra_metalink_mirrors` is the display path and keeps everything a
         // caller could show; `choose` is the job path, and the engine it feeds
-        // probes and substitutes over HTTP targets â€” an ftp entry there is a
+        // probes and substitutes over HTTP targets â€?an ftp entry there is a
         // request sent to port 21.
         let src = r#"<metalink xmlns="urn:ietf:params:xml:ns:metalink"><file name="f">
             <size>4</size>
@@ -426,8 +426,8 @@ mod tests {
 
     #[test]
     fn pieces_that_do_not_tile_the_size_are_dropped_and_the_job_still_runs() {
-        // The document contradicts itself. Failing the job would be wrong â€” the
-        // object is perfectly fetchable â€” and applying the pieces anyway would
+        // The document contradicts itself. Failing the job would be wrong â€?the
+        // object is perfectly fetchable â€?and applying the pieces anyway would
         // report every chunk as corrupt.
         let src = r#"<metalink xmlns="urn:ietf:params:xml:ns:metalink"><file name="f">
             <size>100</size>

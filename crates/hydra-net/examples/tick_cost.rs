@@ -3,7 +3,7 @@
 //! `run_transfer_into` wakes on a fixed interval (the CLI passes 20 ms = 50 Hz)
 //! for the entire duration of a transfer, and each wake runs `sched.tick()` over
 //! every connection plus the watchdog arithmetic. During a fast transfer that is
-//! irrelevant â€” the loop is doing real work between wakes. It stops being
+//! irrelevant â€?the loop is doing real work between wakes. It stops being
 //! irrelevant on a server: a slow or stalled transfer, or a long-lived queue with
 //! several idle jobs, pays the same 50 Hz forever, and an otherwise-idle box
 //! never reaches a deep sleep state.
@@ -12,7 +12,7 @@
 //! origin slow enough that the tick loop, not the network, dominates the CPU
 //! time. The number to watch is CPU-seconds per wall-second.
 
-use hya_net::origin::OriginSet;
+use pdl_net::origin::OriginSet;
 use std::sync::Arc;
 
 /// CPU time (user + system) consumed by this process, in seconds.
@@ -46,7 +46,7 @@ fn cpu_seconds() -> f64 {
 
 /// CPU time (user + system) consumed by this process, in seconds.
 ///
-/// `GetProcessTimes` reports kernel and user time as FILETIME â€” 100 ns units.
+/// `GetProcessTimes` reports kernel and user time as FILETIME â€?100 ns units.
 /// Declared directly rather than pulling in a crate for one call, matching the
 /// unix `getrusage` block above.
 #[cfg(windows)]
@@ -94,20 +94,20 @@ async fn main() {
     for tick_ms in [20u64, 50, 100, 250] {
         let net = Arc::new(OriginSet::new());
         let (port, _ctl) = net.spawn(size, 256 * 1024);
-        let t = hya_net::Target::direct("127.0.0.1", port, "/obj");
-        let sched = hya_core::Scheduler::new(
+        let t = pdl_net::Target::direct("127.0.0.1", port, "/obj");
+        let sched = pdl_core::Scheduler::new(
             size,
-            vec![hya_core::Source {
+            vec![pdl_core::Source {
                 gamma_est: 256.0 * 1024.0,
                 delta_est: 0.005,
                 ..Default::default()
             }],
             &[2],
         );
-        let sink = Arc::new(hya_net::SparseSink::discarding());
+        let sink = Arc::new(pdl_net::SparseSink::discarding());
         let c0 = cpu_seconds();
         let w0 = std::time::Instant::now();
-        hya_net::run_transfer_into(
+        pdl_net::run_transfer_into(
             net.clone(),
             vec![t],
             &[2],
@@ -115,11 +115,11 @@ async fn main() {
             sink,
             sched,
             tick_ms,
-            &mut |_: &hya_core::Scheduler, _: u64| {},
+            &mut |_: &pdl_core::Scheduler, _: u64| {},
             // Unshaped: this harness measures the cost of the tick loop itself,
             // so a rate cap would add sleeps and confound exactly the CPU-time
             // reading it exists to take.
-            hya_net::polite::Pace::unlimited(),
+            pdl_net::polite::Pace::unlimited(),
         )
         .await
         .expect("transfer must complete");

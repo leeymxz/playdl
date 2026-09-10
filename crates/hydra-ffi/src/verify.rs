@@ -71,8 +71,8 @@ pub(crate) fn check(path: &str, algo: Algo, want: &[u8]) -> Result<(), Detail> {
         message: format!(
             "{} mismatch: expected {}, got {}",
             algo.as_str(),
-            hya_net::digest::to_lower_hex(want),
-            hya_net::digest::to_lower_hex(&got)
+            pdl_net::digest::to_lower_hex(want),
+            pdl_net::digest::to_lower_hex(&got)
         ),
     })
 }

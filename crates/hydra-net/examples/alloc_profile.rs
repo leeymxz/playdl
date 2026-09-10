@@ -4,8 +4,8 @@
 //! for the flat-memory claim but says nothing about allocation CHURN: a loop that
 //! allocates and frees a buffer per read has a flat footprint and still burns
 //! measurable time in the allocator, and on a multi-threaded transfer it
-//! contends. This harness answers the other question â€” how many allocations does
-//! moving a megabyte cost â€” by installing a counting global allocator and
+//! contends. This harness answers the other question â€?how many allocations does
+//! moving a megabyte cost â€?by installing a counting global allocator and
 //! driving the real chunked decoder over a real socket.
 //!
 //! Chunked framing is the mode measured because it is the one with per-token
@@ -20,7 +20,7 @@
 //! with the origin serving an unframed body and subtract. What matters for the
 //! client is the DELTA between chunk sizes after that subtraction.
 
-use hya_net::origin::OriginSet;
+use pdl_net::origin::OriginSet;
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -84,16 +84,16 @@ async fn main() {
         // traffic per byte, not the origin's token bucket.
         let (port, ctl) = net.spawn(size, 8 * 1024 * 1024 * 1024);
         ctl.chunked.store(chunk as u64, Ordering::Relaxed);
-        let t = hya_net::Target::direct("127.0.0.1", port, "/obj");
+        let t = pdl_net::Target::direct("127.0.0.1", port, "/obj");
         // Discarding sink isolates decode-path allocation from the filesystem.
-        let sink = Arc::new(hya_net::SparseSink::discarding());
+        let sink = Arc::new(pdl_net::SparseSink::discarding());
 
         // Reset after setup so the counts describe the transfer, not the server.
         ALLOCS.store(0, Ordering::Relaxed);
         BYTES.store(0, Ordering::Relaxed);
         PEAK.store(LIVE.load(Ordering::Relaxed), Ordering::Relaxed);
 
-        hya_net::fetch_range_retry(net.clone(), t, 0, size, sink.clone(), 2, 120.0)
+        pdl_net::fetch_range_retry(net.clone(), t, 0, size, sink.clone(), 2, 120.0)
             .await
             .expect("chunked transfer must complete");
 

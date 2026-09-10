@@ -6,7 +6,7 @@
 //! macOS: a LaunchAgent plist (appears under System Settings > General >
 //! Login Items as an allowed background item; no extra permission dialogs
 //! required). Linux: an XDG autostart entry. Windows: a value under
-//! `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` â€” which launches
+//! `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` â€?which launches
 //! the exe directly (no console flash, unlike the Startup-folder .cmd
 //! shipped before 0.2.x) and lets Task Manager's
 //! "Startup apps" page show the icon and "Hydra Download Manager" name
@@ -18,9 +18,9 @@ use std::path::PathBuf;
 
 fn exe() -> Option<String> {
     // From an AppImage, `current_exe()` is a path inside the runtime's mount
-    // â€” it exists only for this run, so a login entry pointing at it would
+    // â€?it exists only for this run, so a login entry pointing at it would
     // be dead by the next boot. The image file is the launcher.
-    if let Some(img) = hya_updater::appimage_path() {
+    if let Some(img) = pdl_updater::appimage_path() {
         return Some(img.to_string_lossy().into_owned());
     }
     let cur = std::env::current_exe().ok()?;
@@ -30,7 +30,7 @@ fn exe() -> Option<String> {
 }
 
 /// A quarantined app's first launch runs from a Gatekeeper App Translocation
-/// mount, and launching straight out of the DMG runs from /Volumes â€” both
+/// mount, and launching straight out of the DMG runs from /Volumes â€?both
 /// paths are gone by the next login, so a login item recorded at that first
 /// launch never fires. Map such a path onto the same bundle under
 /// /Applications or ~/Applications; if no installed copy exists, report
@@ -59,7 +59,7 @@ fn stable_bundle_exe(cur: PathBuf) -> Option<PathBuf> {
         let candidate = root.join(&bundle_name).join(&inner);
         if candidate.is_file() {
             crate::log::info(&format!(
-                "login item: running from transient {} â€” using installed {}",
+                "login item: running from transient {} â€?using installed {}",
                 cur.display(),
                 candidate.display()
             ));
@@ -87,14 +87,14 @@ fn entry_path() -> Option<PathBuf> {
 ///
 /// A `--config DIR` instance leaves the login item alone. There is exactly
 /// one per user and the ordinary install owns it, while a fresh profile's
-/// settings have "launch on startup" ON â€” so a portable copy would seize it
+/// settings have "launch on startup" ON â€?so a portable copy would seize it
 /// on its very first run, and every logon after that would start the
 /// portable copy, on the portable download list, instead of the installed
 /// one. Same reasoning as the browser registration in `nmhost`.
 pub fn apply(enabled: bool, minimized: bool) {
     if let Some(dir) = crate::model::app_dir_override() {
         crate::log::info(&format!(
-            "login item: --config {} â€” left to the default profile",
+            "login item: --config {} â€?left to the default profile",
             dir.display()
         ));
         return;

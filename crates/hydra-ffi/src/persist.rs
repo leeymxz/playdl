@@ -63,7 +63,7 @@ struct JobRecord {
     /// `urls`. Empty for a job that never read a mirror list.
     ///
     /// Persisted because a restored job that lost its ranking would open the
-    /// same mirrors in a different order and lose its reserve bench â€” a
+    /// same mirrors in a different order and lose its reserve bench â€?a
     /// difference invisible until the mirror that failed before fails again.
     #[serde(default)]
     source_plans: Vec<(u32, u32)>,
@@ -122,7 +122,7 @@ fn no_state_path() -> Detail {
 }
 
 fn hex(bytes: &[u8]) -> String {
-    hya_net::digest::to_lower_hex(bytes)
+    pdl_net::digest::to_lower_hex(bytes)
 }
 
 fn unhex(s: &str) -> Option<Vec<u8>> {
@@ -145,16 +145,16 @@ fn algo_from_str(s: &str) -> Option<Algo> {
     }
 }
 
-fn proxy_kind_name(k: &hya_net::ProxyKind) -> String {
+fn proxy_kind_name(k: &pdl_net::ProxyKind) -> String {
     k.as_str().to_string()
 }
 
-fn proxy_kind_from(s: &str) -> Option<hya_net::ProxyKind> {
+fn proxy_kind_from(s: &str) -> Option<pdl_net::ProxyKind> {
     match s {
-        "http" => Some(hya_net::ProxyKind::Http),
-        "socks4" => Some(hya_net::ProxyKind::Socks4),
-        "socks4a" => Some(hya_net::ProxyKind::Socks4a),
-        "socks5" => Some(hya_net::ProxyKind::Socks5),
+        "http" => Some(pdl_net::ProxyKind::Http),
+        "socks4" => Some(pdl_net::ProxyKind::Socks4),
+        "socks4a" => Some(pdl_net::ProxyKind::Socks4a),
+        "socks5" => Some(pdl_net::ProxyKind::Socks5),
         _ => None,
     }
 }
@@ -211,7 +211,7 @@ pub(crate) fn save(engine: &Arc<Engine>) -> Result<(), Detail> {
                     // Bounded: the state file is rewritten on every autosave,
                     // and the parser admits piece lists that serialize to tens
                     // of megabytes. Past the cap the grid is dropped from the
-                    // RECORD only â€” the running job keeps verifying with it,
+                    // RECORD only â€?the running job keeps verifying with it,
                     // and a restored job falls back to the whole-file checksum.
                     pieces: job
                         .cfg
@@ -221,8 +221,8 @@ pub(crate) fn save(engine: &Arc<Engine>) -> Result<(), Detail> {
                         .filter(|j| j.len() <= 4 << 20),
                     attested_by: job.cfg.attested_by.clone(),
                     // A job that was executing when the process stopped is recorded
-                    // as paused. It is the truth about the file on disk â€” bytes are
-                    // there, nothing is moving â€” and it is the state from which
+                    // as paused. It is the truth about the file on disk â€?bytes are
+                    // there, nothing is moving â€?and it is the state from which
                     // `hydra_job_resume` is legal.
                     state: if g.is_running() {
                         S::HYDRA_JOB_PAUSED as u32
@@ -289,7 +289,7 @@ pub(crate) fn autosave(engine: &Arc<Engine>) {
 ///
 /// Restores identities, not execution: every restored job that was running is
 /// `HYDRA_JOB_PAUSED`, and nothing starts until the application says so. That
-/// is deliberate â€” on Android or iOS the decision to run belongs to the
+/// is deliberate â€?on Android or iOS the decision to run belongs to the
 /// platform layer, which knows whether the app is foregrounded, whether the
 /// network is metered and whether a service owns the work.
 ///
@@ -371,7 +371,7 @@ pub(crate) fn restore(engine: &Arc<Engine>) -> Result<usize, Detail> {
             source_plans: r
                 .source_plans
                 .iter()
-                .map(|&(priority, cap)| hya_core::SourcePlan {
+                .map(|&(priority, cap)| pdl_core::SourcePlan {
                     priority,
                     max_connections: (cap > 0).then_some(cap as usize),
                 })
@@ -384,7 +384,7 @@ pub(crate) fn restore(engine: &Arc<Engine>) -> Result<usize, Detail> {
             pieces: r
                 .pieces
                 .as_deref()
-                .and_then(|j| hya_net::manifest::Manifest::parse(j).ok()),
+                .and_then(|j| pdl_net::manifest::Manifest::parse(j).ok()),
             attested_by: r.attested_by,
         };
         let job = engine.insert_job_with_id(

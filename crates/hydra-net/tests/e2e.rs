@@ -7,9 +7,9 @@
 //! Every test verifies CONTENT, not just byte count: the origin serves a
 //! deterministic function of offset, so a mis-assembled file is detected.
 
-use hya_core::{Scheduler, Source};
-use hya_net::origin::{byte_at, OriginSet};
-use hya_net::{probe, run_transfer, Target};
+use pdl_core::{Scheduler, Source};
+use pdl_net::origin::{byte_at, OriginSet};
+use pdl_net::{probe, run_transfer, Target};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
@@ -149,7 +149,7 @@ async fn survives_a_mirror_that_throttles_mid_transfer() {
 /// status/Content-Range check can.
 #[tokio::test]
 async fn range_ignoring_server_is_rejected_not_silently_corrupted() {
-    use hya_net::{fetch_range_retry, SparseSink};
+    use pdl_net::{fetch_range_retry, SparseSink};
 
     const SIZE: u64 = 4 * 1024 * 1024;
     let net = Arc::new(OriginSet::new());
@@ -194,7 +194,7 @@ async fn range_ignoring_server_is_rejected_not_silently_corrupted() {
 /// a short file and calls it success.
 #[tokio::test]
 async fn truncating_origin_does_not_report_success() {
-    use hya_net::{fetch_range_retry, SparseSink};
+    use pdl_net::{fetch_range_retry, SparseSink};
     const SIZE: u64 = 2 * 1024 * 1024;
     let net = Arc::new(OriginSet::new());
     let (port, _ctl) = net.spawn_truncating(SIZE, 8_000_000);
@@ -213,7 +213,7 @@ async fn truncating_origin_does_not_report_success() {
 /// protocol error that abandons the mirror permanently.
 #[tokio::test]
 async fn overloaded_origin_backs_off_then_gives_up_cleanly() {
-    use hya_net::{fetch_range_retry, SparseSink};
+    use pdl_net::{fetch_range_retry, SparseSink};
     const SIZE: u64 = 1024 * 1024;
     let net = Arc::new(OriginSet::new());
     let (port, _ctl) = net.spawn_overloaded(SIZE, 8_000_000);
@@ -235,7 +235,7 @@ async fn overloaded_origin_backs_off_then_gives_up_cleanly() {
 /// A redirect loop must terminate within the hop budget.
 #[tokio::test]
 async fn redirect_loop_terminates_within_the_hop_budget() {
-    use hya_net::{fetch_range_retry, SparseSink};
+    use pdl_net::{fetch_range_retry, SparseSink};
     const SIZE: u64 = 1024 * 1024;
     let net = Arc::new(OriginSet::new());
     // Redirects to itself: a loop, which must be bounded rather than infinite.
@@ -257,7 +257,7 @@ async fn redirect_loop_terminates_within_the_hop_budget() {
 /// while the caller believed it was protected.
 #[tokio::test]
 async fn tls_against_a_plaintext_origin_fails_rather_than_downgrading() {
-    use hya_net::{Target, TlsCapableConnector};
+    use pdl_net::{Target, TlsCapableConnector};
     const SIZE: u64 = 64 * 1024;
     let net = Arc::new(OriginSet::new());
     let (port, _ctl) = net.spawn(SIZE, 8_000_000);
@@ -311,7 +311,7 @@ async fn a_lone_black_holing_source_fails_instead_of_idling_forever() {
 /// did not regress http://.
 #[tokio::test]
 async fn the_tls_capable_connector_still_speaks_plaintext() {
-    use hya_net::TlsCapableConnector;
+    use pdl_net::TlsCapableConnector;
     const SIZE: u64 = 64 * 1024;
     let net = Arc::new(OriginSet::new());
     let (port, _ctl) = net.spawn(SIZE, 8_000_000);
@@ -338,7 +338,7 @@ async fn the_tls_capable_connector_still_speaks_plaintext() {
 /// Regression test: the transfer loop breaks out of the top of the iteration as
 /// soon as the scheduler reports completion, which is above the per-tick
 /// `observe` call. The arrivals that COMPLETED the transfer were therefore never
-/// reported to the caller â€” the progress bar stopped short of 100%, and the CLI,
+/// reported to the caller â€?the progress bar stopped short of 100%, and the CLI,
 /// which derives post-transfer completeness from the observed count, declared a
 /// byte-exact file incomplete. Measured on an 11 200 900-byte resume: 2 876
 /// bytes unobserved, exit 1 and `ok: false` on a download that was perfect.
@@ -356,7 +356,7 @@ async fn the_observer_sees_the_final_byte_count() {
     let mut observe = move |_: &Scheduler, done: u64| {
         s2.fetch_max(done, Ordering::Relaxed);
     };
-    hya_net::run_transfer_observed(
+    pdl_net::run_transfer_observed(
         net.clone(),
         vec![tgt(port)],
         &[4],
@@ -389,7 +389,7 @@ async fn the_observer_sees_the_final_byte_count() {
 /// 8.9 MB/sec. The engine-wide FFI setter had the same hole.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_cap_applied_mid_transfer_shapes_the_rest() {
-    use hya_net::polite::{Pace, RateLimiter};
+    use pdl_net::polite::{Pace, RateLimiter};
     // Large enough that the flip lands several scheduler ticks in: the observer
     // runs once per tick, not once per arrival, so on a tiny object the cap would
     // be switched on with almost nothing left to shape and the test would prove
@@ -426,7 +426,7 @@ async fn a_cap_applied_mid_transfer_shapes_the_rest() {
         }
     };
 
-    hya_net::run_transfer_paced(
+    pdl_net::run_transfer_paced(
         net.clone(),
         vec![tgt(port)],
         &[4],
@@ -442,7 +442,7 @@ async fn a_cap_applied_mid_transfer_shapes_the_rest() {
 
     verify(&outs, SIZE).expect("shaping must not corrupt: the file must be byte-exact");
     // Everything after the flip is subject to the cap. Charge only the bytes that
-    // could still have been outstanding then â€” the ones already on disk are free,
+    // could still have been outstanding then â€?the ones already on disk are free,
     // and in-flight reads already paid for are close enough to ignore.
     let (flip_at, flip_done) = flipped
         .lock()
@@ -465,7 +465,7 @@ async fn a_cap_applied_mid_transfer_shapes_the_rest() {
 /// `--limit-rate` must actually shape the transfer, not merely be constructed.
 ///
 /// Regression test: the CLI built a `RateLimiter`, dropped it a few lines later,
-/// and never passed it to anything that touched a byte â€” `hydra-net` had no
+/// and never passed it to anything that touched a byte â€?`hydra-net` had no
 /// reference to it at all. A 34 041-byte object under a 1 KiB/s cap finished in
 /// 5.2s at 6.4 KiB/s, six times the requested ceiling, with no error and a clean
 /// exit. The project's own conformance check ("a 20 KB/s cap makes a 34 KB
@@ -474,7 +474,7 @@ async fn a_cap_applied_mid_transfer_shapes_the_rest() {
 /// arithmetic instead.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn limit_rate_shapes_the_aggregate_transfer() {
-    use hya_net::polite::{Pace, RateLimiter};
+    use pdl_net::polite::{Pace, RateLimiter};
     const SIZE: u64 = 256 * 1024;
     const CAP: u64 = 128 * 1024; // bytes/sec: the object must take about 2s
 
@@ -488,7 +488,7 @@ async fn limit_rate_shapes_the_aggregate_transfer() {
     let sched = Scheduler::new(SIZE, vec![src(16e6)], &[4]).with_stall_timeout(30.0);
 
     let t0 = std::time::Instant::now();
-    hya_net::run_transfer_paced(
+    pdl_net::run_transfer_paced(
         net.clone(),
         vec![tgt(port)],
         &[4],
@@ -525,7 +525,7 @@ async fn limit_rate_shapes_the_aggregate_transfer() {
 /// The failure this covers is a silent one: a referrer stripper such as
 /// `href.li/?<url>` answers `200 OK` with a kilobyte of HTML, so a client that
 /// only understands `3xx` reports SUCCESS and writes the forwarding page under
-/// the object's name. The assertion is therefore in two parts â€” the probe must
+/// the object's name. The assertion is therefore in two parts â€?the probe must
 /// classify the page as a possible redirector, and the resolver must read the
 /// real target out of it.
 #[tokio::test]
@@ -549,12 +549,12 @@ async fn an_html_redirector_page_is_recognised_and_resolved() {
     );
 
     assert_eq!(
-        hya_net::html_redirect(&net, &t).await.as_deref(),
+        pdl_net::html_redirect(&net, &t).await.as_deref(),
         Some(dest.as_str()),
     );
 
     // And the object itself is not mistaken for one.
     let obj = probe(&net, &tgt(obj_port)).await.expect("probe");
     assert!(!obj.maybe_redirector());
-    assert!(hya_net::html_redirect(&net, &tgt(obj_port)).await.is_none());
+    assert!(pdl_net::html_redirect(&net, &tgt(obj_port)).await.is_none());
 }

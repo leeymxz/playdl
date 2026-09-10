@@ -92,8 +92,8 @@ impl Politeness {
     /// Returns the per-source counts, one entry per source. `allow` only ever
     /// clamped against `per_host`, so nothing in the download path read `total`
     /// at all: `--max-total-connections 2 -x 8` opened eight. The aggregate is
-    /// the ceiling a server operator actually feels â€” eight connections split
-    /// across two mirrors is still eight sockets â€” so it is enforced here, where
+    /// the ceiling a server operator actually feels â€?eight connections split
+    /// across two mirrors is still eight sockets â€?so it is enforced here, where
     /// the split is decided, rather than at connect time where refusing a slot
     /// would leave the scheduler holding a range nobody can fetch.
     ///
@@ -125,7 +125,7 @@ impl Politeness {
     /// Split `requested` connections across RANKED sources.
     ///
     /// The same two ceilings as [`Self::split`], plus whatever each source states
-    /// about itself â€” see [`hya_core::plan::allocate`], which is where the
+    /// about itself â€?see [`pdl_core::plan::allocate`], which is where the
     /// arithmetic lives so that it is identical under the simulator and under
     /// real HTTP.
     ///
@@ -133,8 +133,8 @@ impl Politeness {
     /// interchangeable and nothing is known about them; this one exists because
     /// a mirror list is not that. A Metalink ranks its mirrors and some of them
     /// state their own connection ceilings, and an even split throws both away.
-    pub fn split_plan(&self, requested: usize, sources: &[hya_core::SourcePlan]) -> Vec<usize> {
-        hya_core::plan::allocate(
+    pub fn split_plan(&self, requested: usize, sources: &[pdl_core::SourcePlan]) -> Vec<usize> {
+        pdl_core::plan::allocate(
             sources,
             requested,
             if self.conservative { 1 } else { self.per_host },
@@ -299,7 +299,7 @@ impl RateLimiter {
         // from a rate that no longer applies: a minute of queue built up at
         // 1 KB/s is not a minute of queue at 10 MB/s, and carrying it over
         // would make a transfer sit idle for the remainder of a schedule
-        // nobody is asking for any more â€” switching the Speed Limiter OFF
+        // nobody is asking for any more â€?switching the Speed Limiter OFF
         // would visibly stall the download it was meant to release.
         //
         // Lowering the cap forgives whatever was already reserved, which is at
@@ -339,15 +339,15 @@ impl RateLimiter {
 
 /// A rate cap as the byte loops see it: cheap to clone, absent by default.
 ///
-/// The transfer path is generic over many call sites â€” the multi-connection
-/// scheduler loop, the single-range retry helper, the chunked decoder â€” and most
+/// The transfer path is generic over many call sites â€?the multi-connection
+/// scheduler loop, the single-range retry helper, the chunked decoder â€?and most
 /// of them have no cap. Wrapping the limiters in a type keeps every one of those
 /// signatures honest about that while giving the places that DO shape bytes one
 /// thing to call.
 ///
 /// Two caps can apply at once: an aggregate one shared by everything the process
 /// is fetching, and this transfer's own. Both are charged and both are waited
-/// on, so the effective ceiling is whichever is lower at that instant â€” no rate
+/// on, so the effective ceiling is whichever is lower at that instant â€?no rate
 /// is ever computed once and frozen.
 #[derive(Clone, Default)]
 pub struct Pace {
@@ -367,9 +367,9 @@ impl Pace {
     /// Shape against `limiter`, live.
     ///
     /// The limiter is held even when its rate is currently 0 (unlimited): the
-    /// rate is read on every single read, so a cap switched ON mid-transfer â€”
+    /// rate is read on every single read, so a cap switched ON mid-transfer â€?
     /// the GUI's "Use Speed Limiter" checkbox, `hydra_engine_set_max_bytes_per_second`
-    /// â€” binds the transfer that is already running.
+    /// â€?binds the transfer that is already running.
     ///
     /// It used to collapse an unlimited limiter to "no cap" here to save an
     /// atomic load per read. That froze the decision at the instant the transfer
@@ -441,7 +441,7 @@ impl Pace {
         // `clamp(1024, want)`: on the last read of a range `want` is
         // whatever is left, which is routinely under 1 KiB, and
         // `clamp(1024, 969)` panics on min > max. That panic killed the
-        // connection mid-transfer â€” the caller saw a stall, retried, and
+        // connection mid-transfer â€?the caller saw a stall, retried, and
         // the measured throughput came out FIVE times below the cap that
         // was supposed to be the ceiling.
         let slice = (r / 8).max(1024) as usize;
@@ -462,7 +462,7 @@ impl Pace {
         // already charged to the cursor, so the next reservation owes more, and
         // the sleep happens once the debt is long enough to be timed accurately.
         // Sleeping every sub-millisecond debt is what pinned a single connection
-        // to one read per tick â€” see `RateLimiter::reserve`.
+        // to one read per tick â€?see `RateLimiter::reserve`.
         if owed >= MIN_PAUSE {
             tokio::time::sleep(owed).await;
         }
@@ -590,7 +590,7 @@ mod tests {
     }
 
     /// A high cap must be reachable: at 200 MiB/s a 64 KiB read owes 0.3 ms,
-    /// and sleeping that on a 1 ms timer â€” overshoot uncredited â€” capped a
+    /// and sleeping that on a 1 ms timer â€?overshoot uncredited â€?capped a
     /// transfer at 78 MiB/s. 64 MiB in 64 KiB reads is 1024 waits: at one tick
     /// each that is over a second; at the cap it is 0.32 s.
     #[tokio::test]
@@ -632,8 +632,8 @@ mod tests {
     /// Regression test: the cursor is an absolute time, computed from whatever
     /// rate was in force when the reservation was made. A transfer held at
     /// 1 KB/s builds a cursor tens of seconds ahead; switching the limiter OFF
-    /// left that cursor in place, and the very next reservation â€” now nominally
-    /// unlimited â€” still waited it out. Turning a limit off is supposed to
+    /// left that cursor in place, and the very next reservation â€?now nominally
+    /// unlimited â€?still waited it out. Turning a limit off is supposed to
     /// release the transfer, not park it.
     #[test]
     fn changing_the_rate_forgets_the_old_rate_queue() {
@@ -684,7 +684,7 @@ mod tests {
     /// `--max-total-connections` must bind the AGGREGATE, not just one host.
     ///
     /// Regression test: `allow()` clamped against `per_host` only, and nothing in
-    /// the download path read `Politeness.total` at all â€” the one function that
+    /// the download path read `Politeness.total` at all â€?the one function that
     /// did (`HostLimiter::try_acquire`) was never called outside its own tests.
     /// `--max-total-connections 2 -x 8` reported and opened eight connections.
     #[test]
@@ -738,7 +738,7 @@ mod tests {
     ///
     /// Regression test: the slice was computed as `(rate / 8).clamp(1024, want)`,
     /// which panics with `min > max` whenever fewer than 1 024 bytes remain in the
-    /// range â€” the last read of very nearly every range. The panic unwound the
+    /// range â€?the last read of very nearly every range. The panic unwound the
     /// connection task mid-transfer, the caller saw a stall and retried, and the
     /// measured throughput came out about five times BELOW the cap that was meant
     /// to be a ceiling. A rate limiter that makes transfers slower than requested
@@ -776,7 +776,7 @@ mod tests {
     /// Regression test: `Pace::shared` collapsed a limiter whose rate was 0 to
     /// "no cap at all", so the decision was frozen when the transfer started.
     /// Every download begun without a limit ignored the limiter for the rest of
-    /// its life â€” the GUI's "Use Speed Limiter" checkbox and
+    /// its life â€?the GUI's "Use Speed Limiter" checkbox and
     /// `hydra_engine_set_max_bytes_per_second` both wrote a rate that nothing
     /// downstream would ever read again, and an 8 MB/s transfer stayed at
     /// 8 MB/s under a 100 KB/s cap.

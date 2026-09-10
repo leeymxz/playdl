@@ -10,8 +10,8 @@ use crate::abi::{
 use crate::err::Detail;
 use crate::event::EventQueue;
 use crate::gate::Gate;
-use hya_net::polite::RateLimiter;
-use hya_net::TlsCapableConnector;
+use pdl_net::polite::RateLimiter;
+use pdl_net::TlsCapableConnector;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -58,7 +58,7 @@ impl Default for EngineCfg {
             range_stealing: true,
             allow_insecure_tls: false,
             state_path: None,
-            user_agent: hya_net::DEFAULT_USER_AGENT.to_string(),
+            user_agent: pdl_net::DEFAULT_USER_AGENT.to_string(),
         }
     }
 }
@@ -100,7 +100,7 @@ impl Algo {
 /// Internal proxy configuration.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ProxyCfg {
-    pub kind: hya_net::ProxyKind,
+    pub kind: pdl_net::ProxyKind,
     pub host: String,
     pub port: u16,
     pub username: Option<String>,
@@ -120,8 +120,8 @@ impl ProxyCfg {
     }
 
     /// Converts to network crate proxy struct.
-    pub(crate) fn to_net(&self) -> hya_net::Proxy {
-        hya_net::Proxy {
+    pub(crate) fn to_net(&self) -> pdl_net::Proxy {
+        pdl_net::Proxy {
             kind: self.kind.clone(),
             host: self.host.clone(),
             port: self.port,
@@ -155,14 +155,14 @@ pub(crate) struct JobCfg {
     /// Publisher ranking and per-mirror ceilings, index-aligned with `urls`.
     ///
     /// Empty for a job created from a plain URL list, which is exactly what an
-    /// unranked set of interchangeable mirrors is â€” so nothing changes for a
+    /// unranked set of interchangeable mirrors is â€?so nothing changes for a
     /// caller that never touches a Metalink.
-    pub source_plans: Vec<hya_core::SourcePlan>,
+    pub source_plans: Vec<pdl_core::SourcePlan>,
     /// Object size stated by a Metalink document rather than by a mirror.
     ///
     /// This is what makes multi-source assembly possible across a real mirror
     /// list. Without it, agreement has to be established pairwise on a strong
-    /// validator, and independent mirror operators cannot share an `ETag` â€” so
+    /// validator, and independent mirror operators cannot share an `ETag` â€?so
     /// the gate keeps exactly one source out of nineteen. A size published by
     /// whoever built the object, from a host that is usually not any of the
     /// mirrors, is both stronger evidence and satisfiable.
@@ -173,7 +173,7 @@ pub(crate) struct JobCfg {
     /// Verified after the transfer, with a failing chunk refetched from a
     /// different mirror. That is the difference between "the download is
     /// corrupt, start again" and "chunk 412 is corrupt, refetch 4 MiB".
-    pub pieces: Option<hya_net::manifest::Manifest>,
+    pub pieces: Option<pdl_net::manifest::Manifest>,
     /// Where the size, digest and pieces came from, for the log.
     pub attested_by: Option<String>,
 }
@@ -380,7 +380,7 @@ pub(crate) struct Engine {
     next_seq: AtomicU64,
     /// One connector per proxy configuration, shared across every job that uses
     /// it. Connectors carry a connection pool, a TLS session cache and a parsed
-    /// root store, all of which are designed to outlive a single transfer â€”
+    /// root store, all of which are designed to outlive a single transfer â€?
     /// hya-net measures 1.6-2.0 s of setup recovered when a probe's handshake
     /// feeds the transfer that follows it. Building one per job throws all
     /// three away.
@@ -516,7 +516,7 @@ impl Engine {
     /// The per-job connection ceiling under the current power mode.
     ///
     /// The mode is supplied by the platform layer, never read from a battery
-    /// API here â€” that is the line that keeps the core free of Android and iOS
+    /// API here â€?that is the line that keeps the core free of Android and iOS
     /// code. A restricted device gets one connection; battery saver gets half
     /// the ceiling.
     pub(crate) fn connection_ceiling(&self, requested: usize) -> usize {
