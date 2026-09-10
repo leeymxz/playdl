@@ -4,7 +4,7 @@
 //! HLS and MPEG-DASH: manifest parsing, segment planning, and assembly.
 //!
 //! A manifest is not a file. It names a few hundred short objects that have
-//! to arrive, be ordered, and be concatenated â€?which is a different problem
+//! to arrive, be ordered, and be concatenated â€” which is a different problem
 //! from the byte-range scheduling in `hya-core`, and is what this crate
 //! solves. It performs no IO of its own: the caller supplies a fetcher, so
 //! the same code serves the desktop app, the CLI, and anything else.
@@ -14,7 +14,7 @@
 //! use pdl_stream::{hls, Meter, Resume};
 //! use std::sync::Arc;
 //!
-//! let text = "â€?; // the playlist body, fetched by the caller
+//! let text = "â€¦"; // the playlist body, fetched by the caller
 //! let playlist = hls::parse(text, "https://cdn.example/hls/index.m3u8");
 //! let plan = hls::Plan::build(&playlist, None).unwrap();
 //! let meter = Arc::new(Meter::default());

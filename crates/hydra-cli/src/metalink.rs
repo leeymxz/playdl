@@ -13,13 +13,13 @@
 //!    what the entries say about themselves.
 //! 2. **Which mirrors, in what order.** Location preference, protocol
 //!    preference, and the publisher's own ranking, resolved into a single
-//!    ordering â€?see [`rank`].
+//!    ordering â€” see [`rank`].
 //! 3. **Which are sources and which are reserves.** Politeness authorises a
 //!    handful of connections; everything past that is a bench for
 //!    [`pdl_net::run_transfer_with_reserves`] to draw on. This is where a
 //!    nineteen-mirror list stops being decoration.
-//! 4. **What the bytes must hash to**, and â€?when the document publishes
-//!    `<pieces>` â€?what each 256 KiB or 1 MiB of them must hash to, which is what
+//! 4. **What the bytes must hash to**, and â€” when the document publishes
+//!    `<pieces>` â€” what each 256 KiB or 1 MiB of them must hash to, which is what
 //!    turns a corrupt download into a corrupt *chunk*.
 //!
 //! # The one thing a Metalink changes about correctness
@@ -37,7 +37,7 @@
 //! for the object, from a host that is usually not any of the mirrors, so
 //! agreement is established against the *document* instead of pairwise between
 //! servers. A mirror is admitted if it agrees with the document's size, and the
-//! digest catches anything that slipped through â€?and with `<pieces>`, catches
+//! digest catches anything that slipped through â€” and with `<pieces>`, catches
 //! it per chunk and repairs it from a different mirror. That is a stronger
 //! guarantee than matching ETags, not a weaker one, and it is why
 //! [`Attested`] exists.
@@ -94,7 +94,7 @@ pub struct Resolved {
     /// Things worth telling the user: mirrors dropped, digests unavailable,
     /// pieces that did not tile.
     pub notes: Vec<String>,
-    /// `<signature>` was present. Recorded, not verified â€?see [`Resolved::signature_note`].
+    /// `<signature>` was present. Recorded, not verified â€” see [`Resolved::signature_note`].
     pub signed: bool,
 }
 
@@ -108,7 +108,7 @@ impl Resolved {
     pub fn signature_note(&self) -> Option<&'static str> {
         self.signed.then_some(
             "the document carries an OpenPGP signature over this file; hydra records it \
-             but does not verify it â€?verify it yourself before trusting the digests it \
+             but does not verify it â€” verify it yourself before trusting the digests it \
              covers",
         )
     }
@@ -141,7 +141,7 @@ impl std::fmt::Display for Origin {
 /// 1. **The name.** `.meta4` and `.metalink`. Free, and the only signal a remote
 ///    URL offers before it is fetched.
 /// 2. **The content**, for a LOCAL path only. One 4 KiB read of a file already
-///    on disk, which is cheap and certain â€?and necessary, because a document
+///    on disk, which is cheap and certain â€” and necessary, because a document
 ///    saved by a browser is as likely to be called `metalink.xml` or
 ///    `download(1)` as anything else.
 /// 3. **The `Content-Type`**, for a remote URL. Not consulted here: it needs the
@@ -150,8 +150,8 @@ impl std::fmt::Display for Origin {
 ///    probe had to happen anyway. See `download::run`.
 ///
 /// Content sniffing is deliberately NOT applied to remote URLs at this point.
-/// Doing so would mean fetching every URL twice â€?once to find out what it is,
-/// once to download it â€?to answer a question the probe answers for free.
+/// Doing so would mean fetching every URL twice â€” once to find out what it is,
+/// once to download it â€” to answer a question the probe answers for free.
 pub fn looks_like_document(arg: &str) -> bool {
     if metalink::is_metalink_filename(arg) {
         return true;
@@ -168,7 +168,7 @@ pub fn looks_like_document(arg: &str) -> bool {
 /// A bounded read of the head, matched against [`metalink::looks_like_metalink`],
 /// which requires both a `<metalink` element and one of the two namespace URIs.
 /// The pair is what keeps this from firing on an unrelated XML file that happens
-/// to mention the word â€?a false positive here means treating a user's actual
+/// to mention the word â€” a false positive here means treating a user's actual
 /// download as a mirror list.
 pub fn file_looks_like_document(path: &Path) -> bool {
     use std::io::Read;
@@ -191,7 +191,7 @@ pub fn load_file(path: &Path) -> Result<Metalink, String> {
 
 /// Fetch and read a document over HTTP.
 ///
-/// Redirects are followed because mirror redirectors use them constantly â€?the
+/// Redirects are followed because mirror redirectors use them constantly â€” the
 /// document lives behind a load balancer as often as not. The body is capped at
 /// [`metalink::MAX_DOCUMENT`]: it is fetched before anything about it is known,
 /// and an unbounded read of a body chosen by whoever answers is a
@@ -238,7 +238,7 @@ pub async fn load_url(
 ///
 /// Large enough that no publisher ranking can outrank the user's stated
 /// geography, small enough to leave the demoted mirrors in their own relative
-/// order â€?they are still reserves, and which reserve is drawn first should
+/// order â€” they are still reserves, and which reserve is drawn first should
 /// still follow the publisher.
 const OUTSIDE_PREFERRED_LOCATION: u32 = 1_000_000;
 
@@ -252,7 +252,7 @@ const OUTSIDE_PREFERRED_PROTOCOL: u32 = 1_000;
 /// Three different preferences have to end up in one field: the publisher's
 /// ranking, the user's location list, and the user's protocol preference. Only
 /// one number reaches [`pdl_core::plan::allocate`], and it decides both who gets
-/// seated and how much share they get â€?so any preference not folded into it is
+/// seated and how much share they get â€” so any preference not folded into it is
 /// a preference that silently does nothing.
 ///
 /// Folding them by arithmetic on the document's values does not work either: a
@@ -323,7 +323,7 @@ pub fn rank(file: &MetalinkFile, sel: &Selection) -> (Vec<MetaUrl>, Vec<String>)
                 // source is a single sequential stream, and an FTP mirror the
                 // publisher ranked first would hand the whole transfer to the
                 // one scheme that turns all of that off. Real documents do
-                // this â€?metalinker.org's own samples rank ftp:// at
+                // this â€” metalinker.org's own samples rank ftp:// at
                 // preference 100 beside one http mirror. The publisher's
                 // ranking still orders mirrors WITHIN each transport, and
                 // `--metalink-preferred-protocol ftp` restores the old order
@@ -339,7 +339,7 @@ pub fn rank(file: &MetalinkFile, sel: &Selection) -> (Vec<MetaUrl>, Vec<String>)
         let held_back = urls.iter().filter(|u| u.kind.transport_tier() > 0).count();
         if held_back > 0 && held_back < urls.len() {
             notes.push(format!(
-                "{held_back} ftp mirror(s) held behind the http(s) ones â€?ftp streams from one \
+                "{held_back} ftp mirror(s) held behind the http(s) ones â€” ftp streams from one \
                  connection, so it is the fallback; --metalink-preferred-protocol ftp to prefer it"
             ));
         }
@@ -373,7 +373,7 @@ pub fn rank(file: &MetalinkFile, sel: &Selection) -> (Vec<MetaUrl>, Vec<String>)
 /// An entry that says nothing about itself MATCHES. A document that omits `<os>`
 /// is not claiming to be for a different platform, and filtering it out would
 /// make `--metalink-os linux` select nothing from the many documents that do not
-/// carry the field at all â€?which reads as "no such file" about a file that is
+/// carry the field at all â€” which reads as "no such file" about a file that is
 /// right there.
 fn matches(f: &MetalinkFile, sel: &Selection) -> bool {
     let ok = |want: &Option<String>, have: &[String]| -> bool {
@@ -485,7 +485,7 @@ pub fn resolve(doc: &Metalink, sel: &Selection, from: &Origin) -> Result<Vec<Res
         // list, but a job cannot actually use a mixed one: the range engine
         // splices over HTTP, its probes and its reserve substitutions build
         // HTTP targets, and an `ftp://` entry in that list is a HEAD sent to
-        // port 21 â€?a probe that cannot succeed and a "reserve" that could
+        // port 21 â€” a probe that cannot succeed and a "reserve" that could
         // never serve. Keeping only the leading tier makes the source list
         // mean what it says. An all-ftp document keeps its ftp mirrors and
         // takes the single-stream path, exactly as before.
@@ -583,7 +583,7 @@ mod tests {
         let d = doc();
         let (urls, _) = rank(&d.files[0], &Selection::default());
         assert_eq!(urls[0].url, "https://ua1.example/f", "preference=100 leads");
-        // Dense: 1, 2, 3, 4 â€?the field the allocator reads means "final
+        // Dense: 1, 2, 3, 4 â€” the field the allocator reads means "final
         // position", not "whatever the document wrote".
         assert_eq!(
             urls.iter().map(|u| u.priority).collect::<Vec<_>>(),
@@ -607,7 +607,7 @@ mod tests {
         // Within a location, the publisher's ranking still decides: preference
         // 94 (https) beats 93 (http).
         assert_eq!(urls[0].url, "https://us2.example/f");
-        // The demoted mirrors are still present â€?they are reserves, not
+        // The demoted mirrors are still present â€” they are reserves, not
         // rejects.
         assert_eq!(urls.len(), 4);
     }
@@ -689,7 +689,7 @@ mod tests {
         // The catix sample on metalinker.org: three ftp mirrors at
         // preference=100 beside one http. The publisher is ranking HOSTS; the
         // engine routes on the first URL, and an ftp lead does not merely go
-        // first â€?it drops the transfer to a single sequential stream with no
+        // first â€” it drops the transfer to a single sequential stream with no
         // splicing, no chunk repair and no reserves. Transport is therefore
         // the major key and the publisher orders mirrors within it.
         let src = r#"<metalink version="3.0" xmlns="http://www.metalinker.org/"><files>
@@ -739,7 +739,7 @@ mod tests {
     #[test]
     fn a_mixed_transport_list_resolves_to_one_transport_with_the_reason_stated() {
         // `rank` keeps everything so a report can show the whole list; the JOB
-        // cannot use a mixed one â€?the range engine probes and substitutes over
+        // cannot use a mixed one â€” the range engine probes and substitutes over
         // HTTP targets, so an ftp entry would be a request sent to port 21.
         let src = r#"<metalink version="3.0" xmlns="http://www.metalinker.org/"><files>
           <file name="c.iso"><size>10</size><resources>
@@ -830,7 +830,7 @@ mod tests {
     #[test]
     fn an_entry_that_says_nothing_about_its_platform_still_matches() {
         // Filtering it out would make `--metalink-os linux` select nothing from
-        // the many documents that omit the field â€?which reads as "no such file"
+        // the many documents that omit the field â€” which reads as "no such file"
         // about a file that is right there.
         let src = r#"<metalink xmlns="urn:ietf:params:xml:ns:metalink">
             <file name="quiet.bin"><size>1</size><url>https://h/a</url></file>
@@ -915,14 +915,14 @@ mod tests {
         // A LOCAL file is read, because a document saved by a browser is as
         // likely to be called `metalink.xml` as anything else.
         let dir = std::env::temp_dir();
-        let doc = dir.join(format!("playdl_sniff_{}.xml", std::process::id()));
+        let doc = dir.join(format!("hydra_sniff_{}.xml", std::process::id()));
         std::fs::write(&doc, DOC).unwrap();
         assert!(looks_like_document(doc.to_str().unwrap()));
 
         // And an unrelated XML file is not one. The namespace requirement is
         // what keeps a false positive from turning a user's download into a
         // mirror list.
-        let other = dir.join(format!("playdl_sniff_{}_other.xml", std::process::id()));
+        let other = dir.join(format!("hydra_sniff_{}_other.xml", std::process::id()));
         std::fs::write(
             &other,
             "<?xml version=\"1.0\"?><notes><metalink-ish/></notes>",

@@ -4,8 +4,8 @@
 //! for the flat-memory claim but says nothing about allocation CHURN: a loop that
 //! allocates and frees a buffer per read has a flat footprint and still burns
 //! measurable time in the allocator, and on a multi-threaded transfer it
-//! contends. This harness answers the other question â€?how many allocations does
-//! moving a megabyte cost â€?by installing a counting global allocator and
+//! contends. This harness answers the other question â€” how many allocations does
+//! moving a megabyte cost â€” by installing a counting global allocator and
 //! driving the real chunked decoder over a real socket.
 //!
 //! Chunked framing is the mode measured because it is the one with per-token

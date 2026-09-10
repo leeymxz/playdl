@@ -1,11 +1,11 @@
 // Copyright (C) 2026 Javad Rajabzadeh
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! End-to-end update flow against a mock release server: check â†?pick asset
-//! â†?download (with a redirect hop, progress, checksum) â†?extract â†?apply.
+//! End-to-end update flow against a mock release server: check â†’ pick asset
+//! â†’ download (with a redirect hop, progress, checksum) â†’ extract â†’ apply.
 //!
 //! This is the same code path the GUI's "Update Now" and the CLI's
-//! `hydra update` run â€?only the endpoint differs, and the endpoint is a
+//! `hydra update` run â€” only the endpoint differs, and the endpoint is a
 //! parameter. Once the flow is proven on every platform, production simply
 //! uses the GitHub default in [`pdl_updater::api_base`].
 
@@ -18,12 +18,12 @@ use tokio::net::TcpListener;
 /// Serve a canned mock release over plain HTTP on an ephemeral port.
 ///
 /// Routes:
-/// - `GET /repos/ja7ad/hydra/releases/latest` â€?release JSON pointing back
+/// - `GET /repos/ja7ad/hydra/releases/latest` â€” release JSON pointing back
 ///   at this server
-/// - `GET /assets/<name>` â€?302 redirect to `/blob/<name>` (GitHub's asset
+/// - `GET /assets/<name>` â€” 302 redirect to `/blob/<name>` (GitHub's asset
 ///   URLs redirect to a CDN; the client must follow)
-/// - `GET /blob/<name>` â€?the archive bytes
-/// - `GET /assets/SHA256SUMS.txt` â€?checksums for the archive
+/// - `GET /blob/<name>` â€” the archive bytes
+/// - `GET /assets/SHA256SUMS.txt` â€” checksums for the archive
 async fn mock_server(
     archive_name: String,
     archive: Vec<u8>,

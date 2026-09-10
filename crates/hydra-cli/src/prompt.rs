@@ -11,7 +11,7 @@
 //! So an interactive terminal asks. A non-interactive one must not: a prompt with
 //! nobody to answer it is a hang, which in a cron job or a CI step is worse than any
 //! of the four choices. When stdin is not a terminal the decision falls back to the
-//! flags, and the flags are always honoured without asking â€?an explicit `-c` or
+//! flags, and the flags are always honoured without asking â€” an explicit `-c` or
 //! `--no-clobber` is already an answer, and re-asking would be ignoring it.
 //!
 //! # Why resume is not offered unconditionally
@@ -62,7 +62,7 @@ pub enum ResumeOffer {
     /// being trusted: re-read a window ending at the current length and compare.
     ///
     /// This is what makes `hydra <url>` on a half-finished file useful. Refusing to
-    /// resume just because hydra did not write the partial file is unhelpful â€?the
+    /// resume just because hydra did not write the partial file is unhelpful â€” the
     /// bytes are probably a valid prefix (that is what every interrupted download
     /// leaves behind), and "probably" can be upgraded to "verified" with one small
     /// range request instead of re-fetching gigabytes.
@@ -116,7 +116,7 @@ pub fn decide<R: BufRead, W: Write>(
             ResumeOffer::Sound(_) | ResumeOffer::Verifiable(_) => Existing::Resume,
             ResumeOffer::LooksComplete(_) => Existing::Verify,
             // -c on a file that genuinely cannot be resumed: restarting is a safe fallback,
-            // and it is what the user asked for in spirit â€?they want the file.
+            // and it is what the user asked for in spirit â€” they want the file.
             ResumeOffer::Refused(_) => Existing::Restart,
         });
     }
@@ -125,7 +125,7 @@ pub fn decide<R: BufRead, W: Write>(
     }
 
     if !interactive || flags.assume_default {
-        // No terminal. A piped answer is still an answer, though â€?`echo c | hydra ...`
+        // No terminal. A piped answer is still an answer, though â€” `echo c | hydra ...`
         // and an expect-style driver both arrive this way, and refusing to read them
         // makes the prompt untestable and unscriptable. So try one non-blocking read of
         // whatever is queued; only fall back when there is genuinely nothing.
@@ -144,7 +144,7 @@ pub fn decide<R: BufRead, W: Write>(
     let name = path.display();
     writeln!(
         out,
-        "playdl: {name} already exists ({} on disk, remote object is {}).",
+        "hydra: {name} already exists ({} on disk, remote object is {}).",
         crate::progress::human(on_disk),
         crate::progress::human(remote_size)
     )?;
@@ -191,7 +191,7 @@ pub fn decide<R: BufRead, W: Write>(
     }
 
     loop {
-        write!(out, "playdl: what would you like to do? ")?;
+        write!(out, "hydra: what would you like to do? ")?;
         out.flush()?;
         let mut line = String::new();
         if input.read_line(&mut line)? == 0 {
@@ -209,7 +209,7 @@ pub fn decide<R: BufRead, W: Write>(
             // "c" on an unresumable file deserves the reason, not "did not understand".
             None if matches!(ans.as_str(), "c" | "continue" | "y" | "yes") => {
                 if let ResumeOffer::Refused(why) = offer {
-                    writeln!(out, "  cannot continue: {why} â€?pick r, n, or s")?;
+                    writeln!(out, "  cannot continue: {why} â€” pick r, n, or s")?;
                 }
             }
             None => {
@@ -517,7 +517,7 @@ mod tests {
 
     #[test]
     fn rename_finds_the_first_free_slot() {
-        let dir = std::env::temp_dir().join(format!("playdl_rename_{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("hydra_rename_{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let base = dir.join("f.bin");
         assert_eq!(

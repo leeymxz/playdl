@@ -3,7 +3,7 @@
 
 //! Leveled session log in `<app_dir>/logs/gui.log`.
 //!
-//! `[2026-08-18 06:36:12] [INFO ] start #3 https://â€¦` â€?level filter comes
+//! `[2026-08-18 06:36:12] [INFO ] start #3 https://â€¦` â€” level filter comes
 //! from `log_level` in config.toml (`debug`/`info`/`warn`/`error`, default
 //! `info`) or the `HYDRA_LOG` environment variable, which wins. Failure to
 //! log must never fail the operation being logged.
@@ -63,7 +63,7 @@ fn write(level: Level, tag: &str, line: &str) {
         let ts = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
         // One formatted string, one write_all: `writeln!` with arguments
         // emits a write per fragment, and the extbus socket threads log
-        // concurrently with the UI thread â€?that interleaves mid-line.
+        // concurrently with the UI thread â€” that interleaves mid-line.
         let record = format!("[{ts}] [{tag}] {line}\n");
         static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
         let _guard = LOCK.lock();
@@ -87,6 +87,29 @@ pub fn error(line: &str) {
     write(Level::Error, "ERROR", line);
 }
 
+/// Route panics into this log.
+///
+/// A release build is `windows_subsystem = "windows"` and is launched by the
+/// browser's native-messaging host with its stdio on the null device, so a
+/// panic message has nowhere to go: the app simply vanishes, and the bug
+/// report reads "it crashed" with an empty log box. The default hook still
+/// runs afterwards for the cases where a console does exist.
+pub fn catch_panics() {
+    let previous = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let where_ = info
+            .location()
+            .map(|l| format!("{}:{}", l.file(), l.line()))
+            .unwrap_or_else(|| "unknown location".into());
+        error(&format!(
+            "panic at {where_}: {}\n{}",
+            info.payload_as_str().unwrap_or("<non-string payload>"),
+            std::backtrace::Backtrace::force_capture()
+        ));
+        previous(info);
+    }));
+}
+
 /// Back-compat alias for the original single-level call sites.
 pub fn log(line: &str) {
     info(line);
@@ -94,8 +117,8 @@ pub fn log(line: &str) {
 
 /// The machine, once, at launch.
 ///
-/// Every stream bug report starts with the same three round trips â€?which
-/// build, which OS, was ffmpeg there â€?so the log answers them before they
+/// Every stream bug report starts with the same three round trips â€” which
+/// build, which OS, was ffmpeg there â€” so the log answers them before they
 /// are asked. It is deliberately ONE line plus the paths: a banner that
 /// scrolls is a banner nobody reads.
 ///
@@ -115,7 +138,7 @@ pub fn banner() {
         match pdl_stream::hls::ffmpeg() {
             Some(p) => p.display().to_string(),
             // The single most common cause of "why is my HLS download a .ts
-            // file" â€?worth stating at launch rather than per download.
+            // file" â€” worth stating at launch rather than per download.
             None => "not found".into(),
         },
     ));
@@ -158,7 +181,7 @@ fn os_release() -> Option<String> {
 
 /// A URL safe to write into a file the user is invited to hand to someone.
 ///
-/// Signed CDN URLs carry BEARER CREDENTIALS in the query string â€?
+/// Signed CDN URLs carry BEARER CREDENTIALS in the query string â€”
 /// CloudFront's `Signature` + `Key-Pair-Id`, Akamai's `hdnts`, the `token`
 /// on a hundred smaller CDNs. They are exactly the URLs the browser
 /// extension hands over, and exactly the URLs an HLS or DASH manifest is
@@ -170,7 +193,7 @@ fn os_release() -> Option<String> {
 /// has not expired.
 ///
 /// The path is what makes a log useful for diagnosis; the query is what
-/// makes it dangerous. So the query goes, and its length stays â€?enough to
+/// makes it dangerous. So the query goes, and its length stays â€” enough to
 /// tell "no query" from "query elided" when reading a trace back.
 pub fn redact(url: &str) -> String {
     match url.split_once('?') {

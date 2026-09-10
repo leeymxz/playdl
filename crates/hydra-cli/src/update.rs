@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! `hydra update`: report whether a newer release exists, with its notes and
-//! the download link for this OS/arch. Deliberately report-only â€?the CLI is
+//! the download link for this OS/arch. Deliberately report-only â€” the CLI is
 //! frequently installed by package managers or scripts that own the binary,
 //! so replacing itself behind their back would be wrong. The GUI has the
 //! self-updating flow.
@@ -18,11 +18,11 @@ use std::process::ExitCode;
 
 pub async fn run(json: bool, beta: bool) -> ExitCode {
     let current = env!("CARGO_PKG_VERSION");
-    let ua = format!("playdl-cli/{current}");
+    let ua = format!("hydra-cli/{current}");
     let rel = match pdl_updater::check_channel(&ua, beta).await {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("playdl: update check failed: {e}");
+            eprintln!("hydra: update check failed: {e}");
             return ExitCode::FAILURE;
         }
     };
@@ -67,7 +67,7 @@ pub async fn run(json: bool, beta: bool) -> ExitCode {
 
     let channel = if beta { "beta" } else { "stable" };
     if !newer {
-        println!("hydra {current} is up to date ({channel} channel: {latest}).");
+        println!("playdl {current} is up to date ({channel} channel: {latest}).");
         return ExitCode::SUCCESS;
     }
 
@@ -78,7 +78,7 @@ pub async fn run(json: bool, beta: bool) -> ExitCode {
     };
     println!("{kind}: {latest} (you have {current})");
     if !rel.published_at.is_empty() {
-        // `2026-08-19T00:00:00Z` â€?the date part reads fine on its own.
+        // `2026-08-19T00:00:00Z` â€” the date part reads fine on its own.
         let date = rel.published_at.split('T').next().unwrap_or("");
         println!("Published: {date}");
     }
@@ -123,7 +123,7 @@ fn platform(appimage: &Option<std::path::PathBuf>) -> String {
     }
 }
 
-/// Whether a package manager owns this binary â€?a deb or rpm in `/usr/bin`,
+/// Whether a package manager owns this binary â€” a deb or rpm in `/usr/bin`,
 /// a `.pkg` in `/Applications`. A tarball or Homebrew install is not one,
 /// even though `dpkg` exists on the same machine.
 fn package_managed() -> bool {

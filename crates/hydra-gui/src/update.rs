@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Application self-update: the startup version check and the "Update Now"
-//! pipeline (download â†?checksum â†?extract â†?launch the finisher â†?exit).
+//! pipeline (download â†’ checksum â†’ extract â†’ launch the finisher â†’ exit).
 //!
 //! The heavy lifting lives in the `hya-updater` crate; this module adapts it
-//! to iced â€?the check is a one-shot `Task::perform` future, the update run
+//! to iced â€” the check is a one-shot `Task::perform` future, the update run
 //! is a `Task::run` stream so the dialog can draw live progress. Endpoints
 //! come from `pdl_updater::api_base()`, so `HYDRA_UPDATE_API` pointed at the
 //! mock server (`cargo run -p hya-updater --example mock_server`) exercises
@@ -33,7 +33,7 @@ pub struct UpdateInfo {
     /// the dialog then offers the installer instead.
     pub in_place: bool,
     /// Whether finishing the update will ask for an administrator password
-    /// â€?a root-owned install (a tarball unpacked into `/usr/local` with
+    /// â€” a root-owned install (a tarball unpacked into `/usr/local` with
     /// sudo) that Hydra may still replace, once the user authorises it.
     pub needs_auth: bool,
     /// The `.deb`/`.rpm` for this machine, when the install is packaged and
@@ -62,7 +62,7 @@ fn user_agent() -> String {
 /// pre-releases when one is ahead of the stable release.
 ///
 /// `Ok(None)` covers both "up to date" and "newer release exists but has no
-/// asset for this OS/arch" â€?the dialog can only offer what it can install.
+/// asset for this OS/arch" â€” the dialog can only offer what it can install.
 pub async fn check(beta: bool) -> Result<Option<UpdateInfo>, String> {
     let rel = pdl_updater::check_channel(&user_agent(), beta)
         .await
@@ -90,8 +90,8 @@ pub async fn check(beta: bool) -> Result<Option<UpdateInfo>, String> {
         return Ok(None);
     };
     // Can the finisher actually rewrite this install? Everything Hydra put
-    // there itself â€?an unpacked archive, a macOS `.app`, a per-user
-    // Windows install â€?it can replace; a root-owned copy takes an
+    // there itself â€” an unpacked archive, a macOS `.app`, a per-user
+    // Windows install â€” it can replace; a root-owned copy takes an
     // authorisation prompt; only a package manager's files (`/usr/bin` from
     // a deb or rpm, a `.pkg` receipt in `/Applications`) are off limits,
     // because dpkg's database has to keep describing what is on disk.
@@ -105,7 +105,7 @@ pub async fn check(beta: bool) -> Result<Option<UpdateInfo>, String> {
         .unwrap_or(pdl_updater::UpdateMethod::Package);
     let in_place = method.is_self_update();
     // For an AppImage the install is the image file, not the mount
-    // `current_exe()` reports â€?say so in the log, that is the path the
+    // `current_exe()` reports â€” say so in the log, that is the path the
     // finisher will rewrite.
     let where_ = appimage
         .as_deref()
@@ -209,7 +209,7 @@ async fn drive(
             if got != want {
                 let _ = std::fs::remove_file(&archive);
                 return Err(std::io::Error::other(
-                    "checksum mismatch â€?the downloaded archive was discarded",
+                    "checksum mismatch â€” the downloaded archive was discarded",
                 ));
             }
         }
@@ -232,7 +232,7 @@ async fn drive(
     // The finisher: prefer the NEW release's copy (version-matched to what it
     // installs), fall back to the one shipped next to the running app. Either
     // way it runs from the staging dir so the swap never overwrites it. An
-    // AppImage has only the second option â€?the download is a squashfs image,
+    // AppImage has only the second option â€” the download is a squashfs image,
     // not a directory, and mounting it to fish one binary out would buy
     // nothing the shipped finisher cannot already do.
     let updater_name = if cfg!(target_os = "windows") {
@@ -268,7 +268,7 @@ async fn drive(
     let mut cmd = std::process::Command::new(&updater);
     match (&appimage, &bundle) {
         // Replace the image file the user launched, and relaunch that same
-        // path â€?not `current_exe()`, which points into a mount that will
+        // path â€” not `current_exe()`, which points into a mount that will
         // not exist a moment from now.
         (Some(img), _) => {
             cmd.arg("--src-file")

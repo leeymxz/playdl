@@ -3,7 +3,7 @@
 //! The scheduler's central claim is that shrinking a laggard's range costs
 //! nothing, because an HTTP range request names both ends and the far end is
 //! enforced by the client. Every other test in this suite verifies the delivered
-//! FILE, and a file is byte-exact whether a span arrived once or three times â€?
+//! FILE, and a file is byte-exact whether a span arrived once or three times â€”
 //! the duplicate copy is written over the first and no client-side check can see
 //! it. So the property that makes the claim true is invisible from the client and
 //! has to be measured at the origin: how many payload bytes did the server put on
@@ -42,7 +42,7 @@ fn verify(path: &str, size: u64) -> Result<(), String> {
 /// The scenario is the one the storm was measured in: several connections to a
 /// single origin whose aggregate rate is fixed, so the connections contend and
 /// their finish times diverge, so repairs fire. Whatever the scheduler decides,
-/// the origin's served-byte count is the audit â€?a client that re-fetches a
+/// the origin's served-byte count is the audit â€” a client that re-fetches a
 /// preempted span shows up here as served > SIZE even though its output file is
 /// perfect.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -114,7 +114,7 @@ async fn a_preempted_span_is_never_fetched_twice() {
 ///
 /// A collapse makes repair CORRECT rather than spurious: the victim genuinely
 /// cannot finish, and moving its tail is the right call. The invariant under test
-/// is unchanged â€?the tail must be fetched by exactly one of them.
+/// is unchanged â€” the tail must be fetched by exactly one of them.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_repair_after_a_real_collapse_does_not_duplicate_the_tail() {
     const SIZE: u64 = 4 * 1024 * 1024;

@@ -50,7 +50,7 @@ pub enum Command {
     ///
     /// Distinct from Quit because the two are opposite intentions and sharing one key
     /// for both is how people lose a 4 GB download: `q` cancels, `b` detaches. The queue
-    /// file is the handoff â€?a later session reads it and reattaches.
+    /// file is the handoff â€” a later session reads it and reattaches.
     Background,
     Pause(u64),
     Resume(u64),
@@ -246,7 +246,7 @@ impl Ui {
         let w = cols.max(60) as usize;
         let mut o = String::new();
         let Some(item) = q.get(id) else {
-            return "  that item is gone â€?press Esc\r\n".into();
+            return "  that item is gone â€” press Esc\r\n".into();
         };
         o.push_str("\x1b[H\x1b[2J");
         o.push_str(&format!(
@@ -267,7 +267,7 @@ impl Ui {
                 let filled = ((frac * bar_w as f64).round() as usize).min(bar_w);
                 o.push_str(&format!(
                     "  \x1b[36m{}\x1b[0m{}  {:>5.1}%  {} / {}\r\n",
-                    "â”?.repeat(filled),
+                    "â”".repeat(filled),
                     "â”€".repeat(bar_w - filled),
                     frac * 100.0,
                     crate::progress::human(done),
@@ -300,7 +300,7 @@ impl Ui {
                         let f = ((got as f64 / span as f64) * cells as f64).round() as usize;
                         format!(
                             "[{}{}]",
-                            "â–?.repeat(f.min(cells)),
+                            "â–ª".repeat(f.min(cells)),
                             "Â·".repeat(cells - f.min(cells))
                         )
                     } else {
@@ -346,7 +346,7 @@ impl Ui {
         let (queued, running, done, failed) = q.counts();
         let _ = writeln!(
             s,
-            "\x1b[1;36m hydra\x1b[0m  \x1b[90mfile retriever\x1b[0m{:>width$}\r",
+            "\x1b[1;36m PlayDL\x1b[0m  \x1b[90mfile retriever\x1b[0m{:>width$}\r",
             format!(
                 "{} running  {} queued  {} done  {} failed  |  {}/s  |  max {}",
                 running,
@@ -410,12 +410,12 @@ impl Ui {
         if q.items.is_empty() {
             let _ = writeln!(
                 s,
-                "\r\n  \x1b[90mthe queue is empty â€?press 'a' to add a URL\x1b[0m\r"
+                "\r\n  \x1b[90mthe queue is empty â€” press 'a' to add a URL\x1b[0m\r"
             );
         }
         for (idx, it) in q.items.iter().take(list_rows).enumerate() {
             let sel = idx == self.selected;
-            let marker = if sel { "\x1b[7mâ–? } else { " " };
+            let marker = if sel { "\x1b[7mâ–¸" } else { " " };
             let (tag, colour) = match it.state {
                 State::Running => ("run ", "\x1b[32m"),
                 State::Queued => ("wait", "\x1b[36m"),
@@ -428,7 +428,7 @@ impl Ui {
             let bar = match it.fraction() {
                 Some(fr) => {
                     let k = (fr * bar_w as f64).round() as usize;
-                    format!("{}{}", "â”?.repeat(k), "â”€".repeat(bar_w - k))
+                    format!("{}{}", "â”".repeat(k), "â”€".repeat(bar_w - k))
                 }
                 None => "?".repeat(bar_w),
             };
@@ -464,7 +464,7 @@ impl Ui {
         }
         match &self.mode {
             Mode::Adding(buf) => {
-                let _ = writeln!(s, "\r\n  add URL: \x1b[4m{buf}\x1b[0mâ–?  \x1b[90m(enter to add, esc to cancel)\x1b[0m\r");
+                let _ = writeln!(s, "\r\n  add URL: \x1b[4m{buf}\x1b[0mâ–   \x1b[90m(enter to add, esc to cancel)\x1b[0m\r");
             }
             _ => {
                 let _ = writeln!(
@@ -485,7 +485,7 @@ fn trunc(s: &str, n: usize) -> String {
         s.to_string()
     } else {
         let keep: String = s.chars().take(n.saturating_sub(1)).collect();
-        format!("{keep}â€?)
+        format!("{keep}â€¦")
     }
 }
 
@@ -565,7 +565,7 @@ pub async fn run_with(
 }
 
 /// Load the queue (or start a fresh one) and enqueue the URLs given on the
-/// command line. The shared entry step of both manager modes â€?headless and
+/// command line. The shared entry step of both manager modes â€” headless and
 /// interactive must agree on how a queue resumes and how a bare URL is named.
 fn load_queue(queue_path: &std::path::Path, initial: Vec<String>, max_active: usize) -> Queue {
     let mut q = Queue::load(queue_path).unwrap_or_else(|| Queue::new(max_active));
@@ -590,7 +590,7 @@ pub async fn run_headless(
 ) -> io::Result<()> {
     let mut q = load_queue(&queue_path, initial, max_active);
     eprintln!(
-        "playdl: no terminal; running the queue headless ({} items)",
+        "hydra: no terminal; running the queue headless ({} items)",
         q.items.len()
     );
     let mut running: std::collections::HashMap<
@@ -611,10 +611,10 @@ pub async fn run_headless(
             q.mark_running(id);
             // Persist immediately: the queue file is how a reattaching session sees that
             // this item is live and which process owns it. Saving only on completion made
-            // a detached worker's progress invisible â€?the UI reloaded, saw `Queued` with
+            // a detached worker's progress invisible â€” the UI reloaded, saw `Queued` with
             // no owner, and treated a running transfer as a phantom.
             let _ = q.save(&queue_path);
-            eprintln!("playdl: start #{id} {}", item.name());
+            eprintln!("hydra: start #{id} {}", item.name());
             running.insert(
                 id,
                 tokio::spawn(crate::download::run(job_for(&item, Some(tick_tx.clone())))),
@@ -632,22 +632,22 @@ pub async fn run_headless(
                         q.progress(id, out.size, Some(out.size), 0.0);
                         q.finish(id, out.sha256.clone(), out.category.clone());
                         eprintln!(
-                            "playdl: done #{id} {} {}",
+                            "hydra: done #{id} {} {}",
                             crate::progress::human(out.size),
                             out.category.unwrap_or_default()
                         );
                         if let Some(c) = out.format_conflict {
-                            eprintln!("playdl: warning #{id}: {c}");
+                            eprintln!("hydra: warning #{id}: {c}");
                         }
                     }
                     Ok(out) => {
                         let why = out.note.unwrap_or_else(|| "failed".into());
                         let st = q.fail(id, why.clone());
-                        eprintln!("playdl: {} #{id}: {why}", st.as_str());
+                        eprintln!("hydra: {} #{id}: {why}", st.as_str());
                     }
                     Err(e) => {
                         let st = q.fail(id, format!("task error: {e}"));
-                        eprintln!("playdl: {} #{id}: task error: {e}", st.as_str());
+                        eprintln!("hydra: {} #{id}: task error: {e}", st.as_str());
                     }
                 }
                 let _ = q.save(&queue_path);
@@ -669,7 +669,7 @@ pub async fn run_headless(
                 .filter(|i| i.state == crate::queue::State::Running)
             {
                 eprintln!(
-                    "playdl: #{} {} {} {}",
+                    "hydra: #{} {} {} {}",
                     it.id,
                     it.name(),
                     match (it.done_bytes, it.size) {
@@ -683,7 +683,7 @@ pub async fn run_headless(
         tokio::time::sleep(Duration::from_millis(200)).await;
     }
     let (_, _, done, failed) = q.counts();
-    eprintln!("playdl: queue finished â€?{done} done, {failed} failed");
+    eprintln!("hydra: queue finished â€” {done} done, {failed} failed");
     let _ = q.save(&queue_path);
     Ok(())
 }
@@ -739,7 +739,7 @@ fn job_for(
     ticks: Option<tokio::sync::mpsc::UnboundedSender<crate::download::Tick>>,
 ) -> crate::download::Job {
     // Everything not named here is the engine default (`default_job` is already
-    // quiet and progress-free â€?the engine must not write to the screen while
+    // quiet and progress-free â€” the engine must not write to the screen while
     // the manager owns it).
     crate::download::Job {
         ticks: ticks.map(|tx| (item.id, tx)),
@@ -763,7 +763,7 @@ async fn run_interactive(
     let mut ui = Ui::new();
     // Live progress from running transfers. Unbounded because dropping a tick is
     // harmless (the next one supersedes it) but blocking a transfer to deliver one is
-    // not â€?a UI must never be able to stall the download it is displaying.
+    // not â€” a UI must never be able to stall the download it is displaying.
     let (tick_tx, mut tick_rx) = tokio::sync::mpsc::unbounded_channel::<crate::download::Tick>();
     // PID of the detached worker, when `b` handed the queue over.
     let mut background_pid: Option<u32> = None;
@@ -861,7 +861,7 @@ async fn run_interactive(
                             q.max_active
                         ));
                     }
-                    // Open/close the detail screen. The queue is untouched â€?these are
+                    // Open/close the detail screen. The queue is untouched â€” these are
                     // view changes, and keeping them out of the queue state is what
                     // makes both testable without a terminal.
                     Command::OpenDetail(id) => {
@@ -877,7 +877,7 @@ async fn run_interactive(
                         //
                         // In-process transfers are aborted first and their items demoted,
                         // because two processes writing one file is worse than restarting
-                        // from a checkpoint â€?and the sidecar is checkpointed during the
+                        // from a checkpoint â€” and the sidecar is checkpointed during the
                         // transfer, so the worker resumes rather than refetching.
                         for (id, h) in running.drain() {
                             h.abort();
@@ -935,12 +935,12 @@ async fn run_interactive(
     }
 
     // On `b` the queue was already handed to a detached worker, so the items must stay
-    // queued for it to pick up â€?pausing them here would stop the very transfers the user
+    // queued for it to pick up â€” pausing them here would stop the very transfers the user
     // asked to keep running.
     if let Some(pid) = background_pid {
         let _ = q.save(&queue_path);
         eprintln!(
-            "playdl: detached â€?worker pid {pid} is continuing {} item(s)",
+            "hydra: detached â€” worker pid {pid} is continuing {} item(s)",
             q.items.iter().filter(|i| !i.state.is_terminal()).count()
         );
         eprintln!("       queue:  {}", queue_path.display());
@@ -949,7 +949,7 @@ async fn run_interactive(
             queue_path.with_extension("log").display()
         );
         eprintln!(
-            "       reattach with:  hydra interactive --queue-file {}",
+            "       reattach with:  playdl interactive --queue-file {}",
             queue_path.display()
         );
         return Ok(());

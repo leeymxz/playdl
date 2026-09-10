@@ -5,7 +5,7 @@
 //!
 //! Everything here serializes to one JSON file in the platform config dir, so
 //! the download list and options survive restarts. Live per-connection
-//! state is `#[serde(skip)]` â€?a restart resumes from
+//! state is `#[serde(skip)]` â€” a restart resumes from
 //! the received spans (`held`), not from socket state.
 
 use serde::{Deserialize, Serialize};
@@ -69,7 +69,7 @@ pub struct DownloadItem {
     /// browser was on when the extension captured this file. Sites that gate
     /// their CDN on it answer `403` to a request without it, however good the
     /// cookies are, so it travels with the item and is replayed on every
-    /// start â€?the same way `StreamInfo::referer` already works for a
+    /// start â€” the same way `StreamInfo::referer` already works for a
     /// manifest's segments.
     #[serde(default)]
     pub referer: Option<String>,
@@ -107,7 +107,7 @@ pub struct DownloadItem {
     #[serde(skip)]
     pub status_line: String,
     /// Shut down, log off or sleep the computer once this download (and any
-    /// virus scan) finishes â€?the per-download analogue of a queue's
+    /// virus scan) finishes â€” the per-download analogue of a queue's
     /// [`Schedule::shutdown_when_done`]. The action itself only runs after
     /// the cancellable countdown in `WinKind::Power`.
     #[serde(default)]
@@ -120,12 +120,12 @@ pub struct DownloadItem {
     #[serde(default)]
     pub stream: Option<StreamInfo>,
     /// Set when this item came from a Metalink document. Its presence is what
-    /// gives the transfer a mirror list, a size it can trust, a digest, and â€?
-    /// where the document published `<pieces>` â€?per-chunk verification with
+    /// gives the transfer a mirror list, a size it can trust, a digest, and â€”
+    /// where the document published `<pieces>` â€” per-chunk verification with
     /// targeted refetch instead of starting over.
     #[serde(default)]
     pub metalink: Option<MetalinkInfo>,
-    /// The user named this file themselves â€?in the File Info / Properties
+    /// The user named this file themselves â€” in the File Info / Properties
     /// dialog, or by taking the renamed copy the duplicate dialog offered.
     ///
     /// A probe answers AFTER the transfer it belongs to has started, so
@@ -160,7 +160,7 @@ pub struct StreamInfo {
     #[serde(default)]
     pub referer: Option<String>,
     /// The BROWSER's User-Agent, not Hydra's. Origins that gate on it hand
-    /// a different playlist â€?or none â€?to anything else.
+    /// a different playlist â€” or none â€” to anything else.
     #[serde(default)]
     pub user_agent: Option<String>,
     #[serde(default)]
@@ -181,7 +181,7 @@ pub struct MirrorRef {
     /// (0-100, higher better). Storing the document's own number would mean
     /// every consumer had to remember which dialect it came from, and the one
     /// that forgot would give most of the work to the mirror the publisher
-    /// ranked last â€?a transfer that still succeeds, just slower, and
+    /// ranked last â€” a transfer that still succeeds, just slower, and
     /// indistinguishably from bad luck.
     #[serde(default)]
     pub priority: u32,
@@ -195,7 +195,7 @@ pub struct MirrorRef {
 ///
 /// Persisted with the item for the same reason `held` is: a download resumed
 /// after a restart that had lost its mirror list would fall back to one source
-/// and lose its reserve bench â€?a difference invisible until the mirror that
+/// and lose its reserve bench â€” a difference invisible until the mirror that
 /// failed before fails again.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct MetalinkInfo {
@@ -206,7 +206,7 @@ pub struct MetalinkInfo {
     ///
     /// This is what admits a second mirror at all. Agreement between mirrors is
     /// otherwise established on a strong validator, and independent mirror
-    /// operators running independent web servers cannot share an `ETag` â€?so
+    /// operators running independent web servers cannot share an `ETag` â€” so
     /// without a stated size a nineteen-mirror list downloads from one host.
     #[serde(default)]
     pub size: Option<u64>,
@@ -235,7 +235,7 @@ pub struct MetalinkInfo {
 ///
 /// Only a recording with a time limit has one: seconds captured against
 /// seconds asked for. Without a limit there is no end to be a fraction of,
-/// and bytes cannot stand in â€?a live stream has no size.
+/// and bytes cannot stand in â€” a live stream has no size.
 pub fn live_progress(max_seconds: Option<u64>, recorded: Option<f64>) -> f32 {
     match (max_seconds, recorded) {
         (Some(limit), Some(done)) if limit > 0 => (done / limit as f64).clamp(0.0, 1.0) as f32,
@@ -249,7 +249,7 @@ impl DownloadItem {
     }
 
     /// The `.part` staging file: next to the destination, so completion is a
-    /// same-filesystem rename. hydra writes bytes at their final offsets â€?no
+    /// same-filesystem rename. hydra writes bytes at their final offsets â€” no
     /// assembly pass exists, so a separate temp directory would only add a
     /// cross-drive copy at the end.
     pub fn part_file(&self) -> PathBuf {
@@ -261,7 +261,7 @@ impl DownloadItem {
 
     pub fn progress(&self) -> f32 {
         // A live recording has no size, so bytes can say nothing about how
-        // far along it is â€?but a recording with a time limit does have a
+        // far along it is â€” but a recording with a time limit does have a
         // real fraction, and it is the one the person set. Seconds captured
         // against seconds asked for is the honest bar for that case.
         if let Some(si) = self.stream.as_ref().filter(|s| s.live) {
@@ -375,7 +375,7 @@ pub fn categorize(file: &str, cats: &[CategoryDef]) -> Option<String> {
 /// Folder a download filed under `cat` should be saved in.
 ///
 /// With `flat` on (Options > Save to > "Do not create category folders")
-/// every category resolves to the first â€?General â€?folder, so no
+/// every category resolves to the first â€” General â€” folder, so no
 /// per-category subdirectory is ever created. `cat` of `None` means "not
 /// categorized", which also lands in General.
 ///
@@ -409,7 +409,7 @@ pub enum ProxyMode {
     Manual,
 }
 
-/// What "when done" should do to the machine â€?a queue's
+/// What "when done" should do to the machine â€” a queue's
 /// [`Schedule::shutdown_when_done`] or a download's
 /// [`DownloadItem::shutdown_after`].
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
@@ -450,7 +450,7 @@ pub struct Settings {
     // General tab
     pub launch_on_startup: bool,
     /// Ask the release API for a newer version when the app starts; a hit
-    /// opens the update dialog. Only the check is automatic â€?downloading
+    /// opens the update dialog. Only the check is automatic â€” downloading
     /// and installing always wait for the user's "Update Now".
     pub check_updates_on_startup: bool,
     /// Update checks also consider `-rc` pre-releases: a release candidate
@@ -461,7 +461,7 @@ pub struct Settings {
     /// Closing the main window leaves Hydra running in the system tray
     /// (default) instead of quitting, so queues and transfers carry on.
     /// Off: the close button ends the session the way File > Exit does.
-    /// Ignored when no tray icon could be installed â€?without one there
+    /// Ignored when no tray icon could be installed â€” without one there
     /// would be no way back into the app, so closing always quits then.
     pub close_to_tray: bool,
     /// Fewer wakeups everywhere: slower UI refresh, no glide animation,
@@ -501,7 +501,7 @@ pub struct Settings {
     pub show_completion_tab: bool,
     pub show_hide_buttons: bool,
     pub show_complete_dialog: bool,
-    /// Take a download off the list once it has finished â€?after the
+    /// Take a download off the list once it has finished â€” after the
     /// complete dialog is closed, when that dialog is enabled. Only the row
     /// goes; the downloaded file stays where it was saved.
     pub remove_completed: bool,
@@ -539,12 +539,12 @@ pub struct Settings {
     // Sounds
     pub sounds: Vec<SoundRow>,
     // View state
-    /// Light, Dark, or System (follow the OS) â€?View > Theme. `None` marks a
+    /// Light, Dark, or System (follow the OS) â€” View > Theme. `None` marks a
     /// config written before the setting existed; [`load_config`] resolves it
     /// from the legacy `dark_mode` flag, so it is `Some` while running.
     pub theme_mode: Option<ThemeMode>,
     /// The old View > Dark Mode support checkbox. Read once at load, folded
-    /// into `theme_mode`, and dropped from the file on the next save â€?an
+    /// into `theme_mode`, and dropped from the file on the next save â€” an
     /// upgrade must not silently move a user off the palette they picked.
     pub dark_mode: Option<bool>,
     pub show_categories: bool,
@@ -636,7 +636,7 @@ impl Default for Settings {
 impl Settings {
     /// The palette View > Theme is set to. A config that predates the
     /// setting reads as [`ThemeMode::System`] here only if it also carried no
-    /// `dark_mode` flag â€?[`load_config`] folds that one in first.
+    /// `dark_mode` flag â€” [`load_config`] folds that one in first.
     pub fn theme(&self) -> ThemeMode {
         self.theme_mode.unwrap_or_default()
     }
@@ -661,7 +661,7 @@ pub struct Schedule {
     pub open_file: String,
     pub exit_when_done: bool,
     /// Shut down, log off or sleep the computer once every file in the queue
-    /// has downloaded â€?checked in the same "when done" pass as
+    /// has downloaded â€” checked in the same "when done" pass as
     /// `exit_when_done`. The action itself only runs after the cancellable
     /// countdown in `WinKind::Power`.
     #[serde(default)]
@@ -780,9 +780,9 @@ pub fn set_app_dir(dir: PathBuf) {
 
 /// The `--config DIR` in force, if any.
 ///
-/// Callers that hand this instance's identity to some OTHER process â€?the
+/// Callers that hand this instance's identity to some OTHER process â€” the
 /// login item that relaunches it, the native-messaging host the browser
-/// spawns â€?have to know the directory is not the one that process would
+/// spawns â€” have to know the directory is not the one that process would
 /// otherwise assume.
 pub fn app_dir_override() -> Option<&'static std::path::Path> {
     APP_DIR_OVERRIDE.get().map(|p| p.as_path())
@@ -793,7 +793,7 @@ pub fn app_dir_override() -> Option<&'static std::path::Path> {
 ///
 /// `--config DIR` moves all of it, so a portable install (a USB stick, a
 /// second profile) keeps its settings and download list beside itself.
-/// Without the flag: deliberately NOT `dirs::config_dir()` everywhere â€?on
+/// Without the flag: deliberately NOT `dirs::config_dir()` everywhere â€” on
 /// macOS that resolves to `~/Library/Application Support`, and hydra's
 /// convention (shared with the CLI) is `~/.config/hydra` on both Linux and
 /// macOS. Windows uses `%APPDATA%\hydra`
@@ -819,7 +819,7 @@ pub fn app_dir() -> PathBuf {
 
 /// User configuration: everything the Options/Scheduler dialogs edit.
 /// Stored as `config.toml`; a missing or unparsable file yields defaults.
-/// (action id, default combo, English label) â€?the shortcut table.
+/// (action id, default combo, English label) â€” the shortcut table.
 pub const SHORTCUT_ACTIONS: [(&str, &str, &str); 12] = [
     ("add_url", "cmd+n", "Add new download"),
     (
@@ -847,7 +847,7 @@ pub const SHORTCUT_ACTIONS: [(&str, &str, &str); 12] = [
 #[serde(default)]
 pub struct ConfigFile {
     pub language: Option<String>,
-    /// action id -> combo ("cmd+shift+v"); `cmd` is âŒ?on macOS, Ctrl
+    /// action id -> combo ("cmd+shift+v"); `cmd` is âŒ˜ on macOS, Ctrl
     /// elsewhere. Editable in Help > Keyboard Shortcuts.
     pub shortcuts: std::collections::BTreeMap<String, String>,
     /// Log verbosity: debug | info | warn | error (default info).
@@ -865,7 +865,7 @@ pub struct ConfigFile {
 /// Lives in the state file rather than in [`Settings`], deliberately: the
 /// Options dialog edits a *clone* of the settings and writes the whole clone
 /// back on OK, so a counter kept there would be rewound to whatever it read
-/// when the dialog opened â€?silently refunding every byte transferred while
+/// when the dialog opened â€” silently refunding every byte transferred while
 /// the dialog was on screen.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -933,7 +933,7 @@ pub fn load_config() -> ConfigFile {
 
 /// View > Theme replaced the Dark Mode checkbox: a config written before it
 /// carries only `dark_mode`, and that pick stands. Only a config with neither
-/// key â€?a fresh install â€?starts out following the OS. The legacy key is
+/// key â€” a fresh install â€” starts out following the OS. The legacy key is
 /// dropped either way, so the next save writes just `theme_mode`.
 fn migrate_theme_mode(s: &mut Settings) {
     if s.theme_mode.is_none() {
@@ -979,7 +979,7 @@ fn state_db() -> Option<&'static redb::Database> {
             Ok(db) => Some(db),
             Err(first) => {
                 // A database written by an older redb (file format 2) cannot
-                // be opened by redb 4: set it aside and start fresh â€?the
+                // be opened by redb 4: set it aside and start fresh â€” the
                 // JSON snapshot from the original migration re-seeds below.
                 crate::log::warn(&format!("state db needs recovery: {first}"));
                 let _ = std::fs::rename(&path, dir.join("state.redb.old"));
@@ -1016,7 +1016,7 @@ pub fn load_state() -> StateFile {
             }
         }
     }
-    // One-time migration from the JSON era â€?the live file first, then the
+    // One-time migration from the JSON era â€” the live file first, then the
     // snapshot kept from a previous migration (used again after db recovery).
     if !loaded || st.downloads.is_empty() {
         for name in ["gui-state.json", "gui-state.json.migrated"] {
@@ -1081,7 +1081,7 @@ pub fn save_state(st: &StateFile) {
 }
 
 /// Persist the download-limit window on its own. The counter moves while
-/// transfers run, and [`save_state`] rewrites the whole downloads table â€?
+/// transfers run, and [`save_state`] rewrites the whole downloads table â€”
 /// this is the one-row write a per-second update can afford.
 pub fn save_quota(q: &DlQuota) {
     let Some(db) = state_db() else { return };

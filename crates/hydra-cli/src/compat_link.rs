@@ -2,7 +2,7 @@
 //!
 //! The compatibility layer picks its dialect from `argv[0]` (see [`crate::compat`]),
 //! so a link named `wget` or `curl` pointing at this binary is all it takes. The
-//! help text used to say exactly that â€?`ln -s hydra curl` â€?and that command is
+//! help text used to say exactly that â€” `ln -s hydra curl` â€” and that command is
 //! true but not sufficient, which made it read as broken:
 //!
 //! * `ln -s hydra curl` creates the link in the CURRENT directory. Unless that
@@ -15,10 +15,10 @@
 //!   has wget installed the command fails with `File exists`.
 //!
 //! None of those are failures of the dialect mechanism, and none of them are
-//! visible from the error the user gets (which is usually no error at all â€?
+//! visible from the error the user gets (which is usually no error at all â€”
 //! just the other tool's output). This module does the link placement and then
 //! answers the question the user actually has: *will typing `curl` now reach
-//! hydra?* â€?by resolving the name against `$PATH` the same way the shell does.
+//! hydra?* â€” by resolving the name against `$PATH` the same way the shell does.
 
 use std::path::{Path, PathBuf};
 
@@ -142,7 +142,7 @@ pub fn plan(dir: Option<&Path>, names: &[String]) -> Result<(PathBuf, Vec<LinkPl
     Ok((exe, plans))
 }
 
-/// `wget` on unix, `wget.exe` on Windows â€?the shell only searches for the
+/// `wget` on unix, `wget.exe` on Windows â€” the shell only searches for the
 /// suffixed form there.
 fn link_file_name(name: &str) -> String {
     if cfg!(windows) && !name.ends_with(".exe") {
@@ -267,7 +267,7 @@ mod tests {
     #[test]
     fn linking_into_a_temp_dir_creates_a_working_symlink() {
         let exe = this_exe().expect("test binary path");
-        let dir = std::env::temp_dir().join(format!("playdl-compat-link-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("hydra-compat-link-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("temp dir");
 

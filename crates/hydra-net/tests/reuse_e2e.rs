@@ -3,7 +3,7 @@
 //! Every request used to carry `Connection: close`, so a transfer of `n`
 //! concurrent ranges paid `n` handshakes and every repair paid another. That is
 //! the worst possible arrangement for a client whose whole premise is many ranges
-//! against one host, and it also inflates `delta` â€?the measured per-request setup
+//! against one host, and it also inflates `delta` â€” the measured per-request setup
 //! cost that the repair deadband and the profitability test are both denominated
 //! in, so the scheduler was pricing its decisions against a handshake it did not
 //! need to pay.
@@ -36,11 +36,11 @@ fn verify(path: &str, size: u64) -> Result<(), String> {
 /// The scenario needs care: with one range per connection and no repairs there is
 /// no *second* request to any endpoint, so a pool cannot help and a passing test
 /// would prove nothing. Nor should it depend on repair timing, which is a race. One
-/// connection against an object with holes is deterministic â€?ranges complete and
+/// connection against an object with holes is deterministic â€” ranges complete and
 /// work-conserving assignment gives the same connection the next span. Measured here: 4 requests over 1 connection, 3 of them reused.
 ///
 /// This also bounds the honest claim. Reuse saves a handshake per request BEYOND
-/// the first on each connection, so its value grows with the request count â€?which
+/// the first on each connection, so its value grows with the request count â€” which
 /// means it is worth most exactly when the scheduler is repairing, and worth
 /// nothing on a single-range fetch.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -59,8 +59,8 @@ async fn a_keep_alive_origin_serves_several_ranges_per_connection() {
     // One connection, and the object pre-marked so the work left is several
     // disjoint spans: the scheduler hands out one span, the connection finishes it,
     // and work-conserving assignment gives it the next. That is exactly the
-    // sequence reuse exists for â€?several requests to one endpoint, each with a
-    // known body extent â€?and it does not depend on a race to occur.
+    // sequence reuse exists for â€” several requests to one endpoint, each with a
+    // known body extent â€” and it does not depend on a race to occur.
     let mut sched = Scheduler::new(
         SIZE,
         vec![Source {
@@ -88,8 +88,8 @@ async fn a_keep_alive_origin_serves_several_ranges_per_connection() {
     .await
     .expect("transfer must complete");
 
-    // Not byte-complete by construction â€?three spans were marked done without
-    // being fetched â€?so verify the spans that WERE requested. This is the check
+    // Not byte-complete by construction â€” three spans were marked done without
+    // being fetched â€” so verify the spans that WERE requested. This is the check
     // that matters for reuse: if a pooled socket carried leftover body into the
     // next response, these bytes would be shifted and wrong.
     {
@@ -138,7 +138,7 @@ async fn a_keep_alive_origin_serves_several_ranges_per_connection() {
 ///
 /// This is the interaction that makes reuse dangerous in this particular client.
 /// When a repair lowers a connection's far end, the fetch loop stops early by
-/// design and the server is still sending toward the original end â€?so the socket
+/// design and the server is still sending toward the original end â€” so the socket
 /// holds an unknown number of unread body bytes. Reusing it would prefix the next
 /// response with the previous one's tail, writing valid-looking bytes at wrong
 /// offsets: a corrupt file of exactly the right length, which no length or

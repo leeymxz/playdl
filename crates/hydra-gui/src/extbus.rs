@@ -112,10 +112,35 @@ pub struct ExtStream {
     pub size: Option<u64>,
 }
 
+/// Receipt for a capture: the socket thread answers the browser only once
+/// the UI thread has taken the download.
+///
+/// The extension CANCELS AND ERASES the browser's own copy when it sees
+/// `ok`, so that word has to mean "hydra owns this now". It used to mean
+/// "a message went onto a channel", and the difference is a lost file: an
+/// app that dies between the two (on Windows the browser kills the whole
+/// native-messaging job the moment the host answers) takes the download
+/// with it, having already told the browser to let go.
+#[derive(Clone, Debug)]
+pub struct Ack(std::sync::mpsc::Sender<()>);
+
+impl Ack {
+    /// Called from the UI thread once the item is in the download list.
+    pub fn confirm(&self) {
+        let _ = self.0.send(());
+    }
+}
+
+/// How long the socket thread waits for that receipt. Generous, because a
+/// cold start hands the capture over while `boot` is still running and the
+/// subscription that drains this channel only starts after it; a browser
+/// download stays paused meanwhile, and resumes untouched on timeout.
+const ACK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
 #[derive(Clone, Debug)]
 pub enum ExtEvent {
     /// Single captured download -> Download File Info dialog.
-    Download(ExtDownload),
+    Download(ExtDownload, Ack),
     /// A manifest -> the stream-aware download path.
     Stream(Box<ExtStream>),
     /// "Download all links": many URLs -> the batch window.
@@ -467,8 +492,19 @@ fn dispatch(req: &serde_json::Value, trusted: bool) -> serde_json::Value {
                     dl.user_agent.as_deref().unwrap_or("-"),
                     dl.tab_url.as_deref().unwrap_or("-"),
                 ));
-                let _ = sender().send(ExtEvent::Download(dl));
-                (true, None)
+                let (tx, receipt) = std::sync::mpsc::channel();
+                let _ = sender().send(ExtEvent::Download(dl, Ack(tx)));
+                // Dropped sender (the event never reached the handler) ends
+                // the wait at once; a timeout means a wedged UI thread.
+                match receipt.recv_timeout(ACK_TIMEOUT) {
+                    Ok(()) => (true, None),
+                    Err(_) => {
+                        crate::log::warn(
+                            "extbus: capture was not taken up; handing it back to the browser",
+                        );
+                        (false, Some("hydra did not take the download"))
+                    }
+                }
             }
             _ => (false, Some("bad download request")),
         },
@@ -772,4 +808,39 @@ fn b64(data: &[u8]) -> String {
         });
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The whole capture hand-over rests on what `ok` means: the extension
+    /// cancels and ERASES the browser's own download when it sees it. So it
+    /// may only be said once the UI thread has the item — and must not be
+    /// said at all when the event is dropped on the floor, which is what a
+    /// dying app looks like from here.
+    #[test]
+    fn a_capture_is_acknowledged_only_once_the_app_takes_it() {
+        let mut rx = take_events().expect("the receiver is free in this test");
+        let req = serde_json::json!({"type": "download", "url": "https://example.invalid/f.zip"});
+        let ok = |reply: serde_json::Value| reply["ok"].as_bool().expect("ok flag");
+
+        let replying = {
+            let req = req.clone();
+            std::thread::spawn(move || dispatch(&req, true))
+        };
+        let Some(ExtEvent::Download(dl, ack)) = rx.blocking_recv() else {
+            panic!("a download event should have been queued");
+        };
+        assert_eq!(dl.url, "https://example.invalid/f.zip");
+        ack.confirm();
+        assert!(ok(replying.join().expect("dispatch thread")));
+
+        let replying = std::thread::spawn(move || dispatch(&req, true));
+        // Never confirmed: the receipt channel dies with the event, and the
+        // browser is told to keep the download rather than wait out the
+        // whole timeout.
+        drop(rx.blocking_recv());
+        assert!(!ok(replying.join().expect("dispatch thread")));
+    }
 }

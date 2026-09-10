@@ -5,7 +5,7 @@
 //! back with the same connection count asks it again and gets the same answer.
 //! `ash-speed.hetzner.com` serves happily at two connections and refuses
 //! everything at four, so eight connections downloaded zero bytes in thirty
-//! seconds â€?one refusal every two seconds, each aborting what the other seven
+//! seconds â€” one refusal every two seconds, each aborting what the other seven
 //! had in flight. The transfer has to converge on a count the origin will serve.
 
 use pdl_core::{Scheduler, Source};
@@ -24,7 +24,7 @@ const ALLOWED: usize = 2;
 /// scheduler is given for that origin: a real client would have this from a
 /// probe before the transfer starts (`hydra-cli` measures it that way), and
 /// starting the scheduler from a `delta_est` an order of magnitude below the
-/// origin's real cost â€?as `Source::default()`'s 50 ms is here â€?makes the
+/// origin's real cost â€” as `Source::default()`'s 50 ms is here â€” makes the
 /// repair profitability test misjudge what a steal actually pays, which is a
 /// property of an unrealistic test fixture, not of the scheduler.
 const SLOW_FIRST_BYTE_MS: u64 = 400;
@@ -97,7 +97,7 @@ async fn spawn_throttled_origin(refusals: Arc<AtomicUsize>, peak: Arc<AtomicUsiz
                     // Sampled here, not only at grant time above: a client that has
                     // converged needs few requests, so a request granted while both
                     // slots are held can run to completion without a single further
-                    // accept() â€?and a peak that only updates on accept would then
+                    // accept() â€” and a peak that only updates on accept would then
                     // see nothing for the rest of the transfer, wiped by the test's
                     // reset if that grant landed before it, and reporting collapse
                     // for a client that never collapsed. Concurrency actually held
@@ -117,7 +117,7 @@ async fn spawn_throttled_origin(refusals: Arc<AtomicUsize>, peak: Arc<AtomicUsiz
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_429_lowers_the_connection_count_instead_of_livelocking() {
     let refusals = Arc::new(AtomicUsize::new(0));
-    // The most requests this origin serves at once ONCE THE CLIENT HAS SETTLED â€?
+    // The most requests this origin serves at once ONCE THE CLIENT HAS SETTLED â€”
     // the counter is reset below, after the refusals have done their work.
     // Converging is only half the requirement: a client that answers a refusal by
     // collapsing to one connection has stopped being refused and is also
@@ -170,7 +170,7 @@ async fn a_429_lowers_the_connection_count_instead_of_livelocking() {
         refused > 0,
         "the origin must actually have refused, or this proves nothing"
     );
-    // Converging costs a bounded number of refusals â€?one round per halving.
+    // Converging costs a bounded number of refusals â€” one round per halving.
     // Retrying at the same count instead of lowering it measured 129 refusals
     // over 26 s on this origin against 8 over 2.2 s, so the ceiling separates
     // "learned the limit" from "kept asking".
@@ -202,13 +202,13 @@ async fn a_429_lowers_the_connection_count_instead_of_livelocking() {
 /// * the client stood the whole SOURCE down on the first refusal, aborting the
 ///   requests the origin had just agreed to serve and paying their handshakes
 ///   again;
-/// * the ceiling's floor â€?"never below what is visibly working" â€?was zero
+/// * the ceiling's floor â€” "never below what is visibly working" â€” was zero
 ///   whenever the working connections were between ranges, so a ceiling that had
 ///   correctly found the origin's limit was halved off it and the transfer
 ///   finished at one connection against an origin serving two;
 /// * assignment kept reserving work for the six connections the ceiling had
 ///   already ruled out, handing the two live ones a budget-sized share at a time
-///   and paying a request â€?a first byte, and on this origin a fresh handshake â€?
+///   and paying a request â€” a first byte, and on this origin a fresh handshake â€”
 ///   for each.
 ///
 /// # What is asserted
@@ -256,7 +256,7 @@ async fn concurrency_the_origin_refuses_costs_nothing() {
     // scheduler regression: `active_limit` is `usize::MAX` for a caller that never
     // opted into the ramp, so a reserve test written against it was vacuously
     // true, maximal-range assignment became unreachable, and every transfer
-    // re-requested its work a share at a time â€?the exact failure this line is
+    // re-requested its work a share at a time â€” the exact failure this line is
     // here to catch, hidden by the line itself. Measured 6-11 with that fixed.
     assert!(
         wide.grants <= 16,
@@ -327,7 +327,7 @@ async fn fetch_from_slow_first_byte_origin(n: usize) -> ThrottledRun {
 }
 
 /// Like [`spawn_throttled_origin`], but a granted request waits before its first
-/// body byte while a refusal is answered at once â€?the ordering every real path
+/// body byte while a refusal is answered at once â€” the ordering every real path
 /// with latency produces, and the one loopback hides.
 async fn spawn_slow_first_byte_origin(
     refusals: Arc<AtomicUsize>,

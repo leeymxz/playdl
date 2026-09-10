@@ -9,7 +9,7 @@
 //! ask why a mirror list needs its own entry point at all. The answer is that
 //! the URLs are the least valuable thing in the document. Handing the engine a
 //! bare list of mirrors leaves it with no size it can trust, no digest, no
-//! ranking, and â€?decisively â€?no way to admit a second source: mirror assembly
+//! ranking, and â€” decisively â€” no way to admit a second source: mirror assembly
 //! is gated on every source agreeing about a strong validator, and independent
 //! mirror operators running independent web servers cannot share an `ETag`. A
 //! nineteen-mirror list passed as nineteen URLs downloads from exactly one of
@@ -31,7 +31,7 @@
 //!
 //! [`hydra_metalink_files`](crate::exports::hydra_metalink_files) and
 //! [`hydra_metalink_mirrors`](crate::exports::hydra_metalink_mirrors) let a host
-//! application show the user what a document offers before anything is fetched â€?
+//! application show the user what a document offers before anything is fetched â€”
 //! which matters most on mobile, where a 4 GB image on a metered link is a
 //! decision and not a detail.
 //! [`hydra_job_create_from_metalink`](crate::exports::hydra_job_create_from_metalink)
@@ -103,7 +103,7 @@ pub(crate) fn open(path: &str) -> Result<Doc, Detail> {
 
 /// Fetch a document over HTTP and read it.
 ///
-/// Redirects are followed because mirror redirectors use them constantly â€?the
+/// Redirects are followed because mirror redirectors use them constantly â€” the
 /// document lives behind a load balancer as often as not.
 pub(crate) async fn fetch(
     conn: &std::sync::Arc<pdl_net::TlsCapableConnector>,
@@ -220,7 +220,7 @@ pub(crate) fn choose(doc: &Doc, index: usize) -> Result<Chosen, Detail> {
     }
     // One TRANSPORT per job. `ranked` keeps every fetchable mirror so
     // `hydra_metalink_mirrors` can show the whole list, but the engine splices
-    // over HTTP and builds HTTP targets for its probes and reserves â€?an
+    // over HTTP and builds HTTP targets for its probes and reserves â€” an
     // `ftp://` entry in a mixed job is a request sent to port 21. The leading
     // tier carries the transfer; an all-ftp entry keeps its ftp mirrors and
     // takes the single-stream path.
@@ -264,7 +264,7 @@ pub(crate) fn index_of(doc: &Doc, want: &str) -> Option<usize> {
 /// The digest spec a document published, as the ABI's checksum pair.
 ///
 /// `None` when the algorithm is one this build does not compare (a CRC), which
-/// is reported as "not checked" rather than as a pass â€?a verification that
+/// is reported as "not checked" rather than as a pass â€” a verification that
 /// means nothing is worse than an honest absence.
 pub(crate) fn checksum_of(spec: &str) -> Option<(crate::engine::Algo, Vec<u8>)> {
     use crate::engine::Algo;
@@ -277,7 +277,7 @@ pub(crate) fn checksum_of(spec: &str) -> Option<(crate::engine::Algo, Vec<u8>)> 
         pdl_net::digest::Algo::Crc32 | pdl_net::digest::Algo::Crc32c => return None,
     };
     // The parser already refuses malformed document digests, so this cannot
-    // fire from a real `Attested` â€?but this function is the boundary the
+    // fire from a real `Attested` â€” but this function is the boundary the
     // verifier's `want` comes through, and a truncated digest that slipped in
     // any other way would report a GOOD file as a checksum failure. "Not
     // checked" is the honest answer for a spec that cannot be checked.
@@ -383,7 +383,7 @@ mod tests {
     fn a_job_takes_one_transport_while_the_mirror_listing_shows_them_all() {
         // `hydra_metalink_mirrors` is the display path and keeps everything a
         // caller could show; `choose` is the job path, and the engine it feeds
-        // probes and substitutes over HTTP targets â€?an ftp entry there is a
+        // probes and substitutes over HTTP targets â€” an ftp entry there is a
         // request sent to port 21.
         let src = r#"<metalink xmlns="urn:ietf:params:xml:ns:metalink"><file name="f">
             <size>4</size>
@@ -426,8 +426,8 @@ mod tests {
 
     #[test]
     fn pieces_that_do_not_tile_the_size_are_dropped_and_the_job_still_runs() {
-        // The document contradicts itself. Failing the job would be wrong â€?the
-        // object is perfectly fetchable â€?and applying the pieces anyway would
+        // The document contradicts itself. Failing the job would be wrong â€” the
+        // object is perfectly fetchable â€” and applying the pieces anyway would
         // report every chunk as corrupt.
         let src = r#"<metalink xmlns="urn:ietf:params:xml:ns:metalink"><file name="f">
             <size>100</size>

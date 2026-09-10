@@ -155,8 +155,8 @@ impl Url {
     ///
     /// Handles the three forms servers actually send: an absolute URL, a
     /// scheme-relative `//host/path`, and a path-relative `/path`. Needed because a
-    /// redirect commonly crosses hosts â€?a GitHub release asset redirects to a
-    /// different domain entirely â€?so the new target cannot be built by patching the
+    /// redirect commonly crosses hosts â€” a GitHub release asset redirects to a
+    /// different domain entirely â€” so the new target cannot be built by patching the
     /// old one's path.
     pub fn join(&self, location: &str) -> Option<Url> {
         let loc = location.trim();
@@ -220,14 +220,14 @@ impl Url {
     /// Build a transport target, routing through `proxy` when one is configured.
     ///
     /// Both schemes are supported. A proxied `https` target keeps `tls: true` so
-    /// the connector opens a CONNECT tunnel before handshaking â€?the proxy has to
+    /// the connector opens a CONNECT tunnel before handshaking â€” the proxy has to
     /// read the request line in cleartext, and an encrypted one cannot be read.
     pub fn to_target(&self, proxy: Option<(&str, u16)>) -> Result<Target, String> {
         let tls = self.scheme == "https";
         let mut t = match proxy {
             // The proxy authority must ALWAYS carry an explicit port. `authority()`
             // omits the default one because a `Host` header should, but a CONNECT
-            // request line without a port is rejected by proxies â€?so the two
+            // request line without a port is rejected by proxies â€” so the two
             // spellings are deliberately different here.
             Some((ph, pp)) => Target::via_proxy(ph, pp, &self.proxy_authority(), &self.path),
             None if tls => Target::direct_tls(&self.host, self.port, &self.path),
@@ -277,7 +277,7 @@ impl Sidecar {
     }
 
     pub fn save(&self, output: &Path) -> std::io::Result<()> {
-        let tmp = Self::path_for(output).with_extension("hydra.tmp");
+        let tmp = Self::path_for(output).with_extension("playdl.tmp");
         std::fs::write(&tmp, serde_json::to_vec_pretty(self)?)?;
         // Atomic replace: a crash mid-write must not leave a sidecar that
         // describes a state the file was never in.
@@ -347,7 +347,7 @@ mod tests {
     #[test]
     fn redirect_locations_resolve_in_all_three_forms() {
         let base = Url::parse("https://github.com/o/r/releases/download/v1/asset").unwrap();
-        // Absolute, crossing hosts â€?what a release asset actually returns.
+        // Absolute, crossing hosts â€” what a release asset actually returns.
         let a = base
             .join("https://release-assets.githubusercontent.com/x/y?token=abc")
             .unwrap();
@@ -508,7 +508,7 @@ mod tests {
 
     #[test]
     fn sidecar_round_trips_through_disk() {
-        let dir = std::env::temp_dir().join("hydra_sc_test");
+        let dir = std::env::temp_dir().join("playdl_sc_test");
         std::fs::create_dir_all(&dir).unwrap();
         let out = dir.join("obj.bin");
         let sc = Sidecar {

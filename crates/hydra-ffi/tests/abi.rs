@@ -11,10 +11,10 @@
 //!
 //! What they are for, in order of importance:
 //!
-//! * the memory contract â€?every allocation released through its own `*_free`;
-//! * the life cycle â€?create, start, pause, resume, cancel, complete;
-//! * hostile input â€?NULL, invalid UTF-8, unknown enum values, bad ids;
-//! * persistence â€?a job that survives an engine being destroyed.
+//! * the memory contract â€” every allocation released through its own `*_free`;
+//! * the life cycle â€” create, start, pause, resume, cancel, complete;
+//! * hostile input â€” NULL, invalid UTF-8, unknown enum values, bad ids;
+//! * persistence â€” a job that survives an engine being destroyed.
 
 mod support;
 
@@ -630,7 +630,7 @@ fn cancel_can_keep_or_remove_the_partial_file() {
     assert!(!gone.exists(), "REMOVE_PARTIAL must delete the file");
 
     // A terminal job cannot be cancelled again, and cannot be started again
-    // either â€?but it can be forgotten.
+    // either â€” but it can be forgotten.
     assert_eq!(
         unsafe { hydra_job_cancel(h.engine, b, 0) },
         hydra_error_code_t::HYDRA_ERR_INVALID_STATE
@@ -826,7 +826,7 @@ fn state_survives_the_engine_that_created_it() {
 /// Regression: `hydra_engine_destroy` used to reach its graceful stop by calling
 /// the exported `hydra_engine_shutdown` on a handle it had already poisoned, so
 /// the call rejected its own handle and did nothing. Jobs were not stopped and
-/// no state was written â€?and because every other test called shutdown
+/// no state was written â€” and because every other test called shutdown
 /// explicitly, nothing noticed.
 #[test]
 fn destroying_without_an_explicit_shutdown_still_persists_state() {
@@ -910,8 +910,8 @@ fn credentials_are_never_written_to_the_state_file() {
 }
 
 /// Userinfo in a URL is a perfectly ordinary way to leak a password. It must be
-/// stripped at creation, so that nothing downstream â€?the snapshot, the state
-/// file, an error message naming the source â€?ever had it to leak.
+/// stripped at creation, so that nothing downstream â€” the snapshot, the state
+/// file, an error message naming the source â€” ever had it to leak.
 #[test]
 fn url_userinfo_never_reaches_a_snapshot_or_the_state_file() {
     let h = harness("userinfo", true, |_| {});
@@ -1377,7 +1377,7 @@ fn parse_doc(xml: &str) -> *mut hydra_metalink_t {
 #[test]
 fn a_document_reports_its_files_and_its_ranked_mirrors_before_anything_is_fetched() {
     // The inspection layer exists so a host application can put the decision in
-    // front of a user â€?which file, how large, is it verifiable â€?while the
+    // front of a user â€” which file, how large, is it verifiable â€” while the
     // object is still on the far side of a metered link.
     let body = make_body(1024);
     let a = serve(body.clone(), Behaviour::default());
@@ -1467,7 +1467,7 @@ fn a_document_reports_its_files_and_its_ranked_mirrors_before_anything_is_fetche
 #[test]
 fn a_job_created_from_a_document_assembles_from_mirrors_that_share_no_validator() {
     // The claim the feature rests on. Two independent mirrors cannot produce the
-    // same `ETag`, so the pairwise gate keeps exactly one of them â€?and with the
+    // same `ETag`, so the pairwise gate keeps exactly one of them â€” and with the
     // document's size as the admission test, both are used and the bytes are
     // still right, because the document's digest and pieces are checked after.
     let body = make_body(2 * 1024 * 1024 + 13);
@@ -1548,7 +1548,7 @@ fn a_job_created_from_a_document_assembles_from_mirrors_that_share_no_validator(
 #[test]
 fn a_document_whose_mirrors_all_disagree_with_its_size_fails_with_a_reason() {
     // Reporting success here would hand back an object the publisher says is a
-    // different size â€?which passes every length check this program makes.
+    // different size â€” which passes every length check this program makes.
     let body = make_body(4096);
     let o = serve(body.clone(), Behaviour::default());
     let xml = meta4(
@@ -1638,10 +1638,10 @@ fn metalink_handles_reject_null_and_stale_pointers_rather_than_crashing() {
 /// Live: a real Metalink document driven entirely through the C ABI.
 ///
 /// Opt-in via `HYDRA_FFI_METALINK_LIVE=<path or url>`. The offline tests stop
-/// at resolution; this is the only thing that exercises the ABI's own path â€?
-/// `hydra_metalink_open` â†?`hydra_job_create_from_metalink` â†?the concurrent
-/// mirror probe â†?the multi-source transfer â†?verification against the
-/// document's digest â€?over real hosts.
+/// at resolution; this is the only thing that exercises the ABI's own path â€”
+/// `hydra_metalink_open` â†’ `hydra_job_create_from_metalink` â†’ the concurrent
+/// mirror probe â†’ the multi-source transfer â†’ verification against the
+/// document's digest â€” over real hosts.
 #[test]
 fn live_metalink_through_the_abi() {
     let Some(src) = std::env::var("HYDRA_FFI_METALINK_LIVE")

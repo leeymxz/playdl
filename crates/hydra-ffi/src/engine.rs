@@ -155,14 +155,14 @@ pub(crate) struct JobCfg {
     /// Publisher ranking and per-mirror ceilings, index-aligned with `urls`.
     ///
     /// Empty for a job created from a plain URL list, which is exactly what an
-    /// unranked set of interchangeable mirrors is â€?so nothing changes for a
+    /// unranked set of interchangeable mirrors is â€” so nothing changes for a
     /// caller that never touches a Metalink.
     pub source_plans: Vec<pdl_core::SourcePlan>,
     /// Object size stated by a Metalink document rather than by a mirror.
     ///
     /// This is what makes multi-source assembly possible across a real mirror
     /// list. Without it, agreement has to be established pairwise on a strong
-    /// validator, and independent mirror operators cannot share an `ETag` â€?so
+    /// validator, and independent mirror operators cannot share an `ETag` â€” so
     /// the gate keeps exactly one source out of nineteen. A size published by
     /// whoever built the object, from a host that is usually not any of the
     /// mirrors, is both stronger evidence and satisfiable.
@@ -380,7 +380,7 @@ pub(crate) struct Engine {
     next_seq: AtomicU64,
     /// One connector per proxy configuration, shared across every job that uses
     /// it. Connectors carry a connection pool, a TLS session cache and a parsed
-    /// root store, all of which are designed to outlive a single transfer â€?
+    /// root store, all of which are designed to outlive a single transfer â€”
     /// hya-net measures 1.6-2.0 s of setup recovered when a probe's handshake
     /// feeds the transfer that follows it. Building one per job throws all
     /// three away.
@@ -516,7 +516,7 @@ impl Engine {
     /// The per-job connection ceiling under the current power mode.
     ///
     /// The mode is supplied by the platform layer, never read from a battery
-    /// API here â€?that is the line that keeps the core free of Android and iOS
+    /// API here â€” that is the line that keeps the core free of Android and iOS
     /// code. A restricted device gets one connection; battery saver gets half
     /// the ceiling.
     pub(crate) fn connection_ceiling(&self, requested: usize) -> usize {

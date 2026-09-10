@@ -338,7 +338,7 @@ async fn the_tls_capable_connector_still_speaks_plaintext() {
 /// Regression test: the transfer loop breaks out of the top of the iteration as
 /// soon as the scheduler reports completion, which is above the per-tick
 /// `observe` call. The arrivals that COMPLETED the transfer were therefore never
-/// reported to the caller â€?the progress bar stopped short of 100%, and the CLI,
+/// reported to the caller â€” the progress bar stopped short of 100%, and the CLI,
 /// which derives post-transfer completeness from the observed count, declared a
 /// byte-exact file incomplete. Measured on an 11 200 900-byte resume: 2 876
 /// bytes unobserved, exit 1 and `ok: false` on a download that was perfect.
@@ -442,7 +442,7 @@ async fn a_cap_applied_mid_transfer_shapes_the_rest() {
 
     verify(&outs, SIZE).expect("shaping must not corrupt: the file must be byte-exact");
     // Everything after the flip is subject to the cap. Charge only the bytes that
-    // could still have been outstanding then â€?the ones already on disk are free,
+    // could still have been outstanding then â€” the ones already on disk are free,
     // and in-flight reads already paid for are close enough to ignore.
     let (flip_at, flip_done) = flipped
         .lock()
@@ -465,7 +465,7 @@ async fn a_cap_applied_mid_transfer_shapes_the_rest() {
 /// `--limit-rate` must actually shape the transfer, not merely be constructed.
 ///
 /// Regression test: the CLI built a `RateLimiter`, dropped it a few lines later,
-/// and never passed it to anything that touched a byte â€?`hydra-net` had no
+/// and never passed it to anything that touched a byte â€” `hydra-net` had no
 /// reference to it at all. A 34 041-byte object under a 1 KiB/s cap finished in
 /// 5.2s at 6.4 KiB/s, six times the requested ceiling, with no error and a clean
 /// exit. The project's own conformance check ("a 20 KB/s cap makes a 34 KB
@@ -525,7 +525,7 @@ async fn limit_rate_shapes_the_aggregate_transfer() {
 /// The failure this covers is a silent one: a referrer stripper such as
 /// `href.li/?<url>` answers `200 OK` with a kilobyte of HTML, so a client that
 /// only understands `3xx` reports SUCCESS and writes the forwarding page under
-/// the object's name. The assertion is therefore in two parts â€?the probe must
+/// the object's name. The assertion is therefore in two parts â€” the probe must
 /// classify the page as a possible redirector, and the resolver must read the
 /// real target out of it.
 #[tokio::test]

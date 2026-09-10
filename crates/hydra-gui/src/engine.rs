@@ -14,7 +14,7 @@
 //! (default 8) and the stall-timeout clamp measured there; servers
 //! without ranges fall back to one streaming GET. Pause/cancel go through
 //! `run_transfer_cancellable`'s stop flag so sockets actually close, and the
-//! received spans are re-`mark_done`d on resume â€?including across app restarts.
+//! received spans are re-`mark_done`d on resume â€” including across app restarts.
 
 use crate::model::{ConnRow, DlId};
 use pdl_core::{Capability, Scheduler, Source};
@@ -84,7 +84,7 @@ impl StartSpec {
     /// The mirror-list fields of an ORDINARY download: none of them.
     ///
     /// Spelled as a constructor rather than a `Default` on the whole struct
-    /// because the rest of `StartSpec` has no sensible default â€?an id of 0 and
+    /// because the rest of `StartSpec` has no sensible default â€” an id of 0 and
     /// an empty output path are not a download, and a `..Default::default()`
     /// that silently supplied them would turn a forgotten field into a runtime
     /// mystery instead of a compile error.
@@ -119,7 +119,7 @@ impl StartSpec {
 
 /// An adaptive stream to assemble. Deliberately NOT a `StartSpec`: there is
 /// no single object to range over, no size the server will state up front,
-/// and no resume story yet â€?what it shares with a download is the id, the
+/// and no resume story yet â€” what it shares with a download is the id, the
 /// destination and the event stream, which is all the GUI needs to show it
 /// in the same list.
 #[derive(Clone, Debug)]
@@ -146,7 +146,7 @@ pub struct StreamSpec {
     ///
     /// Fixed, deliberately: the app-wide "adaptive connections" setting is
     /// for ranged file downloads and is NOT applied here. Admission was
-    /// tried on the segment pipeline and measured slower â€?a stream's
+    /// tried on the segment pipeline and measured slower â€” a stream's
     /// ceiling is already small, so ramping up to it can only arrive at the
     /// same place later. See `pdl_stream::hls::Concurrency`.
     pub conns: usize,
@@ -211,7 +211,7 @@ pub enum Cmd {
     /// Internal: a transfer task ended (any outcome); drop its live handles.
     /// Without this, entries for normally-finished transfers stayed in the
     /// live map for the process lifetime. Carries the task's own cancel flag
-    /// so it can only evict ITS entry â€?after a quick pause/resume the map
+    /// so it can only evict ITS entry â€” after a quick pause/resume the map
     /// already holds the successor transfer under the same id.
     Done(DlId, Arc<AtomicBool>),
 }
@@ -475,7 +475,7 @@ fn spawn_engine() -> UnboundedSender<Cmd> {
 
 /// The one connector for the whole process. Its connection pool, TLS
 /// session cache (`Resumption::in_memory_sessions`) and parsed root store
-/// are designed to outlive a single transfer â€?`tls.rs` documents 1.6â€?.0 s
+/// are designed to outlive a single transfer â€” `tls.rs` documents 1.6â€“2.0 s
 /// of setup reused when the probe's handshake feeds the transfer. Building
 /// a connector per transfer (as this file used to) discarded all three.
 fn shared_connector() -> Result<Arc<TlsCapableConnector>, String> {
@@ -500,7 +500,7 @@ pub struct LinkMeta {
     /// The URL serves a Metalink DOCUMENT rather than the object.
     ///
     /// Read from `Content-Type` on the probe that had to happen anyway, which
-    /// is the only place the answer is free â€?and the only place it exists at
+    /// is the only place the answer is free â€” and the only place it exists at
     /// all for a redirector like `.../metalink?repo=x`, whose name reveals
     /// nothing. A batch that misses this adds a few kilobytes of XML as a
     /// download and calls it done.
@@ -585,14 +585,14 @@ fn target_of(u: &ParsedUrl, headers: Vec<String>, user_agent: &str) -> Target {
 ///
 /// ZIP's index lives at the end of the file, so one ranged GET for the tail
 /// (and, for an archive with thousands of entries, one more for the index
-/// itself) is the whole cost â€?see [`pdl_net::zipdir`]. `headers` are the
+/// itself) is the whole cost â€” see [`pdl_net::zipdir`]. `headers` are the
 /// download's own login and cookies, so the peek sees the same object the
 /// transfer would.
 ///
 /// `known_size` is the size the dialog already has from its probe or from
 /// the transfer running behind it. With it, no probe is made at all: the
 /// ranged GET goes straight out and follows redirects itself. That is two
-/// fewer round trips â€?two fewer TLS handshakes to a CDN â€?and on a slow
+/// fewer round trips â€” two fewer TLS handshakes to a CDN â€” and on a slow
 /// path the difference between the list appearing in one second or five.
 ///
 /// Errors are sentences for the dialog, already translated.
@@ -717,7 +717,7 @@ pub fn metalink_address(addr: &str) -> bool {
     }
 }
 
-/// Read a Metalink document â€?a local path or a URL â€?and resolve every file
+/// Read a Metalink document â€” a local path or a URL â€” and resolve every file
 /// entry it describes into something the download list can hold.
 ///
 /// Refuses the two cases where continuing would produce a wrong file quietly: a
@@ -742,11 +742,11 @@ pub async fn probe_metalink(source: String, user_agent: String) -> Result<Metali
             continue;
         };
         let mut mirrors: Vec<&pdl_net::MetaUrl> = f.fetchable_urls();
-        // Transport first, the publisher's ranking within it â€?and then ONE
+        // Transport first, the publisher's ranking within it â€” and then ONE
         // transport per item. An FTP mirror at rank 1 would not merely lead:
         // the engine routes on the item's own URL, so it would drop the whole
         // transfer to a single FTP stream and silently abandon the list. And a
-        // trailing ftp mirror in a mixed list is no reserve either â€?the
+        // trailing ftp mirror in a mixed list is no reserve either â€” the
         // multi-source engine probes and substitutes over HTTP targets, so it
         // would be a request sent to port 21. The leading tier carries the
         // item; an all-ftp document keeps its ftp mirrors and streams, as
@@ -770,12 +770,12 @@ pub async fn probe_metalink(source: String, user_agent: String) -> Result<Metali
         // Capped by serialized size because this string is PERSISTED: it rides
         // in `MetalinkInfo` inside the GUI state, which is rewritten on every
         // state change for the life of the item. The parser admits up to a
-        // million pieces, which serialize to ~65 MB â€?a document (a hostile
+        // million pieces, which serialize to ~65 MB â€” a document (a hostile
         // one, or merely a huge object on a tiny grid) could make every state
         // save write that. Four MiB covers every real distribution image (a
         // 4 GB ISO at Fedora's 256 KiB grid is ~1 MB); past it the piece list
         // is dropped with a log line and the whole-file digest still verifies
-        // the object â€?coarser, never weaker.
+        // the object â€” coarser, never weaker.
         const PIECES_PERSIST_CAP: usize = 4 << 20;
         let pieces = pdl_net::manifest::from_metalink(f).ok();
         let piece_count = pieces.as_ref().map(|m| m.chunks.digests.len()).unwrap_or(0);
@@ -834,8 +834,8 @@ pub async fn probe_metalink(source: String, user_agent: String) -> Result<Metali
 ///
 /// A job fetches ONE object, so a document describing several is narrowed to a
 /// single entry here. Which one is not arbitrary: the job's existing filename is
-/// tried first, so a row the user already named â€?from the Add URL dialog, or
-/// from a batch whose document resolved before the transfer started â€?keeps
+/// tried first, so a row the user already named â€” from the Add URL dialog, or
+/// from a batch whose document resolved before the transfer started â€” keeps
 /// pointing at the file they picked. Only a job that arrived with nothing but a
 /// redirector URL falls back to the first entry, and that is logged, because the
 /// user typed one address and is about to receive a differently named file.
@@ -869,7 +869,7 @@ fn adopt_metalink(
     }
 
     let mut mirrors: Vec<&pdl_net::MetaUrl> = file.fetchable_urls();
-    // Transport first, then one transport per item â€?same rule and same
+    // Transport first, then one transport per item â€” same rule and same
     // reason as `probe_metalink`.
     mirrors.sort_by_key(|u| (u.kind.transport_tier(), u.priority, u.url.clone()));
     let lead = mirrors[0].kind.transport_tier();
@@ -947,7 +947,7 @@ async fn fetch_metalink(url: &str, user_agent: &str) -> Result<pdl_net::Metalink
 
 /// Make `dir` exist and be writable, healing one specific corruption seen in
 /// the field: an EMPTY directory owned by another user (root) sitting in a
-/// writable parent â€?deletable from the parent, so drop and recreate it.
+/// writable parent â€” deletable from the parent, so drop and recreate it.
 fn ensure_writable_dir(dir: &std::path::Path) {
     let _ = std::fs::create_dir_all(dir);
     let probe = dir.join(".hydra-write-probe");
@@ -995,7 +995,7 @@ pub fn parse_url(url: &str) -> Result<ParsedUrl, String> {
     pdl_stream::parse_url(url).map_err(|e| crate::i18n::tr(&e))
 }
 
-/// The name `url` itself states, or `None` when it states none â€?a bare
+/// The name `url` itself states, or `None` when it states none â€” a bare
 /// host, a directory address, a redirector whose own path carries nothing.
 ///
 /// [`file_name_from_url`] invents `index.html` for those so a download always
@@ -1115,15 +1115,15 @@ fn target_for(u: &ParsedUrl, spec: &StartSpec) -> Target {
 ///
 /// Without a document the only evidence is what the mirrors themselves say, so
 /// agreement has to be pairwise: same size, same strong validator. That test is
-/// deliberately strict â€?two mirrors serving different builds produce a file of
-/// exactly the right length that is not either object â€?and it is also
+/// deliberately strict â€” two mirrors serving different builds produce a file of
+/// exactly the right length that is not either object â€” and it is also
 /// unsatisfiable across a real mirror list, because independent operators
 /// running independent web servers cannot share an `ETag`.
 ///
 /// `attested_size` is different evidence: it comes from whoever built the
 /// object, on a host that is usually not one of the mirrors, alongside a content
-/// digest. A mirror is admitted if it agrees with the DOCUMENT, and the digest â€?
-/// per chunk where `<pieces>` was published â€?is what catches one serving
+/// digest. A mirror is admitted if it agrees with the DOCUMENT, and the digest â€”
+/// per chunk where `<pieces>` was published â€” is what catches one serving
 /// something else.
 ///
 /// Returns `(targets, connections per target, reserve bench, scheduler
@@ -1145,13 +1145,13 @@ async fn plan_sources(
         if spec.attested_size.is_some() || !(pr.weak_validator || pr.validator.is_none()) {
             // A document that states the size and a content digest establishes
             // agreement more strongly than an `ETag` does, and from outside the
-            // mirrors â€?so a source admitted on that evidence is a full one.
+            // mirrors â€” so a source admitted on that evidence is a full one.
             Capability::Full
         } else {
             Capability::NoValidator
         }
     };
-    // One seated source â€?and whatever reserves are still on their way.
+    // One seated source â€” and whatever reserves are still on their way.
     //
     // The late stream is threaded through here rather than dropped, because
     // this is the case that needs a bench MOST: with a single source there is
@@ -1208,7 +1208,7 @@ async fn plan_sources(
     ));
 
     // Bounded fan-out, but not by politeness: every probe here goes to a
-    // DIFFERENT host and one HEAD each is not something any of them feels â€?the
+    // DIFFERENT host and one HEAD each is not something any of them feels â€” the
     // per-host ceilings elsewhere answer that question. The cap exists so a
     // forty-mirror document cannot open forty sockets at once and hit an fd
     // limit.
@@ -1286,12 +1286,12 @@ async fn plan_sources(
     // probed and admitted, so abandoning stragglers can never leave the
     // transfer with no source.
     // The window is short and it costs nothing to lose: a mirror that misses
-    // it is not abandoned any more â€?it keeps probing in the background and
+    // it is not abandoned any more â€” it keeps probing in the background and
     // joins the reserve bench when it answers. All the window decides is how
     // long the transfer holds still hoping for one more SEAT, and the loop
     // stops on its own the moment the connection budget's worth of mirrors
     // have been admitted. (Unlike the CLI's loop, the clock here may arm
-    // before any secondary has answered â€?the PRIMARY is already probed and
+    // before any secondary has answered â€” the PRIMARY is already probed and
     // seated, so a bounded wait can never leave the transfer with nothing.)
     const GRACE_MULTIPLE: f64 = 3.0;
     const GRACE_MIN: std::time::Duration = std::time::Duration::from_millis(600);
@@ -1327,9 +1327,9 @@ async fn plan_sources(
             probed.push(v);
         }
     }
-    // The stragglers keep probing. Each task is SELF-admitting â€?it returns
+    // The stragglers keep probing. Each task is SELF-admitting â€” it returns
     // `Some` only for a mirror that passed the same size/validator/ranges test
-    // the seated ones passed â€?so the forwarder's job is only to turn each
+    // the seated ones passed â€” so the forwarder's job is only to turn each
     // admission into a `Reserve` as it lands.
     let late = if streaming && !set.is_empty() {
         crate::log::info(&format!(
@@ -1390,7 +1390,7 @@ async fn plan_sources(
         .map(|&i| Source {
             caps: kept[i].3,
             delta_est: kept[i].2.max(1e-3),
-            // The publisher's ranking, consulted once â€?for the first split,
+            // The publisher's ranking, consulted once â€” for the first split,
             // before anything has been measured. See `pdl_core::sched::Source`.
             priority: kept[i].4.priority,
             ..Source::default()
@@ -1433,7 +1433,7 @@ async fn plan_sources(
 ///    on faith merely because it was asked for twice. This is what makes a
 ///    mirror list worth more than a URL list at the moment something goes wrong:
 ///    the remedy is one chunk, not the whole object.
-/// 2. **The whole-file digest**, which catches everything a piece grid cannot â€?
+/// 2. **The whole-file digest**, which catches everything a piece grid cannot â€”
 ///    including a document whose pieces are absent.
 ///
 /// Runs on the STAGING file, before the rename. A file that fails its digest
@@ -1563,15 +1563,15 @@ async fn verify_attested(
 /// Hash a file with any algorithm a mirror list may publish.
 ///
 /// Streamed in 1 MiB chunks rather than read whole: peak memory must not scale
-/// with the object, which is the one thing a downloader may never do â€?the
+/// with the object, which is the one thing a downloader may never do â€” the
 /// transfer itself writes at exact offsets and holds no reassembly buffer, so
 /// this would otherwise be the only part of the program that could not handle a
 /// file larger than RAM.
 ///
 /// MD5 and SHA-1 are computed because they are what most Metalink 3.0 documents
 /// actually publish. They are integrity checks here, not authentication: against
-/// a transmission fault, a truncating proxy or a stale mirror â€?which is what a
-/// published digest is for â€?they work, and against an adversary who chose the
+/// a transmission fault, a truncating proxy or a stale mirror â€” which is what a
+/// published digest is for â€” they work, and against an adversary who chose the
 /// bytes they do not, because the digest and the object came down the same wire.
 fn digest_file(path: &str, algo: pdl_net::digest::Algo) -> Option<String> {
     use pdl_net::digest::Algo;
@@ -1623,7 +1623,7 @@ async fn run_download(
         let _ = tx.send(e);
     };
 
-    // HYDRA_AB_FRESH=1: measurement escape hatch â€?build a throwaway
+    // HYDRA_AB_FRESH=1: measurement escape hatch â€” build a throwaway
     // connector per transfer (the pre-pooling behaviour) to bisect
     // throughput differences. Not for production use.
     let fresh = std::env::var_os("HYDRA_AB_FRESH").is_some();
@@ -1669,7 +1669,7 @@ async fn run_download(
     //
     // Distinct from `url`, which redirects rewrite: when mirror A answers 302
     // and the redirect target cannot be reached, the dead entry in
-    // `spec.mirrors` is A â€?and removing by the post-redirect `url` removes
+    // `spec.mirrors` is A â€” and removing by the post-redirect `url` removes
     // nothing, so `plan_sources` would probe the dead chain a second time.
     let mut attempt = url.clone();
     let mut probed: Option<(ParsedUrl, Probe)> = None;
@@ -1681,7 +1681,7 @@ async fn run_download(
     // says which mirrors it EXPECTS to serve well, and a host that no longer
     // resolves was expected to serve well right up until it stopped existing.
     // Without this the transfer fails at the first probe while holding a dozen
-    // working URLs â€?which is exactly the failure the reserve bench was built
+    // working URLs â€” which is exactly the failure the reserve bench was built
     // to remove, arriving one step before the bench exists.
     let mut fallback: std::collections::VecDeque<String> = spec
         .mirrors
@@ -1740,7 +1740,7 @@ async fn run_download(
                 // A redirect the server expressed in HTML rather than in a
                 // header: a referrer stripper or link filter answering `200`
                 // with a page whose whole content is "go here instead".
-                // Without this hop the saved file IS that page â€?the
+                // Without this hop the saved file IS that page â€” the
                 // one-kilobyte `index.html` this resolves. Charged to the same
                 // hop budget as a `3xx`, since a pair of such pages pointing at
                 // each other is a loop like any other.
@@ -1777,7 +1777,7 @@ async fn run_download(
                     // out of the source list AND out of the reserve bench, so
                     // `plan_sources` does not probe it again and a substitution
                     // cannot pick it later. Removed by the URL the ATTEMPT
-                    // started from, not the one it died at â€?a mirror that
+                    // started from, not the one it died at â€” a mirror that
                     // redirects before failing dies at an address the document
                     // never listed.
                     spec.mirrors.retain(|m| m.url != attempt);
@@ -1824,7 +1824,7 @@ async fn run_download(
     //
     // `Last-Modified` first and on its own terms: `validator` collapses to the
     // ETag whenever the server sent one, so reading THAT field would throw the
-    // date away for GitHub, S3 and most CDNs â€?the common case, and the exact
+    // date away for GitHub, S3 and most CDNs â€” the common case, and the exact
     // defect the CLI's `--remote-time` was fixed for. The validator is still
     // consulted as a fallback, for the servers that send only a date: there it
     // IS the `Last-Modified` value.
@@ -1840,14 +1840,14 @@ async fn run_download(
     // `https://mirrors.fedoraproject.org/metalink?repo=fedora-41` has no
     // extension, so nothing the dialog could read told it what this was. The
     // probe has already happened and already carries the `Content-Type`, so
-    // asking here costs nothing â€?and asking earlier would cost a round trip on
+    // asking here costs nothing â€” and asking earlier would cost a round trip on
     // every download that is not a mirror list.
     //
     // Saving it instead would hand the user a few kilobytes of XML under the
     // name of the multi-gigabyte image they asked for: a file that passes every
     // check this program makes and is entirely the wrong one.
     //
-    // One hop only, and only when the job does not already carry a list â€?a
+    // One hop only, and only when the job does not already carry a list â€” a
     // document that names itself, or a mirror that answers with another mirror
     // list, then costs one wasted fetch rather than an unbounded chain.
     if spec.mirrors.is_empty() && p.serves_metalink() {
@@ -1856,7 +1856,7 @@ async fn run_download(
             Ok(doc) => match adopt_metalink(&doc, &mut spec, id) {
                 Ok((name, size)) => {
                     // The destination the finisher renames to is held behind a
-                    // lock â€?File Info can retarget it while a transfer runs â€?
+                    // lock â€” File Info can retarget it while a transfer runs â€”
                     // so the document's name has to be written THERE and not
                     // only on the spec, or the object lands under the
                     // redirector's name after all.
@@ -2034,7 +2034,7 @@ async fn run_download(
     // inside `run_transfer_cancellable` admits the rest only while the
     // aggregate rate says they pay. On a link the origin (or an ISP shaper)
     // saturates at one or two streams, a fixed 8 divides capacity and adds
-    // setup cost â€?measured on this project as slower than a single stream
+    // setup cost â€” measured on this project as slower than a single stream
     // on most live objects.
     if spec.adaptive && n > 1 {
         sched.set_active_limit(1);
@@ -2140,7 +2140,7 @@ async fn run_download(
         // snapshot (kept for the cancel path) refreshes at the same cadence:
         // `held_ranges()` allocates an IntervalSet, so computing it at the
         // 50 Hz tick rate was pure waste, and a stop can only lose the last
-        // <100 ms of spans â€?which resume then re-fetches, safely.
+        // <100 ms of spans â€” which resume then re-fetches, safely.
         if last_emit.elapsed().as_millis() >= emit_interval_ms() || done >= size {
             last_emit = std::time::Instant::now();
             let held = s.held_ranges();
@@ -2166,7 +2166,7 @@ async fn run_download(
                         downloaded: per_conn.get(&j).map(|e| e.2).unwrap_or(0),
                         // An idle connection under a concurrency cap is not a
                         // broken one: the origin refused the extra requests (a
-                        // 429 â€?`ash-speed.hetzner.com` serves exactly two per
+                        // 429 â€” `ash-speed.hetzner.com` serves exactly two per
                         // address), or the adaptive ramp has not admitted this
                         // slot yet. Labelling that "Disconnect." reads as a
                         // failure and invites the fix that makes it worse:
@@ -2186,7 +2186,7 @@ async fn run_download(
                 })
                 .collect();
             // ETA from the smoothed rate, and only once it has warmed past
-            // 1 KB/s â€?an ETA computed from startup noise counts down from
+            // 1 KB/s â€” an ETA computed from startup noise counts down from
             // nonsense values.
             let eta = if sm_rate > 1024.0 {
                 Some(((size - done.min(size)) as f64 / sm_rate) as u64)
@@ -2214,7 +2214,7 @@ async fn run_download(
     };
     // Substitutions are logged rather than surfaced in a row: the connection
     // rows carry no host name, so the only place a user could learn that the
-    // mirror changed under a running transfer is the log â€?and a download that
+    // mirror changed under a running transfer is the log â€” and a download that
     // took twice as long as expected is exactly when they go looking.
     let sub_id = id;
     let mut on_sub = move |src: usize, r: &pdl_net::Reserve| {
@@ -2249,7 +2249,7 @@ async fn run_download(
     match result {
         Ok((elapsed, reqs)) => {
             // Requests far above the connection count means range churn
-            // (repairs/steals) â€?the first thing to look at when a transfer
+            // (repairs/steals) â€” the first thing to look at when a transfer
             // is slower than the pipe.
             crate::log::debug(&format!(
                 "#{id} transfer {elapsed:.2}s, {reqs} requests over {n} conns"
@@ -2317,7 +2317,7 @@ async fn run_ftp_download(
         spec.auth.as_ref().map(|(_, p)| p.as_str()),
     );
     // The same limiter the HTTP path answers to, so Speed Limiter means the
-    // same thing on an ftp:// download â€?including switched on mid-transfer.
+    // same thing on an ftp:// download â€” including switched on mid-transfer.
     let fetcher = pdl_net::ftp::FtpFetcher::new(Arc::new(pdl_net::TcpConnector))
         .with_pace(pdl_net::polite::Pace::shared(limiter.clone()));
 
@@ -2360,7 +2360,7 @@ async fn run_ftp_download(
         file_name,
     });
 
-    // Resume from the contiguous prefix only â€?REST is a start offset, not a
+    // Resume from the contiguous prefix only â€” REST is a start offset, not a
     // span list.
     let start = if probe.ranged {
         spec.held
@@ -2473,7 +2473,7 @@ async fn run_ftp_download(
 ///
 /// `Last-Modified` first and on its own terms: [`Probe::validator`] collapses
 /// to the ETag whenever the server sent one, so reading THAT field would throw
-/// the date away for GitHub, S3 and most CDNs â€?the common case, and the exact
+/// the date away for GitHub, S3 and most CDNs â€” the common case, and the exact
 /// defect the CLI's `--remote-time` was fixed for. The validator is still
 /// consulted as a fallback, for the servers that send only a date: there it IS
 /// the `Last-Modified` value.
@@ -2492,7 +2492,7 @@ fn remote_stamp(p: &Probe) -> Option<u64> {
 ///
 /// Modification time, not birth time: POSIX has no way to set the latter at
 /// all, so "creation date" in the option's wording means the same thing here
-/// that it means in every other download manager â€?the date the server said
+/// that it means in every other download manager â€” the date the server said
 /// the object last changed.
 fn set_mtime(path: &std::path::Path, secs: u64) -> std::io::Result<()> {
     let f = std::fs::File::options().write(true).open(path)?;
@@ -2530,7 +2530,7 @@ fn finish_file(
         Ok(()) => {
             // After the rename, never before: the mtime has to be set on the
             // file the user keeps, and moving it is what fixes which file
-            // that is. Best-effort â€?a filesystem that will not take the
+            // that is. Best-effort â€” a filesystem that will not take the
             // timestamp (a read-only mount, an exotic FUSE target) is not a
             // reason to report a good download as failed.
             if let Some(secs) = stamp {
@@ -2616,7 +2616,7 @@ mod tests {
         );
     }
 
-    /// A rate of zero was never measured â€?a refusal can settle the search at a
+    /// A rate of zero was never measured â€” a refusal can settle the search at a
     /// level no window ever covered. Reporting "against 1 at 0 B/s" would state a
     /// measurement that was never taken, so the simpler sentence is used instead.
     #[test]
@@ -2805,8 +2805,8 @@ mod tests {
 
     #[test]
     fn pieces_that_do_not_tile_the_size_are_dropped_and_the_file_is_still_offered() {
-        // The document contradicts itself. Refusing the file would be wrong â€?
-        // it is perfectly fetchable â€?and applying the pieces anyway would
+        // The document contradicts itself. Refusing the file would be wrong â€”
+        // it is perfectly fetchable â€” and applying the pieces anyway would
         // report every chunk as corrupt.
         let src = r#"<metalink xmlns="urn:ietf:params:xml:ns:metalink"><file name="f">
             <size>100</size>
@@ -2924,8 +2924,8 @@ mod tests {
         );
     }
 
-    /// The stamp must survive an ETag. A server sending BOTH headers â€?GitHub,
-    /// S3, most CDNs â€?is the common case, and reading the collapsed
+    /// The stamp must survive an ETag. A server sending BOTH headers â€” GitHub,
+    /// S3, most CDNs â€” is the common case, and reading the collapsed
     /// `validator` field would discard the date for every one of them, which is
     /// what made the option look broken.
     #[test]
@@ -3023,8 +3023,8 @@ mod tests {
         assert_eq!(base64(b"ab"), "YWI=");
     }
 
-    /// A/B throughput check: download the same URL twice in one process â€?
-    /// run 1 cold, run 2 over the warm shared pool â€?and print both rates.
+    /// A/B throughput check: download the same URL twice in one process â€”
+    /// run 1 cold, run 2 over the warm shared pool â€” and print both rates.
     /// Opt-in via HYDRA_GUI_LIVE_AB=<url>; read logs/gui.log (debug) for the
     /// probe delta and request counts of each run.
     #[test]
@@ -3093,7 +3093,7 @@ mod tests {
     ///
     /// Opt-in via `HYDRA_GUI_METALINK_TEST=<path or url>`, because it needs the
     /// network and a real mirror list. It is the only thing that exercises the
-    /// GUI's own `plan_sources` and `verify_attested` end to end â€?the unit
+    /// GUI's own `plan_sources` and `verify_attested` end to end â€” the unit
     /// tests above stop at resolution, and a bug between resolution and the
     /// transfer would be invisible to them.
     #[test]
@@ -3379,7 +3379,7 @@ fn redirect_target(seg: &pdl_stream::Segment, e: &std::io::Error) -> Option<pdl_
 const MAX_REDIRECTS: usize = 5;
 
 /// Fetch a manifest, following redirects, and report the URL it finally came
-/// from â€?every relative URI inside resolves against THAT, so parsing
+/// from â€” every relative URI inside resolves against THAT, so parsing
 /// against the address originally asked for would aim every segment at the
 /// wrong host.
 async fn stream_get_at(
@@ -3450,8 +3450,8 @@ fn spawn_ticker(
         let mut last_line = String::new();
         let mut smoothed = 0.0f64;
         let mut announced = estimated;
-        // A projection that is itself smoothed. The raw one moves in steps â€?
-        // it only changes when a whole segment settles â€?and a bar drawn
+        // A projection that is itself smoothed. The raw one moves in steps â€”
+        // it only changes when a whole segment settles â€” and a bar drawn
         // against a stepping denominator stutters however smooth the
         // numerator is.
         let mut smooth_total = estimated as f64;
@@ -3532,7 +3532,7 @@ fn spawn_ticker(
                 .map(|m| m.load(Ordering::Relaxed) as f64 / 1000.0);
             // One row per CONNECTION, not per segment in flight.
             //
-            // Rows built from the in-flight list â€?which is what this did â€?
+            // Rows built from the in-flight list â€” which is what this did â€”
             // were wrong in three ways at once: they SHUFFLED, because
             // settling a segment compacts the list under the reader; they
             // reset to zero every few seconds, because a row showed one
@@ -3669,7 +3669,7 @@ fn segment_fetcher(
 /// Why a protected stream is refused, in the user's language.
 ///
 /// The DRM system is named separately from the explanation so the catalogue
-/// key stays the same whichever system it is â€?and so a new system needs no
+/// key stays the same whichever system it is â€” and so a new system needs no
 /// new translation.
 pub fn drm_refusal(system: &str) -> String {
     format!(
@@ -3782,7 +3782,7 @@ async fn live_windows(
 /// is no list to work through, so the loop is "re-read, take what is new,
 /// wait". A live window slides, which is why segments are identified by
 /// sequence number (`#EXT-X-MEDIA-SEQUENCE` + position, or `$Number$`) rather
-/// than by position â€?position changes every refresh.
+/// than by position â€” position changes every refresh.
 ///
 /// Stopping is a SUCCESS, not a cancellation. Someone recording a live stream
 /// and pressing Stop wants the file they have, and there is nothing to resume
@@ -3861,7 +3861,7 @@ async fn record_live(
     // handful of segments; anything this far back is a new sequence.
     const RESET_GAP: u64 = 64;
     // A live stream never ends on its own. When the user asked for a fixed
-    // length, that is what stops it â€?and stopping is a success: the file is
+    // length, that is what stops it â€” and stopping is a success: the file is
     // finished and playable, exactly as if the broadcast had ended.
     let deadline = spec
         .max_seconds
@@ -3947,7 +3947,7 @@ async fn record_live(
             // The checks below are stateful: each one's answer depends on
             // what the previous segment did to `last[i]`, so they must run
             // in sequence. The FETCHING need not, and used not to be
-            // separated from them â€?which made a recording run at one
+            // separated from them â€” which made a recording run at one
             // connection no matter how many were configured. A refresh
             // commonly reveals several segments at once, and the first one
             // hands over the whole window as a backlog, so there is real
@@ -3957,7 +3957,7 @@ async fn record_live(
                 // A restarted encoder renumbers from a low value. Without
                 // this, every segment after a restart looks "already seen"
                 // and the recording silently freezes until the numbering
-                // climbs back past the old high-water mark â€?which for a
+                // climbs back past the old high-water mark â€” which for a
                 // fresh sequence never happens.
                 if let Some(l) = last[i] {
                     if seq.saturating_add(RESET_GAP) < l {
@@ -4037,7 +4037,7 @@ async fn record_live(
                     // Bounded exactly as the VOD path bounds an attempt. An
                     // origin that accepts and then goes SILENT never completes
                     // a read, and `fetch_object` only tests the cancel flag
-                    // between reads â€?so without this the append loop blocks
+                    // between reads â€” so without this the append loop blocks
                     // forever on `task.await`: the recording freezes, the
                     // deadline never fires, and Cancel does nothing.
                     let r = match tokio::time::timeout(
@@ -4117,7 +4117,7 @@ async fn record_live(
             }
         }
         // The budget is spent: stop, rather than refresh into windows that
-        // the cut above will now empty every time â€?which reads to the
+        // the cut above will now empty every time â€” which reads to the
         // barren-window guard as an origin publishing nothing.
         if spec
             .max_seconds
@@ -4155,7 +4155,7 @@ async fn record_live(
                 // `break 'recording`, not `break`: a plain break leaves only
                 // the SLEEP, and the outer loop would then re-read the
                 // manifest and fetch a whole further window before noticing
-                // the deadline â€?overrunning a "record 60 s" ask by most of
+                // the deadline â€” overrunning a "record 60 s" ask by most of
                 // a refresh period.
                 crate::log::info(&format!(
                     "#{id} recorded the requested {}s",
@@ -4280,7 +4280,7 @@ fn append_file(src: &str, out: &mut std::fs::File) -> std::io::Result<()> {
 
 /// What one stream download has to assemble. DASH keeps video and audio in
 /// separate Representations far more often than HLS does, and combining them
-/// is a real muxing step â€?so the two shapes are distinguished here rather
+/// is a real muxing step â€” so the two shapes are distinguished here rather
 /// than pretended away.
 enum Assembly {
     /// One track that is already a playable file once concatenated.
@@ -4378,7 +4378,7 @@ async fn run_stream(
 
     // What the manifest IS beats what the extension said it was: a URL can
     // be renamed, a body cannot. Neither shape means this is not a manifest
-    // at all â€?a login page or an error page served under a `.m3u8` URL is
+    // at all â€” a login page or an error page served under a `.m3u8` URL is
     // the usual cause, and saying so beats "lists no segments".
     let is_dash = if text.trim_start().starts_with("#EXTM3U") {
         false
@@ -4399,7 +4399,7 @@ async fn run_stream(
         };
         if mf.live {
             // The refusals below live in `mf.plan()`, which only the VOD path
-            // reaches â€?so they have to be repeated HERE, before the primed
+            // reaches â€” so they have to be repeated HERE, before the primed
             // window fetches a byte. The recorder cannot decrypt: keys rotate
             // mid-live and nothing fetches them, so what the VOD path refuses
             // the live path must refuse too, rather than appending ciphertext
@@ -4649,7 +4649,7 @@ async fn run_stream(
             if keys.contains_key(&uri) {
                 continue;
             }
-            // The URI only â€?never the 16 bytes it answers with.
+            // The URI only â€” never the 16 bytes it answers with.
             crate::log::debug(&format!(
                 "#{id} fetching AES-128 key {}",
                 crate::log::redact(&uri)
@@ -4755,7 +4755,7 @@ async fn run_stream(
     }
     ticker.abort();
     if let Err(e) = outcome {
-        // A failure leaves the parts and checkpoints alone too â€?a flaky
+        // A failure leaves the parts and checkpoints alone too â€” a flaky
         // segment is the commonest failure and retrying should not throw
         // away the gigabyte that did arrive.
         return fail(e);
@@ -4987,7 +4987,7 @@ mod stream_tests {
         (base, seen)
     }
 
-    /// The same origin, but paths containing `slow` answer after `ms` â€?which
+    /// The same origin, but paths containing `slow` answer after `ms` â€” which
     /// is how a test gets a deterministic window in which to pause.
     fn serve_delayed(
         routes: Vec<(String, Vec<u8>)>,
@@ -5213,7 +5213,7 @@ mod stream_tests {
             }
         }
         // The wording is tuned; what must hold is that it NAMES the system
-        // and says the download cannot happen â€?never "not supported yet",
+        // and says the download cannot happen â€” never "not supported yet",
         // which reads as a feature still to come.
         let msg = failure.clone().expect("a DRM playlist must be refused");
         assert!(msg.contains("Widevine"), "the system must be named: {msg}");
@@ -5222,7 +5222,7 @@ mod stream_tests {
             "the refusal must be plain: {msg}"
         );
         assert!(!final_path.exists());
-        // The key was never requested â€?only the playlist itself was read.
+        // The key was never requested â€” only the playlist itself was read.
         assert_eq!(seen.lock().unwrap().len(), 1);
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -5341,8 +5341,8 @@ mod stream_tests {
     async fn an_encrypted_live_playlist_is_refused_not_recorded_as_ciphertext() {
         // The recorder cannot decrypt, and the VOD refusal lives in
         // `Plan::build`, which the live route never reaches. Without an
-        // explicit guard the FIRST window â€?already fetched to detect that
-        // the stream is live â€?is appended raw and the recording finishes
+        // explicit guard the FIRST window â€” already fetched to detect that
+        // the stream is live â€” is appended raw and the recording finishes
         // reporting success over a file of noise.
         let dir = tmp("live-enc");
         let (base, seen) = serve(vec![
@@ -5557,7 +5557,7 @@ mod stream_tests {
                 assert!(dir.join("out.audio.m4a").exists(), "audio was thrown away");
             }
             // With ffmpeg present it is invoked; these four-byte fixtures are
-            // not real media, so it may still refuse them â€?what matters is
+            // not real media, so it may still refuse them â€” what matters is
             // that it was tried and the tracks survived either way.
             Some(_) => {
                 if let Some(msg) = failure {
@@ -5589,7 +5589,7 @@ mod stream_tests {
     /// the origin is currently holding, and a long-running recording keeps
     /// being handed several at a time. Taking them one at a time is what
     /// made a recording crawl on a single connection however many the user
-    /// had configured â€?the connection table showed row 1 working and rows
+    /// had configured â€” the connection table showed row 1 working and rows
     /// 2..8 blank, which is exactly what it was doing.
     #[tokio::test]
     async fn a_live_window_is_fetched_concurrently_and_still_written_in_order() {
@@ -5651,7 +5651,7 @@ mod stream_tests {
     ///
     /// This is the regression that batching the window introduced: fetching
     /// a whole window at a time can only check the budget once per window,
-    /// which overruns by however much the window held â€?and a DVR playlist
+    /// which overruns by however much the window held â€” and a DVR playlist
     /// whose first window carries hours would hand back all of it.
     #[tokio::test]
     async fn a_recording_deadline_cuts_the_window_it_lands_inside() {
@@ -5684,7 +5684,7 @@ mod stream_tests {
         assert_eq!(failure, None);
 
         // Two segments cover the four seconds asked for. The whole window
-        // would be "AAAABBBBCCCCDDDDEEEEFFFF" â€?three times the ask.
+        // would be "AAAABBBBCCCCDDDDEEEEFFFF" â€” three times the ask.
         assert_eq!(
             std::fs::read_to_string(&spec.final_path).unwrap(),
             "AAAABBBB"
@@ -5696,7 +5696,7 @@ mod stream_tests {
     async fn a_live_hls_playlist_is_recorded_until_it_ends() {
         let dir = tmp("live-hls");
         // The window slides: each refresh drops one segment and adds one.
-        // Position means nothing across refreshes â€?only the sequence number.
+        // Position means nothing across refreshes â€” only the sequence number.
         let (base, seen) = serve_sequence(vec![
             (
                 "/index.m3u8".into(),
@@ -6027,7 +6027,7 @@ mod stream_tests {
 ///
 /// This is what lets the Add URL dialog show a quality list before the user
 /// commits: a manifest is a few kilobytes, so asking it what it contains
-/// costs one request and answers the only question that matters â€?which
+/// costs one request and answers the only question that matters â€” which
 /// rendition, and is this live.
 pub async fn probe_stream(
     url: String,
@@ -6152,7 +6152,7 @@ mod peek_zip_tests {
     use std::net::TcpListener;
 
     /// An origin that answers HEAD with the size and `Accept-Ranges`, and a
-    /// ranged GET with exactly that span â€?the two requests a peek makes.
+    /// ranged GET with exactly that span â€” the two requests a peek makes.
     /// Counts the body bytes it sends, which is the number the feature is
     /// about: the archive must not be downloaded to be listed.
     fn serve(object: Vec<u8>) -> (u16, Arc<AtomicU64>) {

@@ -9,7 +9,7 @@
 //!
 //! 1. waits a beat for the parent to finish exiting,
 //! 2. copies the new files over the installed ones (retrying while the old
-//!    executables are still locked â€?the retry loop is the "wait for exit"
+//!    executables are still locked â€” the retry loop is the "wait for exit"
 //!    on Windows, where a running exe cannot be replaced but can be renamed),
 //! 3. re-runs itself through the platform's authorisation prompt when the
 //!    install turns out to be root-owned (`--apply-only`, no relaunch: the
@@ -127,7 +127,7 @@ fn main() -> std::process::ExitCode {
             }
         }
         // Root owns the install (a tarball unpacked with sudo, an app copied
-        // by another admin). The files are still ours to replace â€?with the
+        // by another admin). The files are still ours to replace â€” with the
         // user's authorisation, which is what the elevated re-run asks for.
         Err(e) if !args.apply_only && e.kind() == std::io::ErrorKind::PermissionDenied => {
             log.line(&format!("update needs authorisation: {e}"));

@@ -6,7 +6,7 @@
 //! network latency, so optimizing it would be measuring the wrong thing.
 //!
 //! `chunked_baseline` below is a faithful transcription of the decoder as it is
-//! written in `lib.rs` at the time this harness was added â€?same `windows(2)`
+//! written in `lib.rs` at the time this harness was added â€” same `windows(2)`
 //! CRLF scan, same `drain` after every token. It exists so the "before" number
 //! in the comparison table is the shipped algorithm rather than a strawman, and
 //! it must not be edited when the real decoder is optimized.
@@ -95,7 +95,7 @@ fn chunked_baseline(body: &[u8], read_size: usize) -> u64 {
     }
 }
 
-/// The same state machine driven by `FrameBuf` â€?the shape `stream_chunked` now
+/// The same state machine driven by `FrameBuf` â€” the shape `stream_chunked` now
 /// uses. Kept beside `chunked_baseline` so before and after are measured in one
 /// process on one set of inputs, rather than compared across two runs.
 fn chunked_optimized(body: &[u8], read_size: usize) -> u64 {

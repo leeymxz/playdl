@@ -2023,145 +2023,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
 
 [[package]]
-name = "hya-cli"
-version = "0.4.3"
-dependencies = [
- "anyhow",
- "blake3",
- "chrono",
- "clap",
- "clap_complete",
- "crossterm",
- "hya-core",
- "hya-net",
- "hya-stream",
- "hya-updater",
- "md-5",
- "serde",
- "serde_json",
- "sha1",
- "sha2",
- "tokio",
-]
-
-[[package]]
-name = "hya-core"
-version = "0.5.0"
-dependencies = [
- "criterion",
- "proptest",
-]
-
-[[package]]
-name = "hya-ffi"
-version = "0.3.0"
-dependencies = [
- "blake3",
- "hya-core",
- "hya-net",
- "md-5",
- "serde",
- "serde_json",
- "sha1",
- "sha2",
- "tokio",
-]
-
-[[package]]
-name = "hya-gui"
-version = "0.4.3"
-dependencies = [
- "aes",
- "blake3",
- "cbc",
- "chrono",
- "dark-light",
- "dirs",
- "display-info",
- "embed-resource",
- "hya-core",
- "hya-net",
- "hya-stream",
- "hya-updater",
- "iced",
- "ksni",
- "md-5",
- "objc2 0.6.4",
- "objc2-app-kit 0.3.2",
- "open",
- "png 0.18.1",
- "redb",
- "rfd",
- "rodio",
- "serde",
- "serde_json",
- "sha1",
- "sha2",
- "system_shutdown",
- "tokio",
- "toml",
- "tray-icon",
- "windows-sys 0.52.0",
- "winreg 0.56.0",
- "x11rb",
- "zip",
-]
-
-[[package]]
-name = "hya-host"
-version = "0.4.3"
-dependencies = [
- "serde_json",
-]
-
-[[package]]
-name = "hya-net"
-version = "0.4.2"
-dependencies = [
- "blake3",
- "criterion",
- "hya-core",
- "memchr",
- "reed-solomon-simd",
- "rustls",
- "rustls-pki-types",
- "serde",
- "serde_json",
- "sha1",
- "sha2",
- "tokio",
- "tokio-rustls",
- "webpki-roots",
- "zip",
-]
-
-[[package]]
-name = "hya-stream"
-version = "0.1.1"
-dependencies = [
- "aes",
- "cbc",
- "hya-core",
- "tokio",
-]
-
-[[package]]
-name = "hya-updater"
-version = "0.4.3"
-dependencies = [
- "blake3",
- "clap",
- "flate2",
- "hya-net",
- "serde",
- "serde_json",
- "sha2",
- "tar",
- "tokio",
- "zip",
-]
-
-[[package]]
 name = "hybrid-array"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3669,6 +3530,145 @@ name = "pastey"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ee67f1008b1ba2321834326597b8e186293b049a023cdef258527550b9935b4"
+
+[[package]]
+name = "pdl-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "blake3",
+ "chrono",
+ "clap",
+ "clap_complete",
+ "crossterm",
+ "md-5",
+ "pdl-core",
+ "pdl-net",
+ "pdl-stream",
+ "pdl-updater",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
+ "tokio",
+]
+
+[[package]]
+name = "pdl-core"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "proptest",
+]
+
+[[package]]
+name = "pdl-ffi"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "md-5",
+ "pdl-core",
+ "pdl-net",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
+ "tokio",
+]
+
+[[package]]
+name = "pdl-gui"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "blake3",
+ "cbc",
+ "chrono",
+ "dark-light",
+ "dirs",
+ "display-info",
+ "embed-resource",
+ "iced",
+ "ksni",
+ "md-5",
+ "objc2 0.6.4",
+ "objc2-app-kit 0.3.2",
+ "open",
+ "pdl-core",
+ "pdl-net",
+ "pdl-stream",
+ "pdl-updater",
+ "png 0.18.1",
+ "redb",
+ "rfd",
+ "rodio",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
+ "system_shutdown",
+ "tokio",
+ "toml",
+ "tray-icon",
+ "windows-sys 0.52.0",
+ "winreg 0.56.0",
+ "x11rb",
+ "zip",
+]
+
+[[package]]
+name = "pdl-host"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
+name = "pdl-net"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "criterion",
+ "memchr",
+ "pdl-core",
+ "reed-solomon-simd",
+ "rustls",
+ "rustls-pki-types",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
+ "tokio",
+ "tokio-rustls",
+ "webpki-roots",
+ "zip",
+]
+
+[[package]]
+name = "pdl-stream"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "cbc",
+ "pdl-core",
+ "tokio",
+]
+
+[[package]]
+name = "pdl-updater"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "clap",
+ "flate2",
+ "pdl-net",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tar",
+ "tokio",
+ "zip",
+]
 
 [[package]]
 name = "percent-encoding"

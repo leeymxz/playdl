@@ -2,8 +2,8 @@
 //! stream.
 //!
 //! `ash-speed.hetzner.com` answers a HEAD by closing the connection with an empty
-//! reply. `probe` reports that as a successful response â€?status 0, no length, no
-//! range support â€?because a peer that hangs up after a complete header block is
+//! reply. `probe` reports that as a successful response â€” status 0, no length, no
+//! range support â€” because a peer that hangs up after a complete header block is
 //! merely impolite, and the read loop cannot tell "impolite" from "said nothing".
 //! Believing it sends a ten-gigabyte object down the single-stream path: unknown
 //! size, no resume, one connection. The same URL answers `bytes=0-0` with `206`,

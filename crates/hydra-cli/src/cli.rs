@@ -12,7 +12,7 @@ use std::path::PathBuf;
 /// This runs during argument parsing, which is the point: header values are
 /// written onto the wire verbatim by the request builders in `hydra-net`, so a
 /// malformed one produces a malformed request head. The observed failure was
-/// `-H Age` â€?a bare word with no field-value â€?which left the server with
+/// `-H Age` â€” a bare word with no field-value â€” which left the server with
 /// nothing to reply to and the client waiting on a response that never came. A
 /// hang is a terrible error message for a mistake that is visible in the
 /// argument itself.
@@ -24,11 +24,11 @@ use std::path::PathBuf;
 ///   token      = 1*tchar
 ///
 /// A value need not follow a space (`X-Trace:1` is fine). What is refused is an
-/// empty or non-token field-name, and any CR or LF anywhere â€?the last being
+/// empty or non-token field-name, and any CR or LF anywhere â€” the last being
 /// header injection rather than a typo, since a newline in a value lets a caller
 /// append arbitrary extra fields to the request.
 ///
-/// **A field-name with no VALUE is a QUERY, not a header to send** â€?`ETag` and
+/// **A field-name with no VALUE is a QUERY, not a header to send** â€” `ETag` and
 /// `ETag:` alike. Those are split out by [`Cli::parse_with_queries`] before this
 /// parser runs, so everything reaching here carries a value and is destined for
 /// the wire.
@@ -41,7 +41,7 @@ use std::path::PathBuf;
 ///
 /// # Why md5 and sha1 are accepted
 ///
-/// Not because they are sound against an adversary â€?they are not. Because they
+/// Not because they are sound against an adversary â€” they are not. Because they
 /// are frequently all a project publishes, especially in the Metalink 3.0
 /// documents distribution mirrors still emit, and refusing them does not make
 /// anyone safer: it replaces an integrity check that catches a truncating proxy,
@@ -49,7 +49,7 @@ use std::path::PathBuf;
 ///
 /// Validating HERE rather than at comparison time is the point. An unparsable
 /// value used to survive as far as the digest check, fail it, and be reported as
-/// `checksum MISMATCH: the delivered bytes are not the bytes requested` â€?which
+/// `checksum MISMATCH: the delivered bytes are not the bytes requested` â€” which
 /// accuses the server of serving wrong bytes when the argument itself was
 /// malformed. The exit code was right and the diagnosis was wrong, which is the
 /// more expensive half. `--limit-rate` and `--range` are already validated at
@@ -68,7 +68,7 @@ fn parse_checksum(s: &str) -> Result<String, String> {
     }
     // Widths, not names, are what a digest can be checked against. A bare value
     // is identified by its length, which is unambiguous across the four
-    // algorithms this compares â€?and is how most published digests are written.
+    // algorithms this compares â€” and is how most published digests are written.
     let by_width = |n: usize| match n {
         32 => Some("md5"),
         40 => Some("sha1"),
@@ -130,7 +130,7 @@ fn parse_header(s: &str) -> Result<String, String> {
         // A bare token is a query and is split out before parsing; anything else
         // without a colon is a malformed send-header.
         return Err(format!(
-            "--header {s:?} has no ':' â€?to SEND a header write NAME: VALUE \
+            "--header {s:?} has no ':' â€” to SEND a header write NAME: VALUE \
              (--header 'Age: 3600'); a bare NAME reads that header off the response instead"
         ));
     };
@@ -184,8 +184,8 @@ impl Cli {
     /// token with a colon is a **send**.
     ///
     /// Queries are stripped from the argv handed to clap so the value parser only
-    /// ever sees things destined for the wire. That keeps one rule â€?everything
-    /// in `headers` is a well-formed field line â€?instead of a parser that must
+    /// ever sees things destined for the wire. That keeps one rule â€” everything
+    /// in `headers` is a well-formed field line â€” instead of a parser that must
     /// decide what each entry was for.
     pub fn parse_with_queries<I, S>(argv: I) -> Result<Cli, clap::Error>
     where
@@ -198,7 +198,7 @@ impl Cli {
 
         // A query is a field-name with NO VALUE, written either way: `ETag` or
         // `ETag:`. Both mean "what did the server answer with", because neither
-        // supplies anything to send â€?a trailing colon is punctuation, not a
+        // supplies anything to send â€” a trailing colon is punctuation, not a
         // value, and making the two spellings differ would be a trap.
         //
         // Anything else without a colon (`X Trace`) is a malformed send-header
@@ -206,15 +206,15 @@ impl Cli {
         // a silently ignored argument.
         //
         // This does cost the ability to SEND a deliberately empty header
-        // (such as `Name;`) â€?an unusual thing to want, and the tradeoff is
+        // (such as `Name;`) â€” an unusual thing to want, and the tradeoff is
         // stated in the flag's help text.
         fn query_name(s: &str) -> Option<&str> {
             let name = match s.split_once(':') {
-                // `NAME:` or `NAME:   ` â€?punctuation, no value.
+                // `NAME:` or `NAME:   ` â€” punctuation, no value.
                 Some((n, v)) if v.trim().is_empty() => n,
-                // `NAME: VALUE` â€?something to send.
+                // `NAME: VALUE` â€” something to send.
                 Some(_) => return None,
-                // `NAME` â€?bare.
+                // `NAME` â€” bare.
                 None => s,
             };
             let name = name.trim();
@@ -281,17 +281,17 @@ pub enum UrlMode {
 /// |---|---|---|---|---|
 /// | `-O` | output file | remote-name | **wget** | naming the output is the common need; curl's is `--remote-name` |
 /// | `-o` | log file | output file | **wget** | `-O` is already the output; two spellings for it would be a trap |
-/// | `-c` | continue | â€?| **wget** | curl spells it `-C -`, which `--compat=curl` accepts |
-/// | `-q` | quiet | â€?| **wget** | curl's `-s` also maps to quiet |
+/// | `-c` | continue | â€” | **wget** | curl spells it `-C -`, which `--compat=curl` accepts |
+/// | `-q` | quiet | â€” | **wget** | curl's `-s` also maps to quiet |
 /// | `-H` | span-hosts (crawl) | header | **curl** | hydra does not crawl, so the letter is free |
-/// | `-U` | user-agent | â€?| **wget** | curl's `-A` is a visible alias, so both work |
+/// | `-U` | user-agent | â€” | **wget** | curl's `-A` is a visible alias, so both work |
 /// | `-A` | accept-list (crawl) | user-agent | **curl** | crawl filters are meaningless here |
-/// | `-t` | tries | â€?| **wget** | curl has no short form for retries |
+/// | `-t` | tries | â€” | **wget** | curl has no short form for retries |
 /// | `-T` | timeout | upload-file | **wget** | hydra never uploads |
 /// | `-r` | recursive (crawl) | range | **curl** | hydra does not crawl |
 /// | `-L` | relative-only (crawl) | follow redirects | **curl** | only one is meaningful |
 /// | `-i` | input file | include headers | **curl** | see the clustering rule below |
-/// | `-N` | timestamping | â€?| **wget** | curl's `-R` also maps to remote-time |
+/// | `-N` | timestamping | â€” | **wget** | curl's `-R` also maps to remote-time |
 /// | `-P` | directory-prefix | proxytunnel | **wget** | there is no tunnel flag to name |
 /// | `-x` | force-directories | proxy | **curl** | directory forcing does not apply |
 ///
@@ -300,16 +300,16 @@ pub enum UrlMode {
 /// other's takes a value, the boolean wins the letter.** `-i` is the case that proves
 /// it. curl's `-i` is boolean, so `curl -iv` means include-headers plus verbose; wget's
 /// `-i` takes a filename. Assigning wget's meaning made `hydra -iv <url>` parse `v` as
-/// an input filename and fail with "cannot read --input-file v" â€?a silent
+/// an input filename and fail with "cannot read --input-file v" â€” a silent
 /// misinterpretation rather than an error about the flag. `--input-file` therefore has
 /// no short form in native mode; `--compat=wget` still accepts `-i FILE`.
 ///
 /// Under `--compat=wget` or `--compat=curl` the source tool's meaning always applies,
 /// and a flag that cannot be honoured is refused with a reason rather than silently
-/// ignored â€?an ignored `--limit-rate` can saturate a metered link.
+/// ignored â€” an ignored `--limit-rate` can saturate a metered link.
 #[derive(Parser, Debug)]
 #[command(
-    name = "hydra",
+    name = "playdl",
     version,
     // GPL-3.0 section 5(a) wants a distributed binary to state its own terms, and
     // the release profile strips symbols, so a user handed just the binary has no
@@ -318,16 +318,16 @@ pub enum UrlMode {
     // used here because `after_help` below is the footer that actually renders.
     long_version = concat!(
         env!("CARGO_PKG_VERSION"), "\n",
-        "Copyright (C) 2026 Javad Rajabzadeh\n",
+        "Copyright (C) 2026 leeymxz\n",
         "License GPL-3.0-or-later: GNU GPL version 3 or later ",
         "<https://gnu.org/licenses/gpl.html>.\n",
         "This is free software: you are free to change and redistribute it.\n",
         "There is NO WARRANTY, to the extent permitted by law.\n\n",
-        "The hydra-core and hydra-net libraries this binary links are\n",
+        "The pdl-core and pdl-net libraries this binary links are\n",
         "MIT OR Apache-2.0, not GPL. Third-party terms: THIRD-PARTY-NOTICES.md.",
     ),
     about = "Adaptive file retriever: gets bytes from wherever they are, as fast as they can arrive",
-    long_about = "hydra retrieves an object from one or more sources and keeps the work \
+    long_about = "PlayDL retrieves an object from one or more sources and keeps the work \
                   reassignable while it runs, instead of committing to a split up front.\n\n\
                   The scheduling result it is built on is that a byte range is not a \
                   commitment: a range request has a server-side start but a CLIENT-side \
@@ -371,7 +371,7 @@ pub struct Cli {
 
     /// Preferred rendition height for an HLS/DASH stream, e.g. `--quality 720`.
     ///
-    /// The nearest rendition at or below it is used â€?never a larger one, so
+    /// The nearest rendition at or below it is used â€” never a larger one, so
     /// asking for 720 on a ladder that only has 1080 gives you the smallest
     /// available rather than a surprise 4K download.
     #[arg(long = "quality", value_name = "HEIGHT")]
@@ -407,7 +407,7 @@ pub struct Cli {
     /// List the files inside a ZIP archive, then exit. Nothing is downloaded.
     ///
     /// ZIP keeps its index at the end of the file, so the listing costs one
-    /// probe and one small ranged GET whatever the archive's size â€?the
+    /// probe and one small ranged GET whatever the archive's size â€” the
     /// same peek the GUI's Preview button makes. ZIP only: RAR and 7z lay
     /// their indexes out differently.
     #[arg(long = "preview")]
@@ -416,7 +416,7 @@ pub struct Cli {
     /// Record a LIVE stream for this many seconds, then finish the file.
     ///
     /// A live stream has no end of its own, so without this the only way to
-    /// stop is Ctrl-C. Either way the result is a complete, playable file â€?
+    /// stop is Ctrl-C. Either way the result is a complete, playable file â€”
     /// stopping a recording is not an interruption, it is the end of it.
     #[arg(long = "record-seconds", value_name = "SECONDS")]
     pub record_seconds: Option<u64>,
@@ -457,7 +457,7 @@ pub struct Cli {
     /// (`-H Name` or `-H Name:`, which print the value and exit).
     ///
     /// A name with no value is a question, not a header to send, in either
-    /// spelling â€?the trailing colon is punctuation. This means an intentionally
+    /// spelling â€” the trailing colon is punctuation. This means an intentionally
     /// empty request header (`-H 'Name;'`) cannot be sent; that is a rare
     /// need traded for the common one.
     ///
@@ -542,7 +542,7 @@ pub struct Cli {
     /// first, which looks like a bug even though the mirror logic was working exactly as
     /// designed. Standard convention is to treat multiple URLs as multiple files.
     ///
-    /// Mirror assembly is still available and still safe â€?it just has to be asked for
+    /// Mirror assembly is still available and still safe â€” it just has to be asked for
     /// with `--mirrors`, because splitting one object across sources is only sound when
     /// every source provably serves identical bytes.
     #[arg(long = "mode", value_name = "MODE", default_value = "same")]
@@ -557,7 +557,7 @@ pub struct Cli {
 
     /// Fetch without writing a file.
     ///
-    /// The transfer runs normally â€?size, digest, format and timings are all measured â€?
+    /// The transfer runs normally â€” size, digest, format and timings are all measured â€”
     /// but the bytes are discarded instead of being saved. Useful for checking a
     /// mirror, computing a checksum, or seeing what a URL actually serves without
     /// leaving a file behind. Combine with `--json` for a machine-readable probe.
@@ -581,7 +581,7 @@ pub struct Cli {
     /// Implies quiet: a machine-readable result must be the ONLY thing on stdout or it
     /// cannot be piped to a parser. Human progress, the summary line, and the format
     /// hint move to stderr-suppressed silence rather than being interleaved with the
-    /// document â€?`hydra --json <url> | jq .size` has to work.
+    /// document â€” `hydra --json <url> | jq .size` has to work.
     #[arg(long = "json")]
     pub json: bool,
 
@@ -595,9 +595,9 @@ pub struct Cli {
     /// which is the right choice on a link a single connection already saturates,
     /// and on an origin that would rather not be asked for more.
     ///
-    /// Named for the upfront measurement it used to disable. That probe is gone â€?
+    /// Named for the upfront measurement it used to disable. That probe is gone â€”
     /// it timed a sample too short to measure bandwidth and answered "one" on every
-    /// high-latency path â€?so the flag now names its effect rather than a step that
+    /// high-latency path â€” so the flag now names its effect rather than a step that
     /// no longer exists. `--adaptive` is what measures now, on the real transfer.
     #[arg(long = "no-probe", visible_alias = "single")]
     pub no_probe: bool,
@@ -726,7 +726,7 @@ pub struct Cli {
     /// Accepts `http://`, `socks4://`, `socks4a://`, `socks5://`, and `socks5h://`,
     /// with optional `user:pass@` credentials. SOCKS is a different mechanism, not a
     /// different spelling: an HTTP proxy rewrites requests or opens a CONNECT tunnel,
-    /// while SOCKS forwards a raw TCP stream and lets the proxy resolve DNS â€?which is
+    /// while SOCKS forwards a raw TCP stream and lets the proxy resolve DNS â€” which is
     /// what ssh -D and Tor expose, and the only option when local DNS cannot resolve
     /// the origin at all.
     #[arg(long = "proxy", value_name = "URL")]
@@ -797,7 +797,7 @@ pub struct Cli {
     /// A Metalink supplies the three things a bare URL cannot: every mirror that
     /// holds the object, its exact size, and what it must hash to. Those turn on
     /// multi-source assembly without a validator handshake, a reserve mirror for
-    /// every source that fails, and â€?where the document publishes `<pieces>` â€?
+    /// every source that fails, and â€” where the document publishes `<pieces>` â€”
     /// per-chunk verification with targeted refetch instead of starting over.
     ///
     /// Both dialects are read: Metalink 3.0 (`.metalink`, what mirrormanager and
@@ -816,7 +816,7 @@ pub struct Cli {
     ///
     /// ISO 3166-1 alpha-2 codes. These outrank the publisher's own ordering: the
     /// user knows where they are and the publisher does not. Mirrors elsewhere
-    /// are demoted, never dropped â€?they are still reserves.
+    /// are demoted, never dropped â€” they are still reserves.
     #[arg(
         long = "metalink-location",
         value_name = "LOC[,LOC...]",
@@ -846,7 +846,7 @@ pub struct Cli {
     /// Use only one protocol for a file, dropping mirrors on the others.
     ///
     /// Off by default, which is the opposite of aria2. Mixing protocols costs
-    /// nothing here â€?a range request is a range request â€?and every mirror
+    /// nothing here â€” a range request is a range request â€” and every mirror
     /// dropped is one fewer reserve for the failure this feature exists to
     /// survive. The flag is available for a network where one protocol is
     /// blocked or metered differently.
@@ -857,7 +857,7 @@ pub struct Cli {
     ///
     /// A URL answering with `application/metalink4+xml` is a mirror list, and by
     /// default hydra reads it rather than saving 6 KB of XML under the name of
-    /// the object the user asked for. Pass this to get the document itself â€?
+    /// the object the user asked for. Pass this to get the document itself â€”
     /// which is what someone debugging a redirector wants.
     #[arg(long = "no-follow-metalink")]
     pub no_follow_metalink: bool,
@@ -973,7 +973,7 @@ pub enum Command {
     /// Report the checksums a server advertises, without downloading the object.
     ///
     /// A checksum is a function of the bytes, so this cannot compute one for bytes it has
-    /// not received â€?no protocol lets a client ask a server to hash an object on demand
+    /// not received â€” no protocol lets a client ask a server to hash an object on demand
     /// (RFC 9530 defines `Want-Digest` for it; essentially nothing implements it). What
     /// this does is retrieve a digest the PUBLISHER already computed, from the response
     /// headers, a `.sha256`-style sidecar, or a `SHA256SUMS` manifest. That verifies the
@@ -1008,7 +1008,7 @@ pub enum Command {
 
     /// Read a Metalink document and report what it offers, without fetching.
     ///
-    /// The mirror list, the sizes, the digests, and â€?importantly â€?what hydra
+    /// The mirror list, the sizes, the digests, and â€” importantly â€” what hydra
     /// would DO with them: which mirrors it can fetch from, which it would seat,
     /// which it would hold in reserve, and whether the piece list can drive
     /// per-chunk verification. A mirror list that silently loses two thirds of
@@ -1077,7 +1077,7 @@ pub enum Command {
     /// Asks the release API for the latest version and, when it is newer than
     /// this binary, prints the release notes, the release page, and the direct
     /// download link for this OS and architecture. It never installs anything:
-    /// the CLI's update story is "here is the link", by design â€?package
+    /// the CLI's update story is "here is the link", by design â€” package
     /// managers and scripted installs own the actual replacement.
     Update {
         /// Machine-readable output.
@@ -1101,7 +1101,7 @@ pub enum Command {
     /// This places the links and then reports, per name, whether typing it will
     /// actually reach hydra.
     ///
-    /// Existing files are never replaced without `--force` â€?the point is not to
+    /// Existing files are never replaced without `--force` â€” the point is not to
     /// clobber a system `curl`.
     CompatLink {
         /// Where to put the links. Defaults to the directory this binary is in.
@@ -1129,7 +1129,7 @@ pub enum Command {
     ///
     /// `hydra completions <shell>` only prints the script; this also picks a
     /// destination, writes the file, and prints the one remaining manual step
-    /// (if any) to make the shell pick it up â€?most completion systems only
+    /// (if any) to make the shell pick it up â€” most completion systems only
     /// rescan their directory on a new shell session, and none of them can be
     /// made to reload themselves from inside this process.
     InstallCompletions {
@@ -1216,7 +1216,7 @@ mod tests {
     /// The three concurrency modes must be distinguishable from the parsed args.
     ///
     /// This project's recurring defect is a flag that parses, exits cleanly, and
-    /// does nothing â€?`--max-total-connections`, `-4`/`-6`, `--show-error`,
+    /// does nothing â€” `--max-total-connections`, `-4`/`-6`, `--show-error`,
     /// `--logfile` and `--max-redirs` were all found that way. `--no-probe` was
     /// another: it set a `Job` field that carried `#[allow(dead_code)]` and was
     /// never read, so taking `-x` on faith was the only behaviour available and
@@ -1252,7 +1252,7 @@ mod tests {
     ///
     /// Regression test: an unparsable spec survived to the digest comparison,
     /// failed it, and printed "checksum MISMATCH: the delivered bytes are not the
-    /// bytes requested" â€?accusing the server of serving the wrong object when the
+    /// bytes requested" â€” accusing the server of serving the wrong object when the
     /// argument itself was the problem. Non-zero exit either way, but the wrong
     /// diagnosis is the expensive half.
     #[test]
@@ -1301,7 +1301,7 @@ mod tests {
             "an unsupported algorithm must say so: {e}"
         );
         // A named algorithm whose digest is the wrong width is a typo, not a
-        // different algorithm â€?say which width was expected.
+        // different algorithm â€” say which width was expected.
         let e = parse_checksum(&format!("md5:{GOOD}")).unwrap_err();
         assert!(
             e.contains("a md5 digest has 32"),
@@ -1425,7 +1425,7 @@ mod tests {
 
     /// The reject list, each entry malformed for a different reason.
     ///
-    /// A missing colon is deliberately absent from this list â€?it is normalized
+    /// A missing colon is deliberately absent from this list â€” it is normalized
     /// (see above). What remains are shapes with no sound interpretation.
     #[test]
     fn malformed_header_shapes_are_all_refused() {
@@ -1556,7 +1556,7 @@ mod tests {
                 .command,
             Some(Command::Interactive { .. })
         ));
-        // The subcommand carries its own options, so this ordering must work â€?a
+        // The subcommand carries its own options, so this ordering must work â€” a
         // top-level variadic URL list would otherwise swallow the word after it.
         let iv = Cli::try_parse_from([
             "hydra",
@@ -1639,7 +1639,7 @@ mod tests {
     #[test]
     fn the_conflicting_short_flags_all_resolve_to_something() {
         // Every letter the two tools fight over must be defined in native mode, so a
-        // user coming from either tool gets an action or a clear error â€?never
+        // user coming from either tool gets an action or a clear error â€” never
         // "unexpected argument".
         // The sample value is per-flag rather than a universal "1": `-H` now
         // validates its argument as a field line, so a placeholder that is not a

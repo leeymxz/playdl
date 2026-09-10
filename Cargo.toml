@@ -3,11 +3,6 @@ members = ["crates/hydra-core", "crates/hydra-net", "crates/hydra-stream", "crat
 resolver = "2"
 
 [workspace.package]
-# The product version: pdl-cli, pdl-gui and pdl-host inherit this via
-# `version.workspace = true` and move together as one "PlayDL"
-# release. The library crates (pdl-core, pdl-net) do NOT inherit
-# it — each carries its own version in its manifest and bumps independently
-# on its own semver cadence.
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -17,95 +12,43 @@ homepage = "https://github.com/leeymxz/playdl"
 [workspace.dependencies]
 pdl-core = { path = "crates/hydra-core" }
 pdl-net = {  path = "crates/hydra-net" }
-# HLS/DASH manifests and segment assembly.
 pdl-stream = { path = "crates/hydra-stream" }
-# The C ABI over the engine.
 pdl-ffi = { path = "crates/hydra-ffi" }
-# In-process update machinery shared by the GUI and CLI.
 pdl-updater = { path = "crates/hydra-updater" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "fs", "sync", "signal"] }
 clap = { version = "4", features = ["derive"] }
-# Shell completion-script generation for `hydra completions` (bash, zsh, fish,
-# elvish, PowerShell). Generates from the same `clap::Command` the parser
-# builds, so a flag added to `cli.rs` shows up in completions for free instead
-# of needing a hand-maintained script kept in sync by hand.
 clap_complete = "4.6"
 crossterm = "0.29"
 sha2 = "0.11"
-# Chunk-integrity manifests. BLAKE3 measured at ~2.2 GB/s, three orders of
-# magnitude above the network rates the scheduler works at, so hashing every
-# chunk is free relative to the transfer.
 blake3 = "1"
-# Reed-Solomon over GF(2^16): the at-rest parity path only (docs/INTEGRITY.md).
-# GF(2^16) rather than a GF(2^8) codec because the latter caps at n = 255 shards.
 reed-solomon-simd = "3"
-# Digest algorithms servers actually advertise. md5 is obsolete for security but is
-# what Content-MD5 and x-goog-hash carry, so verifying against them needs it.
 md-5 = "0.11"
 sha1 = "0.11"
-# HLS AES-128: the segments are AES-128-CBC with a key the playlist names
-# and fetches over the same authenticated session. Ordinary content
-# protection, not DRM — and audited implementations, because hand-rolling a
-# block cipher is how you get a subtly wrong one.
 aes = "0.9"
 cbc = { version = "0.2", features = ["block-padding"] }
-# SIMD byte search with runtime dispatch (AVX2/SSE2 on x86-64, NEON on aarch64)
-# and a scalar fallback. Used by the protocol framing paths.
 memchr = "2"
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# TLS. `ring` rather than the default provider so the build stays offline-friendly
-# and does not need a C toolchain for aws-lc.
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
 webpki-roots = "1.0"
 rustls-pki-types = "1"
-# Benchmark harness. `default-features = false` drops the plotters/rayon tree:
-# the suite reports to stdout and JSON, and nothing here renders SVGs.
 criterion = { version = "0.7", default-features = false, features = ["cargo_bench_support"] }
 
 [workspace.lints.clippy]
-# The scheduler does real arithmetic on measured quantities; these lints fight it.
 too_many_arguments = "allow"
 
 [profile.release]
 opt-level = 3
-# Fat rather than thin: measured 4,369,168 -> 3,891,808 bytes (-10.9%) on
-# aarch64-apple-darwin, for ~49 s of build time against ~15 s. hydra is a
-# distributed binary, not a crate people compile in a loop, so the trade is
-# worth making once at release time.
 lto = "fat"
 codegen-units = 1
-# Strip symbols: a further 3,891,808 -> 3,337,344 bytes (-14.2%, 23.6% cumulative
-# against the original). Backtraces from a stripped binary lose symbol names,
-# which is why `dev` and the `debugging` profile below keep them.
 strip = "symbols"
 
-# NOT set here, deliberately: `panic = "abort"`.
-#
-# It is worth 628 KB more (3,337,344 -> 2,709,056, 38% cumulative), and this
-# crate is unwind-safe in the narrow sense — nothing calls `catch_unwind`. But
-# hydra spawns one task per connection (19 `tokio::spawn` sites) and is meant to
-# run as a server-side queue daemon managing many concurrent transfers. Under
-# `panic = "abort"` a panic in ONE fetch task takes down the whole process,
-# killing every unrelated in-flight transfer with it; under unwind, that task's
-# `JoinHandle` reports the failure, the scheduler's watchdog reclaims its range,
-# and the other transfers continue. Trading fault isolation for 628 KB is the
-# wrong way round for a long-running daemon. A single-shot CLI invocation could
-# take the deal — that is what the `dist` profile below is for.
-
-# Smallest possible binary, for distribution to a constrained target (a
-# container image, an embedded box) where hydra runs one transfer and exits, so
-# the loss of per-task fault isolation described above does not apply.
-#   cargo build --profile dist
 [profile.dist]
 inherits = "release"
 panic = "abort"
 
-# Release-speed code with symbols and unwinding intact, for profiling a
-# performance problem or reading a backtrace from a real transfer.
-#   cargo build --profile debugging
 [profile.debugging]
 inherits = "release"
 strip = "none"

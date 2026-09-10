@@ -5,8 +5,8 @@
 //!
 //! Laid out: the archive's name and entry count on one line, a
 //! four-column list (name with a type icon, size, packed size, modified),
-//! and an OK button. The listing comes from the archive's tail â€?see
-//! `engine::peek_zip` â€?so it appears in the time one small request takes,
+//! and an OK button. The listing comes from the archive's tail â€” see
+//! `engine::peek_zip` â€” so it appears in the time one small request takes,
 //! whatever the archive's size.
 
 use crate::app::{App, El, Message, WinKind, ZipPeek};

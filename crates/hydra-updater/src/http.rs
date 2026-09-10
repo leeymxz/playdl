@@ -5,7 +5,7 @@
 //! fetches, and a streaming download with progress.
 //!
 //! hya-net's own fetch paths are shaped for the transfer engine (range
-//! scheduling, probes); the updater needs the opposite shape â€?follow the
+//! scheduling, probes); the updater needs the opposite shape â€” follow the
 //! `github.com -> objects.githubusercontent.com` redirect chain, then either
 //! hand back a small body whole or stream a large one to disk reporting
 //! progress. Plain `http://` targets stay supported because that is what the

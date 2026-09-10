@@ -1,6 +1,6 @@
 //! What does a request actually cost, with and without connection reuse?
 //!
-//! `delta` â€?the per-request setup cost â€?is not a cosmetic number here. The
+//! `delta` â€” the per-request setup cost â€” is not a cosmetic number here. The
 //! repair deadband is floored at it and the profitability test is denominated in
 //! it, so `delta` decides how readily the scheduler moves work. With every request
 //! carrying `Connection: close`, `delta` was a full handshake on every one.
@@ -9,7 +9,7 @@
 //! on the effect: a duplex pipe has no TCP handshake, no TLS, and no round-trip
 //! time, so what is measured here is only the request/response framing and task
 //! setup. On a real TLS origin the saved cost is a full TCP handshake plus a TLS
-//! handshake â€?2-3 round trips â€?which is where the hundreds of milliseconds the
+//! handshake â€” 2-3 round trips â€” which is where the hundreds of milliseconds the
 //! scheduler was pricing against actually live.
 
 use pdl_core::{Scheduler, Source};
@@ -19,7 +19,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 /// A transfer over an object with holes, so the scheduler issues several
-/// sequential ranges to one endpoint â€?the shape reuse exists for, and the one
+/// sequential ranges to one endpoint â€” the shape reuse exists for, and the one
 /// that does not depend on repair timing to occur.
 async fn run(keep_alive: bool, spans: u64) -> (f64, u64, u64) {
     const SIZE: u64 = 8 * 1024 * 1024;
@@ -78,8 +78,8 @@ async fn main() {
     // wall clock here is dominated by the scheduler's 20 ms tick and says almost
     // nothing about the saving. What it does establish is the mechanism: whether
     // several ranges to one endpoint travel over one socket or over one each. The
-    // time saved per avoided handshake is a property of the network â€?one RTT for
-    // TCP, two or three more for TLS â€?and has to be measured against a real origin.
+    // time saved per avoided handshake is a property of the network â€” one RTT for
+    // TCP, two or three more for TLS â€” and has to be measured against a real origin.
     println!("in-process origin: read the connection count, not the milliseconds\n");
     println!(
         "{:>10}  {:>7}  {:>8}  {:>12}  {:>9}",

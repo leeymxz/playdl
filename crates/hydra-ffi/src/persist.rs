@@ -63,7 +63,7 @@ struct JobRecord {
     /// `urls`. Empty for a job that never read a mirror list.
     ///
     /// Persisted because a restored job that lost its ranking would open the
-    /// same mirrors in a different order and lose its reserve bench â€?a
+    /// same mirrors in a different order and lose its reserve bench â€” a
     /// difference invisible until the mirror that failed before fails again.
     #[serde(default)]
     source_plans: Vec<(u32, u32)>,
@@ -211,7 +211,7 @@ pub(crate) fn save(engine: &Arc<Engine>) -> Result<(), Detail> {
                     // Bounded: the state file is rewritten on every autosave,
                     // and the parser admits piece lists that serialize to tens
                     // of megabytes. Past the cap the grid is dropped from the
-                    // RECORD only â€?the running job keeps verifying with it,
+                    // RECORD only â€” the running job keeps verifying with it,
                     // and a restored job falls back to the whole-file checksum.
                     pieces: job
                         .cfg
@@ -221,8 +221,8 @@ pub(crate) fn save(engine: &Arc<Engine>) -> Result<(), Detail> {
                         .filter(|j| j.len() <= 4 << 20),
                     attested_by: job.cfg.attested_by.clone(),
                     // A job that was executing when the process stopped is recorded
-                    // as paused. It is the truth about the file on disk â€?bytes are
-                    // there, nothing is moving â€?and it is the state from which
+                    // as paused. It is the truth about the file on disk â€” bytes are
+                    // there, nothing is moving â€” and it is the state from which
                     // `hydra_job_resume` is legal.
                     state: if g.is_running() {
                         S::HYDRA_JOB_PAUSED as u32
@@ -289,7 +289,7 @@ pub(crate) fn autosave(engine: &Arc<Engine>) {
 ///
 /// Restores identities, not execution: every restored job that was running is
 /// `HYDRA_JOB_PAUSED`, and nothing starts until the application says so. That
-/// is deliberate â€?on Android or iOS the decision to run belongs to the
+/// is deliberate â€” on Android or iOS the decision to run belongs to the
 /// platform layer, which knows whether the app is foregrounded, whether the
 /// network is metered and whether a service owns the work.
 ///

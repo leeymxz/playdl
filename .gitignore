@@ -9,3 +9,10 @@
 /bench-out/
 .SRCINFO
 
+# development helper scripts (not part of the project)
+fix_*.ps1
+rename_crates.ps1
+make_ico.py
+git_*.txt
+generated-images/
+

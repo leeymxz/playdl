@@ -98,6 +98,11 @@ fn main() -> iced::Result {
         }
     }
 
+    // From here on a panic lands in the session log rather than on a
+    // stdout nobody sees (the app dir is known now, so it goes to the right
+    // profile's log).
+    log::catch_panics();
+
     // Single instance: if a running instance answers on the extbus
     // socket, hand it the spotlight (it opens its main window) and leave.
     // Two instances would fight over state.redb, the tray, and ipc.json —

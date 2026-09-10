@@ -18,7 +18,7 @@ fn src(gamma: f64) -> Source {
     }
 }
 
-/// A scheduler over `n` equal 1 MB/s sources with one connection each â€?the
+/// A scheduler over `n` equal 1 MB/s sources with one connection each â€” the
 /// standard rig for the failure-injection properties, which perturb ONE
 /// source and need the rest uniform.
 fn uniform_sched(n: usize, size: u64) -> Scheduler {

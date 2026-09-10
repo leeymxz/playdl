@@ -2,8 +2,8 @@
 //!
 //! `stream_digest`'s module docs claim "ordinary transfers do not come close to
 //! the cap ... the buffer holds at most a few in-flight spans." This probe
-//! reproduces the layout the scheduler actually produces â€?n connections each
-//! assigned a CONTIGUOUS span, all advancing at similar rates â€?and reports
+//! reproduces the layout the scheduler actually produces â€” n connections each
+//! assigned a CONTIGUOUS span, all advancing at similar rates â€” and reports
 //! whether the digest survives.
 use pdl_net::stream_digest::{StreamDigest, DEFAULT_REORDER_CAP};
 

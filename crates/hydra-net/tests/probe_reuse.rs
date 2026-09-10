@@ -2,7 +2,7 @@
 //!
 //! Every run begins with a HEAD to learn the object's size and whether the origin
 //! supports ranges. That is the client's first contact with the host, so its TCP
-//! handshake â€?and on HTTPS its TLS handshake â€?is the most expensive one of the
+//! handshake â€” and on HTTPS its TLS handshake â€” is the most expensive one of the
 //! whole run and the one most worth keeping. Before the pool was shared through the
 //! connector, the probe dialled, asked the server to close, and the transfer that
 //! began milliseconds later dialled the same host again.
@@ -17,7 +17,7 @@
 //!
 //! # Harness fidelity limit
 //!
-//! The in-process origin does NOT honour a client's `Connection: close` â€?it answers
+//! The in-process origin does NOT honour a client's `Connection: close` â€” it answers
 //! keep-alive whenever the control flag is set, regardless of what was asked. So
 //! flipping the probe's request disposition does not ablate this test; the mechanism
 //! it actually pins is the pool shared through `Connector::pool`. Returning `None`

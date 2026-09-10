@@ -1,8 +1,8 @@
 //! The download queue: a pure state machine, no terminal and no I/O.
 //!
 //! Separated from the TUI on purpose. A queue manager tangled with its renderer
-//! cannot be tested â€?you end up asserting on escape sequences instead of on
-//! behaviour â€?and the interesting behaviour here is all in the state
+//! cannot be tested â€” you end up asserting on escape sequences instead of on
+//! behaviour â€” and the interesting behaviour here is all in the state
 //! transitions: what happens when a running job fails, whether a paused job
 //! resumes where it stopped, whether the concurrency ceiling is respected while
 //! jobs are being added and cancelled.
@@ -314,7 +314,7 @@ impl Queue {
             .map(PathBuf::from)
             .or_else(|_| std::env::var("HOME").map(|h| PathBuf::from(h).join(".local/state")))
             .unwrap_or_else(|_| PathBuf::from("."));
-        base.join("hydra").join("queue.json")
+        base.join("playdl").join("queue.json")
     }
 
     pub fn load(path: &std::path::Path) -> Option<Self> {
@@ -354,7 +354,7 @@ impl Queue {
 /// Is a process with this id alive?
 ///
 /// `kill(pid, 0)` is the portable existence probe: it runs the permission checks and
-/// returns without delivering a signal. EPERM counts as alive â€?the process exists, it
+/// returns without delivering a signal. EPERM counts as alive â€” the process exists, it
 /// simply is not ours. Declared directly rather than pulling in a crate for one call.
 #[cfg(unix)]
 pub fn pid_alive(pid: u32) -> bool {
@@ -394,7 +394,7 @@ pub fn pid_alive(pid: u32) -> bool {
     }
     let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
     if handle == 0 {
-        // ACCESS_DENIED means the process exists but belongs to another user â€?alive,
+        // ACCESS_DENIED means the process exists but belongs to another user â€” alive,
         // the same carve-out as EPERM on unix. Any other failure (typically
         // ERROR_INVALID_PARAMETER for a recycled or never-existing PID) means dead.
         return std::io::Error::last_os_error().raw_os_error() == Some(ERROR_ACCESS_DENIED);
@@ -634,7 +634,7 @@ mod tests {
         // is gone: those must be demoted or they occupy a slot forever. Backgrounding
         // leaves Running items whose owner is alive: demoting those would start a second
         // transfer into the same file.
-        let dir = std::env::temp_dir().join(format!("playdl_q_pid_{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("hydra_q_pid_{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
 
         // Owner alive (this process): the item stays running.

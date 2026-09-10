@@ -1,6 +1,6 @@
 //! `SparseSink::written` must be exact under concurrent writes.
 //!
-//! The counter was implemented as `written.store(written.load() + n)` â€?two
+//! The counter was implemented as `written.store(written.load() + n)` â€” two
 //! separate atomic operations, which is not an atomic read-modify-write. Two
 //! connections that load the same value both store their own sum and one
 //! write's bytes disappear from the count. Every connection calls `write_at`

@@ -151,12 +151,12 @@ async fn run_hydra_tick(
     conns: usize,
     tick_ms: u64,
 ) -> Option<(f64, u64)> {
-    run_hydra_with(sc, size, conns, tick_ms, "hydra_xval", |s| s).await
+    run_hydra_with(sc, size, conns, tick_ms, "playdl_xval", |s| s).await
 }
 
 /// The shared body of every hydra-policy runner: spawn the scenario, arm its
 /// events, build per-source estimates, run the transfer, verify the bytes,
-/// clean up. `configure` is the one thing the variants differ in â€?what they
+/// clean up. `configure` is the one thing the variants differ in â€” what they
 /// do to the scheduler before it runs.
 async fn run_hydra_with(
     sc: &Scenario,
@@ -244,7 +244,7 @@ async fn run_hydra_detect(
     health_ranking: bool,
 ) -> Option<(f64, u64)> {
     // The A and B arms need distinct scratch files: detect_ab runs both per rep.
-    let tag = format!("playdl_ab_{health_ranking}");
+    let tag = format!("hydra_ab_{health_ranking}");
     run_hydra_with(sc, size, conns, 20, &tag, |s| {
         s.with_health_ranking(health_ranking)
     })

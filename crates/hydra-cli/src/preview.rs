@@ -3,8 +3,8 @@
 
 //! `hydra --preview <url>`: what is inside a ZIP archive, without the archive.
 //!
-//! The same peek the GUI's Preview button makes â€?`pdl_net::zipdir` reads
-//! the index off the file's tail â€?drawn as a table for a terminal. One
+//! The same peek the GUI's Preview button makes â€” `pdl_net::zipdir` reads
+//! the index off the file's tail â€” drawn as a table for a terminal. One
 //! probe to find the object and its size, one small ranged GET, and the
 //! listing is on screen whatever the archive weighs.
 

@@ -3,7 +3,7 @@
 //! `run_transfer_into` wakes on a fixed interval (the CLI passes 20 ms = 50 Hz)
 //! for the entire duration of a transfer, and each wake runs `sched.tick()` over
 //! every connection plus the watchdog arithmetic. During a fast transfer that is
-//! irrelevant â€?the loop is doing real work between wakes. It stops being
+//! irrelevant â€” the loop is doing real work between wakes. It stops being
 //! irrelevant on a server: a slow or stalled transfer, or a long-lived queue with
 //! several idle jobs, pays the same 50 Hz forever, and an otherwise-idle box
 //! never reaches a deep sleep state.
@@ -46,7 +46,7 @@ fn cpu_seconds() -> f64 {
 
 /// CPU time (user + system) consumed by this process, in seconds.
 ///
-/// `GetProcessTimes` reports kernel and user time as FILETIME â€?100 ns units.
+/// `GetProcessTimes` reports kernel and user time as FILETIME â€” 100 ns units.
 /// Declared directly rather than pulling in a crate for one call, matching the
 /// unix `getrusage` block above.
 #[cfg(windows)]

@@ -3,7 +3,7 @@
 
 //! HLS and DASH on the command line.
 //!
-//! `hydra <url>` takes a manifest the same way it takes a file â€?the URL is
+//! `hydra <url>` takes a manifest the same way it takes a file â€” the URL is
 //! fetched, and if the body turns out to be a playlist or an MPD it goes to
 //! the stream path instead of the range scheduler. That is why detection
 //! reads the BODY rather than the extension: a `.m3u8` URL that answers with
@@ -86,7 +86,7 @@ fn target(seg: &hls::Segment, job: &Job) -> Result<Target, String> {
 }
 
 /// A segment redirected elsewhere: the same segment at the address the
-/// origin named. The byte RANGE travels with it â€?a playlist that carves
+/// origin named. The byte RANGE travels with it â€” a playlist that carves
 /// segments out of one file, redirected to an edge, would otherwise fetch
 /// the whole file per segment.
 fn redirect_target(seg: &hls::Segment, e: &std::io::Error) -> Option<hls::Segment> {
@@ -105,7 +105,7 @@ fn redirect_target(seg: &hls::Segment, e: &std::io::Error) -> Option<hls::Segmen
 const MAX_REDIRECTS: usize = 5;
 
 /// Fetch a manifest, following redirects, and report the URL it finally came
-/// from â€?every relative URI inside it resolves against THAT, not against
+/// from â€” every relative URI inside it resolves against THAT, not against
 /// the address originally asked for.
 async fn get_at(
     conn: &Arc<TlsCapableConnector>,
@@ -311,7 +311,7 @@ async fn run_hls(
     }
 
     if playlist.live {
-        // `Plan::build` â€?which refuses DRM and encryption â€?is only reached
+        // `Plan::build` â€” which refuses DRM and encryption â€” is only reached
         // by the VOD path below, so its refusals are restated here. The
         // recorder cannot decrypt (keys rotate mid-live and nothing fetches
         // them), and appending ciphertext would finish "successfully" over a
@@ -880,7 +880,7 @@ async fn record(
                 }
                 init_done[i] = true;
             }
-            // Planned in order, fetched concurrently â€?the same shape the
+            // Planned in order, fetched concurrently â€” the same shape the
             // GUI recorder uses. The checks below are stateful, so they must
             // run in sequence; the fetching need not, and taking one segment
             // at a time made a recording run on a single connection however
@@ -1077,7 +1077,7 @@ fn append(src: &str, out: &mut std::fs::File) -> std::io::Result<()> {
 /// says about the object, without downloading it.
 ///
 /// Everything here comes from ONE request's headers, which is why it is
-/// worth having â€?the alternative is starting a download to find out how big
+/// worth having â€” the alternative is starting a download to find out how big
 /// it is, what it is called, and whether it can be resumed.
 pub async fn inspect_file(job: &Job) -> Result<(), String> {
     let conn = TlsCapableConnector::with_insecure(job.insecure).map_err(|e| e.to_string())?;
@@ -1164,7 +1164,7 @@ pub async fn inspect_file(job: &Job) -> Result<(), String> {
 ///
 /// RFC 9110 requires GMT on the wire, which is right for the protocol and
 /// unhelpful on a terminal: "was this newer than my copy?" is a question
-/// about local time. The original is left alone when it cannot be parsed â€?
+/// about local time. The original is left alone when it cannot be parsed â€”
 /// a wrong local time would be worse than an honest GMT one.
 fn to_local(http_date: &str) -> String {
     use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
