@@ -114,18 +114,29 @@ jobs:
       - name: Install Inno Setup
         shell: powershell
         run: |
-          # Download Inno Setup portable
-          $url = "https://github.com/jrsoftware/issrc/releases/download/v6.4.2/innosetup-6.4.2.exe"
-          $out = "$env:TEMP\innosetup.exe"
-          Invoke-WebRequest -Uri $url -OutFile $out -UseBasicParsing
-          Start-Process $out -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=$env:ProgramFiles\Inno Setup 6" -Wait
-          Write-Output "Inno Setup installed"
+          # Try Chocolatey first, fall back to direct download
+          try {
+            choco install innosetup -y --no-progress --limit-output --ignore-checksums 2>$null
+            Write-Output "Chocolatey install succeeded"
+          } catch {
+            Write-Output "Chocolatey failed, trying direct download..."
+            $url = "https://jrsoftware.org/download.php/is.exe"
+            $out = "$env:TEMP\is.exe"
+            Invoke-WebRequest -Uri $url -OutFile $out -UseBasicParsing
+            Start-Process $out -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=C:\Program Files (x86)\Inno Setup 6" -Wait
+          }
 
       - name: Build installer
         shell: cmd
         run: |
           cd packaging\innosetup
-          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" PlayDL.iss || "C:\Program Files\Inno Setup 6\ISCC.exe" PlayDL.iss
+          if exist "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" (
+            "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" PlayDL.iss
+          ) else if exist "C:\Program Files\Inno Setup 6\ISCC.exe" (
+            "C:\Program Files\Inno Setup 6\ISCC.exe" PlayDL.iss
+          ) else (
+            echo "ISCC not found" && exit /b 1
+          )
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
