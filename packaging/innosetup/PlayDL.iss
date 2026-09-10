@@ -30,7 +30,9 @@ SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=admin
 DisableProgramGroupPage=yes
-SetupIconFile=..\docs\playdl.ico
+SetupIconFile=..\..\docs\playdl.ico
+WizardImageFile=..\..\docs\logo.bmp
+WizardSmallImageFile=..\..\docs\playdl.ico
 UninstallDisplayIcon={app}\bin\playdl.exe
 UninstallDisplayName={#MyAppName}
 VersionInfoVersion={#MyAppVersion}
@@ -39,7 +41,6 @@ VersionInfoDescription=PlayDL 高速多源下载加速器
 AppCopyright=Copyright (C) 2026 leeymxz
 
 [Languages]
-Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
@@ -55,10 +56,6 @@ Source: "..\..\target\release\pdl.exe"; DestDir: "{app}\bin"; Flags: ignoreversi
 Source: "..\..\gui\PlayDL.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\gui\PlayDL.bat"; DestDir: "{app}"; Flags: ignoreversion
 
-; 快捷启动脚本
-Source: "..\..\打开终端.bat"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\..\下载器菜单.bat"; DestDir: "{app}"; Flags: ignoreversion
-
 ; Logo 与图标
 Source: "..\..\docs\logo.png"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\docs\playdl.ico"; DestDir: "{app}"; Flags: ignoreversion
@@ -71,8 +68,8 @@ Source: "..\..\LICENSE-APACHE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\LICENSING.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\PlayDL 下载器"; Filename: "{app}\PlayDL.bat"; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"; Comment: "启动 PlayDL 图形界面"
-Name: "{group}\PlayDL CLI 终端"; Filename: "{app}\打开终端.bat"; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"; Comment: "打开命令行终端使用 PlayDL"
+Name: "{group}\PlayDL 下载器"; Filename: "{app}\PlayDL.bat"; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"
+Name: "{group}\PlayDL CLI终端"; Filename: "{app}\bin\playdl.exe"; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"
 Name: "{group}\PlayDL 下载菜单"; Filename: "{app}\下载器菜单.bat"; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"; Comment: "菜单式下载工具"
 Name: "{group}\卸载 PlayDL"; Filename: "{uninstallexe}"; IconFilename: "{app}\playdl.ico"
 Name: "{commondesktop}\PlayDL 下载器"; Filename: "{app}\PlayDL.bat"; Tasks: desktopicon; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"
@@ -111,10 +108,11 @@ end;
 
 // 安装完成后弹窗提示
 procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ErrorCode: Integer;
 begin
   if CurStep = ssPostInstall then
   begin
-    // 安装完成后，询问是否立即启动
     if MsgBox('PlayDL 安装完成！是否立即启动？', mbConfirmation, MB_YESNO) = IDYES then
     begin
       ShellExec('open', ExpandConstant('{app}\PlayDL.bat'), '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);

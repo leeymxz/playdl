@@ -86,67 +86,9 @@ jobs:
           name: playdl-${{ matrix.target }}
           path: playdl-*-${{ matrix.target }}.*
 
-  installer:
-    name: Build Windows Installer
-    needs: [build]
-    runs-on: windows-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Download Windows build
-        uses: actions/download-artifact@v4
-        with:
-          name: playdl-x86_64-pc-windows-msvc
-          path: artifacts
-
-      - name: Extract build zip
-        shell: bash
-        run: |
-          cd artifacts
-          unzip -o "playdl-*.zip" -d extracted/
-          # 复制到 Inno Setup 预期的路径
-          mkdir -p ../target/release
-          cp extracted/*/playdl.exe ../target/release/ 2>/dev/null || cp extracted/playdl.exe ../target/release/ 2>/dev/null || true
-          cp extracted/*/pdl.exe ../target/release/ 2>/dev/null || cp extracted/pdl.exe ../target/release/ 2>/dev/null || true
-          ls -la ../target/release/
-
-      - name: Install Inno Setup
-        shell: powershell
-        run: |
-          # Try Chocolatey first, fall back to direct download
-          try {
-            choco install innosetup -y --no-progress --limit-output --ignore-checksums 2>$null
-            Write-Output "Chocolatey install succeeded"
-          } catch {
-            Write-Output "Chocolatey failed, trying direct download..."
-            $url = "https://jrsoftware.org/download.php/is.exe"
-            $out = "$env:TEMP\is.exe"
-            Invoke-WebRequest -Uri $url -OutFile $out -UseBasicParsing
-            Start-Process $out -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=C:\Program Files (x86)\Inno Setup 6" -Wait
-          }
-
-      - name: Build installer
-        shell: cmd
-        run: |
-          cd packaging\innosetup
-          if exist "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" (
-            "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" PlayDL.iss
-          ) else if exist "C:\Program Files\Inno Setup 6\ISCC.exe" (
-            "C:\Program Files\Inno Setup 6\ISCC.exe" PlayDL.iss
-          ) else (
-            echo "ISCC not found" && exit /b 1
-          )
-
-      - name: Upload installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: playdl-windows-installer
-          path: packaging\dist\PlayDL-Setup-*.exe
-
   release:
     name: Create Release
-    needs: [build, installer]
+    needs: [build]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
