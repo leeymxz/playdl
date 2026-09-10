@@ -38,3 +38,6 @@ blake3 = { version = "1", features = ["pure"] }
 
 [lints]
 workspace = true
+
+[build-dependencies]
+embed-resource = "3"
