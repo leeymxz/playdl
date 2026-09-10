@@ -14,5 +14,7 @@ fix_*.ps1
 rename_crates.ps1
 make_ico.py
 git_*.txt
+# build output
+dist/
 generated-images/
 

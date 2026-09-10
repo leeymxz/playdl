@@ -51,6 +51,9 @@ mod xval;
 use pdl_core::{Scheduler, Source};
 use pdl_net::origin::OriginSet;
 use pdl_net::{run_transfer, Target};
+use std::io;
+use std::io::IsTerminal;
+use std::io::Write;
 use std::sync::Arc;
 
 /// Peak resident set size in bytes, via `getrusage(RUSAGE_SELF)`.
@@ -395,6 +398,29 @@ fn main() -> std::process::ExitCode {
 }
 
 async fn async_main() -> std::process::ExitCode {
+    // Show a brief startup banner for one-shot downloads (not --json, not pipe).
+    let is_pipe = !std::io::stdout().is_terminal();
+    if !is_pipe {
+        let user_args: Vec<String> = std::env::args().skip(1).collect();
+        let is_help = user_args.iter().any(|a| a == "--help" || a == "-h");
+        let is_version = user_args.iter().any(|a| a == "--version");
+        let is_interactive = user_args.iter().any(|a| a == "interactive");
+        let is_json = user_args.iter().any(|a| a == "--json");
+        if !is_help && !is_version && !is_interactive && !is_json && !user_args.is_empty() {
+            let _ = write!(
+                io::stdout(),
+                "\x1b[1;36m PlayDL\x1b[0m \x1b[90mv{} ⚡",
+                env!("CARGO_PKG_VERSION")
+            );
+            // Show the number of URLs
+            let url_count = user_args.iter().filter(|a| a.starts_with("http")).count();
+            if url_count > 0 {
+                let _ = write!(io::stdout(), " \x1b[90m{url_count} URL(s)\x1b[0m");
+            }
+            let _ = writeln!(io::stdout(), "\x1b[0m");
+        }
+    }
+
     // Translate the invoking dialect into canonical native options BEFORE parsing.
     // Different CLI personalities disagree on short flag semantics, so the personality
     // decides what `-O` means.

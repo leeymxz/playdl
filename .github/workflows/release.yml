@@ -3,538 +3,53 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
-  workflow_dispatch:
-    inputs:
-      extra_ffi_target:
-        description: >-
-          Optional extra Rust target triple to build libhydra for, on top of the
-          release matrix (e.g. riscv64gc-unknown-linux-gnu). Leave empty to skip.
-        required: false
-        default: ""
-      extra_ffi_runner:
-        description: >-
-          Runner for the extra libhydra target. Pick one whose OS can host a
-          toolchain for that triple.
-        required: false
-        default: ubuntu-latest
-        type: choice
-        options:
-          - ubuntu-latest
-          - ubuntu-24.04-arm
-          - macos-latest
-          - windows-latest
+      - 'v*'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  verify-version:
-    name: Verify tag matches Cargo.toml
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.check.outputs.version }}
-      tag_version: ${{ steps.check.outputs.tag_version }}
-      prerelease: ${{ steps.check.outputs.prerelease }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - id: check
-        name: Compare version with Git tag
-        run: |
-          set -euo pipefail
-          # The release tag tracks the workspace product version
-          # ([workspace.package] in Cargo.toml), which hya-gui, hya-cli and
-          # hya-host inherit and ship under as one bundle. The library crates
-          # (hya-core, hya-net) version independently of it and are published
-          # by .github/workflows/publish-crates.yml on their own manifest bump,
-          # not by a release tag.
-          VERSION=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
-          TAG="${GITHUB_REF_NAME#v}"
-          # A tag may carry a semver pre-release suffix (v0.3.0-rc,
-          # v0.3.0-rc.2, v0.3.0-beta1) that the manifest does not. Both spellings
-          # are accepted: the manifest may stay on the plain release version
-          # while release candidates are cut from tags, or it may carry the same
-          # suffix so the shipped binaries report it. Everything after the first
-          # `-` marks the tag as a pre-release.
-          BASE="${TAG%%-*}"
-          if [ "$TAG" != "$BASE" ]; then
-            PRERELEASE=true
-          else
-            PRERELEASE=false
-          fi
-          echo "manifest=$VERSION tag=$TAG base=$BASE prerelease=$PRERELEASE"
-          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$VERSION" != "$TAG" ] && [ "$VERSION" != "$BASE" ]; then
-            echo "::error::tag $GITHUB_REF_NAME does not match workspace version $VERSION"
-            exit 1
-          fi
-          {
-            echo "version=$VERSION"
-            echo "tag_version=$TAG"
-            echo "prerelease=$PRERELEASE"
-          } >> "$GITHUB_OUTPUT"
-
   build:
-    name: Build ${{ matrix.os }}-${{ matrix.arch }}
-    needs: [verify-version]
+    name: Build ${{ matrix.target }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: linux
-            arch: amd64
-            runner: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-          - os: linux
-            arch: arm64
-            runner: ubuntu-24.04-arm
-            target: aarch64-unknown-linux-gnu
-          - os: macos
-            arch: amd64
-            runner: macos-latest
-            target: x86_64-apple-darwin
-          - os: macos
-            arch: arm64
-            runner: macos-latest
-            target: aarch64-apple-darwin
-          - os: windows
-            arch: amd64
-            runner: windows-latest
-            target: x86_64-pc-windows-msvc
-          - os: windows
-            arch: arm64
-            runner: windows-11-arm
-            target: aarch64-pc-windows-msvc
-    runs-on: ${{ matrix.runner }}
-    env:
-      VERSION: ${{ needs.verify-version.outputs.version }}
-      PLATFORM: ${{ matrix.os }}-${{ matrix.arch }}
-      TARGET: ${{ matrix.target }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Linux build dependencies (ALSA, X11)
-        if: matrix.os == 'linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            pkg-config libasound2-dev libx11-dev libxrandr-dev \
-            libxcb1-dev libxkbcommon-dev rpm imagemagick
-
-      - name: Install NSIS (Windows installer)
-        if: matrix.os == 'windows'
-        shell: bash
-        run: |
-          if ! command -v makensis >/dev/null 2>&1; then
-            choco install nsis -y --no-progress
-            echo 'C:\Program Files (x86)\NSIS' >> "$GITHUB_PATH"
-          fi
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      - name: Set up Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.target }}
-
-      - name: Build CLI, GUI, native-messaging host, and update finisher
-        run: cargo build --release --locked --target ${{ matrix.target }} -p hya-cli -p hya-gui -p hya-host -p hya-updater
-
-      - name: Package artifacts
-        shell: bash
-        run: |
-          set -euo pipefail
-          BIN="target/${TARGET}/release"
-          EXT=""
-          [ "${{ matrix.os }}" = windows ] && EXT=".exe"
-
-          CLI_NAME="hydra-cli-${VERSION}-${PLATFORM}"
-          GUI_NAME="hydra-${VERSION}-${PLATFORM}"
-          mkdir -p dist "stage/${CLI_NAME}" "stage/${GUI_NAME}/extensions"
-
-          # CLI archive: the standalone `hydra` binary only.
-          cp "${BIN}/hydra${EXT}" "stage/${CLI_NAME}/"
-          cp LICENSE LICENSING.md THIRD-PARTY-NOTICES.md README.md "stage/${CLI_NAME}/"
-
-          # Man pages travel with both archives on Unix; install.sh puts them
-          # under <prefix>/share/man/man1.
-          if [ "${{ matrix.os }}" != windows ]; then
-            mkdir -p "stage/${CLI_NAME}/man" "stage/${GUI_NAME}/man"
-            cp docs/man/*.1 "stage/${CLI_NAME}/man/"
-            cp docs/man/*.1 "stage/${GUI_NAME}/man/"
-          fi
-
-          # GUI archive: GUI + CLI + native-messaging host + browser extensions.
-          # The install-native-host script resolves the bundle root as the
-          # parent of its own directory, so it must sit in scripts/ with
-          # extensions/ as a sibling.
-          mkdir -p "stage/${GUI_NAME}/scripts"
-          # hydra-updater is the self-update finisher: the GUI extracts a new
-          # release, runs this binary from a temp dir, exits, and the finisher
-          # swaps the installed files and relaunches.
-          cp "${BIN}/hydra-gui${EXT}" "${BIN}/hydra${EXT}" "${BIN}/hydra-host${EXT}" "${BIN}/hydra-updater${EXT}" "stage/${GUI_NAME}/"
-          # Browser extensions: packed (.zip for the Chromium family, .xpi for
-          # Firefox) plus the unpacked directories a developer-mode install
-          # loads, and INSTALL.txt. install.sh / install.ps1 copy the whole
-          # directory into the installed application, so the same files that
-          # are in this archive are what a user ends up loading.
-          EXT_PREFIX="/usr/local/share/hydra/extensions"
-          if [ "${{ matrix.os }}" = windows ]; then
-            EXT_PREFIX='%LOCALAPPDATA%\Programs\Hydra\extensions'
-          fi
-          scripts/build-extensions.sh --out "stage/${GUI_NAME}/extensions" \
-            --quiet --prefix "$EXT_PREFIX"
-          # Safari is unpacked-only: it installs through the wrapper app that
-          # scripts/build-safari-extension.sh builds, not by loading a directory.
-          cp -R extensions/safari "stage/${GUI_NAME}/extensions/"
-          if [ "${{ matrix.os }}" = windows ]; then
-            cp scripts/install-native-host.ps1 "stage/${GUI_NAME}/scripts/"
-            # install.ps1 registers an "Apps & features" entry whose
-            # UninstallString points at this copy, so the uninstaller works
-            # offline instead of being fetched from the repo at removal time.
-            cp uninstall.ps1 "stage/${GUI_NAME}/scripts/"
-          else
-            cp scripts/install-native-host.sh "stage/${GUI_NAME}/scripts/"
-          fi
-          cp LICENSE LICENSING.md THIRD-PARTY-NOTICES.md README.md "stage/${GUI_NAME}/"
-          # install.sh puts this into the per-user hicolor theme as hydra.png,
-          # which is what Icon=hydra in the generated .desktop resolves to.
-          cp docs/logo.png "stage/${GUI_NAME}/"
-
-          if [ "${{ matrix.os }}" = windows ]; then
-            (cd stage && 7z a "../dist/${CLI_NAME}.zip" "${CLI_NAME}")
-            (cd stage && 7z a "../dist/${GUI_NAME}.zip" "${GUI_NAME}")
-          else
-            tar -czf "dist/${CLI_NAME}.tar.gz" -C stage "${CLI_NAME}"
-            tar -czf "dist/${GUI_NAME}.tar.gz" -C stage "${GUI_NAME}"
-          fi
-          ls -lh dist/
-
-      # Native installers. The packaging scripts read CARGO_BUILD_TARGET to
-      # find the binaries under target/<triple>/release (and, for macOS, to
-      # name the image after the target arch rather than the build host).
-      - name: Build DMG (macOS)
-        if: matrix.os == 'macos'
-        env:
-          CARGO_BUILD_TARGET: ${{ matrix.target }}
-        run: |
-          set -euo pipefail
-          scripts/package-macos-dmg.sh
-          cp target/dist/*.dmg dist/
-          ls -lh dist/
-
-      - name: Build PKG (macOS)
-        if: matrix.os == 'macos'
-        env:
-          CARGO_BUILD_TARGET: ${{ matrix.target }}
-        run: |
-          set -euo pipefail
-          scripts/package-macos-pkg.sh
-          cp target/dist/*.pkg dist/
-          ls -lh dist/
-
-      - name: Build deb and rpm packages (Linux)
-        if: matrix.os == 'linux'
-        env:
-          CARGO_BUILD_TARGET: ${{ matrix.target }}
-        run: |
-          set -euo pipefail
-          scripts/package-linux.sh all --no-build
-          cp target/dist/*.deb target/dist/*.rpm dist/
-          ls -lh dist/
-
-      - name: Build NSIS installer (Windows)
-        if: matrix.os == 'windows'
-        shell: bash
-        run: |
-          set -euo pipefail
-          ARCH=x64
-          [ "${{ matrix.arch }}" = arm64 ] && ARCH=arm64
-          scripts/build-windows-installer.sh "$ARCH" --no-build
-          cp "target/hydra-${VERSION}-windows-${ARCH}-setup.exe" dist/
-          ls -lh dist/
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: hydra-${{ env.PLATFORM }}
-          path: dist/*
-          if-no-files-found: error
-
-  # ---------------------------------------------------------------- AppImage
-  #
-  # A separate job from `build`, on the OLDEST supported Ubuntu, and that is
-  # the whole point: an AppImage's compatibility floor is the glibc it was
-  # linked against, and the release matrix runs on ubuntu-latest, whose glibc
-  # is newer than Debian stable's. Building here gives one file that runs on
-  # everything from Ubuntu 22.04 and Debian 12 upwards.
-  #
-  # It is also the only Linux artifact Hydra can update itself from: the deb
-  # and the rpm install into /usr, which only dpkg or rpm may rewrite, so the
-  # in-app updater refuses them and offers the package instead. An AppImage is
-  # a single file the user owns, so the update replaces that file — see
-  # UpdateMethod::AppImage in crates/hydra-updater.
-  build-appimage:
-    name: AppImage ${{ matrix.arch }}
-    needs: [verify-version]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: x86_64
-            runner: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-          - arch: aarch64
-            runner: ubuntu-22.04-arm
-            target: aarch64-unknown-linux-gnu
-    runs-on: ${{ matrix.runner }}
-    env:
-      VERSION: ${{ needs.verify-version.outputs.version }}
-      TARGET: ${{ matrix.target }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # The same build dependencies as the linux legs of `build`, plus the
-      # AppImage toolchain: zsync for the delta-update information the image
-      # advertises, desktop-file-utils for the desktop-entry validation
-      # appimagetool runs, squashfs-tools for the image itself. No FUSE:
-      # appimagetool is an AppImage and the runners have none, so it is run
-      # with APPIMAGE_EXTRACT_AND_RUN instead.
-      - name: Install build and packaging dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            pkg-config libasound2-dev libx11-dev libxrandr-dev \
-            libxcb1-dev libxkbcommon-dev imagemagick \
-            zsync desktop-file-utils squashfs-tools
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      - name: Set up Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: appimage-${{ matrix.target }}
-
-      - name: Build CLI, GUI, native-messaging host, and update finisher
-        run: cargo build --release --locked --target ${{ matrix.target }} -p hya-cli -p hya-gui -p hya-host -p hya-updater
-
-      # The same script a developer runs as `make appimage`. CI has no private
-      # packaging steps: an "official" artifact produced by YAML nobody can
-      # run locally is one nobody can reproduce.
-      - name: Build the AppImage
-        env:
-          CARGO_BUILD_TARGET: ${{ matrix.target }}
-          # appimagetool ships as an AppImage and the runners have no FUSE.
-          APPIMAGE_EXTRACT_AND_RUN: "1"
-        run: |
-          set -euo pipefail
-          scripts/package-appimage.sh --no-build
-          mkdir -p dist
-          cp target/dist/*.AppImage dist/
-          cp target/dist/*.AppImage.zsync dist/ 2>/dev/null || \
-            echo "note: no .zsync produced; the image carries no update information"
-          ls -lh dist/
-
-      # A smoke test, because an AppImage that cannot start is indistinguishable
-      # from one that was never built. Headless, so only the paths that do not
-      # need a display are exercised: the runtime mounts the image, AppRun
-      # dispatches, and the CLI inside it runs.
-      - name: Smoke-test the image
-        run: |
-          set -euo pipefail
-          IMG=$(readlink -f "$(ls -1 dist/*.AppImage | head -1)")
-          chmod +x "$IMG"
-          export APPIMAGE_EXTRACT_AND_RUN=1
-          "$IMG" --hydra-version
-          "$IMG" --hydra-exec hydra --version
-          "$IMG" --hydra-exec hydra-updater --help >/dev/null
-          # Desktop integration into a throwaway HOME: the menu entry and the
-          # native-messaging wrapper are what make the browser extensions
-          # reach an app that lives in a mount with a different path on every
-          # run, so "the image starts" is not enough to call this working.
-          HOME=$(mktemp -d)
-          export HOME
-          "$IMG" --hydra-install
-          test -x "$HOME/.local/share/hydra/hydra-host"
-          test -f "$HOME/.local/share/applications/hydra.desktop"
-          # The wrapper the browsers are pointed at must name the image file,
-          # not a path inside the mount it is running from.
-          grep -q "$(basename "$IMG")" "$HOME/.local/share/hydra/hydra-host"
-          "$IMG" --hydra-uninstall
-          [ ! -e "$HOME/.local/share/applications/hydra.desktop" ]
-          echo "ok"
-
-      - name: Upload AppImage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: hydra-appimage-${{ matrix.arch }}
-          path: dist/*
-          if-no-files-found: error
-
-  # Proof that the one image really does run across the Ubuntu line, rather
-  # than an assumption about glibc symbol versioning.
-  #
-  # There is deliberately no second BUILD here. An AppImage's compatibility
-  # floor is the glibc it was linked against, so building the same image again
-  # on 24.04 or 26.04 would produce a file that runs on strictly FEWER systems
-  # than the 22.04 one — and, sharing its name, would race it into the release.
-  # Building once on the oldest supported release and proving the result
-  # forward is the only arrangement where "supports 22.04 through 26.10" is a
-  # tested claim.
-  #
-  # Containers, because GitHub hosts runner images for LTS releases only —
-  # 22.10 and 24.10 have no runner label and never will. The image is started
-  # with APPIMAGE_EXTRACT_AND_RUN because containers have no FUSE; that skips
-  # the runtime's mount, which is the one part of an AppImage that does not
-  # depend on the host's libraries, and exercises everything that does.
-  verify-appimage:
-    name: AppImage runs on Ubuntu ${{ matrix.release }}
-    needs: [build-appimage]
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        release: ["22.04", "22.10", "24.04", "24.10", "25.04", "26.04", "26.10"]
-    steps:
-      - name: Download the AppImage
-        uses: actions/download-artifact@v4
-        with:
-          name: hydra-appimage-x86_64
-          path: dist
-
-      - name: Run it on Ubuntu ${{ matrix.release }}
-        env:
-          RELEASE: ${{ matrix.release }}
-        run: |
-          set -euo pipefail
-          # Releases that Canonical has not published yet (and ones Docker Hub
-          # has retired) are reported, not failed: this matrix is meant to
-          # stay ahead of the Ubuntu calendar, and a tag that does not exist
-          # is a fact about the calendar rather than about the image.
-          if ! docker manifest inspect "ubuntu:$RELEASE" >/dev/null 2>&1; then
-            echo "::notice::ubuntu:$RELEASE is not on Docker Hub yet; nothing to verify against"
-            exit 0
-          fi
-          IMG=$(readlink -f "$(ls -1 dist/*.AppImage | head -1)")
-          chmod +x "$IMG"
-          docker run --rm -v "$IMG:/hydra.AppImage:ro" -e APPIMAGE_EXTRACT_AND_RUN=1 \
-            "ubuntu:$RELEASE" /bin/sh -euc '
-              ldd --version | head -1
-              cp /hydra.AppImage /tmp/hydra.AppImage
-              chmod +x /tmp/hydra.AppImage
-              # The CLI and the finisher link the same C library the GUI does;
-              # what a container cannot exercise is the display server, not
-              # the loader, so these two answer the portability question.
-              /tmp/hydra.AppImage --hydra-version
-              /tmp/hydra.AppImage --hydra-exec hydra --version
-              /tmp/hydra.AppImage --hydra-exec hydra-updater --help >/dev/null
-              mkdir -p /tmp/home
-              HOME=/tmp/home /tmp/hydra.AppImage --hydra-install
-              test -x /tmp/home/.local/share/hydra/hydra-host
-            '
-
-  # ---------------------------------------------------------------- libhydra
-  #
-  # The embeddable C ABI is a SEPARATE deliverable from the CLI/GUI bundle, and
-  # is built by separate jobs for two reasons: its matrix is much wider (mobile,
-  # musl, cross-compiled architectures), and its licence is different — the
-  # archives are MIT/Apache-2.0 and must never pick up GPL code from the CLI.
-  #
-  # Every job below runs the same scripts a developer runs locally. CI has no
-  # private build steps, because an "official" artifact produced by steps that
-  # exist only in a YAML file is one nobody outside CI can reproduce.
-
-  ffi-header:
-    name: Verify the published ABI header
-    needs: [verify-version]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install cbindgen
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cbindgen
-
-      # include/hydra.h is generated from the Rust definitions and committed.
-      # Every archive below ships the committed copy, so if it has drifted, the
-      # release would hand third parties a description of a library that does
-      # not exist. Fail here rather than there.
-      - name: Check include/hydra.h is current
-        run: scripts/gen-ffi-header.sh --check
-
-      # And that the release is still ABI 1. Every archive below states an ABI
-      # version in its NOTICE, and somebody will link an old binding against
-      # it; a layout that moved since ABI 1 was published must not reach a
-      # release without the version bump that announces it. See docs/ffi/ABI.md.
-      - name: Check the ABI 1 stability contract
-        run: scripts/ffi-abi-compat.sh
-
-  build-ffi:
-    name: libhydra ${{ matrix.target }}
-    needs: [verify-version, ffi-header]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # ---- Linux, glibc -------------------------------------------------
-          - target: x86_64-unknown-linux-gnu
-            runner: ubuntu-latest
-          - target: aarch64-unknown-linux-gnu
-            runner: ubuntu-24.04-arm
-          - target: armv7-unknown-linux-gnueabihf
-            runner: ubuntu-latest
-            # `ring` and `blake3` compile C and assembly, so a Rust target is
-            # not enough — cross-compiling needs a cross C toolchain. The
-            # armhf libc headers are only a *recommendation* of the cross gcc
-            # package, so `--no-install-recommends` leaves them out; without
-            # them the cross compiler falls back to the runner's own
-            # /usr/include and dies on a missing bits/libc-header-start.h.
-            apt: gcc-arm-linux-gnueabihf libc6-dev-armhf-cross
-            env_cc: arm-linux-gnueabihf-gcc
-            env_ar: arm-linux-gnueabihf-ar
-          # ---- Linux, musl: static, no host glibc dependency -----------------
-          - target: x86_64-unknown-linux-musl
-            runner: ubuntu-latest
-            apt: musl-tools
-            env_cc: musl-gcc
-          - target: aarch64-unknown-linux-musl
-            runner: ubuntu-24.04-arm
-            apt: musl-tools
-            env_cc: musl-gcc
-          # ---- macOS ---------------------------------------------------------
-          - target: aarch64-apple-darwin
-            runner: macos-latest
-          - target: x86_64-apple-darwin
-            runner: macos-latest
-          # ---- Windows, MSVC ABI ---------------------------------------------
           - target: x86_64-pc-windows-msvc
-            runner: windows-latest
-          - target: aarch64-pc-windows-msvc
-            runner: windows-11-arm
-    runs-on: ${{ matrix.runner }}
+            os: windows-latest
+            suffix: .exe
+            archive: zip
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            suffix: ''
+            archive: tar.gz
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            suffix: ''
+            archive: tar.gz
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            suffix: ''
+            archive: tar.gz
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            suffix: ''
+            archive: tar.gz
+
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install cross toolchain
-        if: matrix.apt != ''
+      - name: Install cross-compile dependencies (Linux ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ${{ matrix.apt }}
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libasound2-dev libx11-dev libxrandr-dev \
+            libxcb1-dev libxkbcommon-dev gcc-aarch64-linux-gnu
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -543,405 +58,61 @@ jobs:
 
       - name: Set up Rust cache
         uses: Swatinem/rust-cache@v2
-        with:
-          key: ffi-${{ matrix.target }}
 
-      # cc-rs and cargo look these up under the target triple, upper-cased with
-      # dashes turned into underscores. Set here rather than in the script so the
-      # script stays about packaging and the toolchain choice stays visible.
-      - name: Point the build at the cross toolchain
-        if: matrix.env_cc != ''
+      - name: Build playdl + pdl
+        run: cargo build --release --target ${{ matrix.target }} --bin playdl --bin pdl
+
+      - name: Prepare artifacts
         shell: bash
         run: |
-          set -euo pipefail
-          UP="$(echo '${{ matrix.target }}' | tr 'a-z-' 'A-Z_')"
-          {
-            echo "CC_${{ matrix.target }}=${{ matrix.env_cc }}"
-            echo "CARGO_TARGET_${UP}_LINKER=${{ matrix.env_cc }}"
-          } >> "$GITHUB_ENV"
-          if [ -n "${{ matrix.env_ar }}" ]; then
-            echo "AR_${{ matrix.target }}=${{ matrix.env_ar }}" >> "$GITHUB_ENV"
-          fi
+          TAG="${GITHUB_REF_NAME#v}"
+          DIR="playdl-${TAG}-${{ matrix.target }}"
+          mkdir -p "$DIR"
 
-      - name: Build and package libhydra
-        shell: bash
-        run: scripts/build-ffi.sh --target ${{ matrix.target }} --out dist
+          cp "target/${{ matrix.target }}/release/playdl${{ matrix.suffix }}" "$DIR/"
+          cp "target/${{ matrix.target }}/release/pdl${{ matrix.suffix }}" "$DIR/"
 
-      # The Windows runners ship MSVC but do not put cl.exe on PATH, and the
-      # conformance test below needs a C compiler. arm64 for the Windows-on-ARM
-      # runner, x64 for the other one.
-      - name: Set up the MSVC environment
-        if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: ${{ startsWith(matrix.target, 'aarch64') && 'arm64' || 'x64' }}
+          # 复制安装脚本和文档
+          cp README.md "$DIR/"
+          cp docs/logo.png "$DIR/" 2>/dev/null || true
 
-      # The check no Rust test can perform: that a C compiler accepts the
-      # header, that both sides agree on struct layout, and that every symbol
-      # the header promises is really in the archive. Native targets only —
-      # a cross-built archive cannot be run here.
-      - name: ABI conformance test
-        shell: bash
-        run: |
-          set -euo pipefail
-          HOST="$(rustc -vV | sed -n 's/^host: //p')"
-          if [ "$HOST" = "${{ matrix.target }}" ]; then
-            scripts/ffi-c-example.sh
+          # 打包
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            7z a "${DIR}.zip" "$DIR/"
+            echo "ARCHIVE=${DIR}.zip" >> $GITHUB_ENV
           else
-            # A cross-built archive cannot run here, and compiling the C client
-            # against it would need the cross toolchain's headers rather than
-            # the runner's. The native legs of this matrix cover the check.
-            echo "cross-built for ${{ matrix.target }} on $HOST; conformance run skipped"
+            tar czf "${DIR}.tar.gz" "$DIR/"
+            echo "ARCHIVE=${DIR}.tar.gz" >> $GITHUB_ENV
           fi
 
-      - name: Upload libhydra artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: libhydra-${{ matrix.target }}
-          # .tar.gz for Unix targets, .zip for Windows ones; the build script
-          # picks per target, so both globs are listed and one matches.
-          path: |
-            dist/*.tar.gz
-            dist/*.zip
-          if-no-files-found: error
-
-  build-ffi-android:
-    name: libhydra Android (4 ABIs)
-    needs: [verify-version, ffi-header]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
-
-      - name: Set up Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: ffi-android
-
-      # cargo-ndk sets the clang wrappers, AR, the API-level suffix and the
-      # libunwind link path that NDK r23+ requires. Hand-rolled toolchain
-      # environments get that last one wrong and fail at link time with an
-      # unresolved `__aeabi_unwind_cpp_pr0` on armeabi-v7a.
-      - name: Install cargo-ndk
-        run: cargo install cargo-ndk --locked
-
-      # The script resolves the NDK from ANDROID_NDK_HOME, ANDROID_NDK_ROOT,
-      # ANDROID_NDK_LATEST_HOME or $ANDROID_HOME/ndk, and prints which it used.
-      # GitHub's ubuntu images set the third.
-      - name: Build and package libhydra for Android
-        run: scripts/package-ffi-android.sh --out dist
-
-      - name: Upload libhydra Android artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: libhydra-android
-          path: dist/*.zip
-          if-no-files-found: error
-
-  build-ffi-apple:
-    name: libhydra Apple (XCFramework)
-    needs: [verify-version, ffi-header]
-    runs-on: macos-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios,aarch64-apple-darwin,x86_64-apple-darwin
-
-      - name: Set up Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: ffi-apple
-
-      # Hydra.xcframework carries iOS device, iOS simulator and macOS slices.
-      # One artifact, because iOS-device arm64 and iOS-simulator arm64 are the
-      # same architecture for different platforms and `lipo` cannot hold both.
-      - name: Build Hydra.xcframework
-        run: scripts/package-ffi-apple.sh --out dist
-
-      - name: Upload libhydra Apple artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: libhydra-apple
-          path: dist/*.zip
-          if-no-files-found: error
-
-  # Skipped on every tag push: `inputs` exists only for workflow_dispatch, so
-  # the `if` below is false and both expressions above it would evaluate to the
-  # empty string. The fallbacks keep the job's name readable and its `runs-on`
-  # a real label in that state - a job GitHub never starts should still be a
-  # job GitHub could start.
-  build-ffi-extra:
-    name: libhydra ${{ inputs.extra_ffi_target || 'extra target' }} (manual)
-    needs: [verify-version, ffi-header]
-    if: github.event_name == 'workflow_dispatch' && inputs.extra_ffi_target != ''
-    runs-on: ${{ inputs.extra_ffi_runner || 'ubuntu-latest' }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ inputs.extra_ffi_target }}
-
-      - name: Set up Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: ffi-extra-${{ inputs.extra_ffi_target }}
-
-      # `cross` supplies a container carrying the C toolchain for the target,
-      # which is what ring and blake3 need and what a bare runner has for
-      # exactly one triple. build-ffi.sh honours $CARGO, so the same script
-      # drives it.
-      - name: Install cross
-        if: runner.os == 'Linux'
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cross
-
-      # --static-only: a staticlib never invokes a linker, so it builds on
-      # targets where none is configured. The static archive is the primary
-      # deliverable anyway.
-      - name: Build and package libhydra
-        shell: bash
-        env:
-          CARGO: ${{ runner.os == 'Linux' && 'cross' || 'cargo' }}
-        run: scripts/build-ffi.sh --target ${{ inputs.extra_ffi_target }} --static-only --out dist
-
-      - name: Upload libhydra artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: libhydra-${{ inputs.extra_ffi_target }}
-          path: |
-            dist/*.tar.gz
-            dist/*.zip
-          if-no-files-found: error
+          name: playdl-${{ matrix.target }}
+          path: playdl-*-${{ matrix.target }}.*
 
   release:
-    name: Publish GitHub Release
+    name: Create Release
+    needs: [build]
     runs-on: ubuntu-latest
-    needs:
-      [
-        verify-version,
-        build,
-        build-appimage,
-        verify-appimage,
-        build-ffi,
-        build-ffi-android,
-        build-ffi-apple,
-      ]
-    if: github.ref_type == 'tag'
-    permissions:
-      contents: write
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Download build artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
 
-      - name: Generate checksums
+      - name: Collect archives
+        shell: bash
         run: |
-          set -euo pipefail
-          cd dist
-          sha256sum -- * > SHA256SUMS.txt
-          cat SHA256SUMS.txt
+          find . -name "*.zip" -o -name "*.tar.gz" | while read f; do
+            mv "$f" .
+          done
 
-      - name: Generate release notes
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh api -X POST "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
-            -f tag_name="${GITHUB_REF_NAME}" --jq .body > RELEASE_NOTES.md
-          cat RELEASE_NOTES.md
-
-      # A pre-release tag (v0.3.0-rc) is published as a GitHub pre-release and
-      # is never marked latest, so `releases/latest` — what the in-app updater
-      # polls — keeps pointing at the last stable release. A plain tag
-      # (v0.3.0) becomes the latest release.
-      - name: Create GitHub Release
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          name: hydra ${{ needs.verify-version.outputs.tag_version }}
-          files: dist/*
+          name: PlayDL ${{ github.ref_name }}
           body_path: RELEASE_NOTES.md
-          prerelease: ${{ needs.verify-version.outputs.prerelease == 'true' }}
-          make_latest: ${{ needs.verify-version.outputs.prerelease != 'true' }}
-
-      - name: Update Homebrew Tap
-        if: needs.verify-version.outputs.prerelease == 'false'
-        env:
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [ -n "${HOMEBREW_TAP_TOKEN:-}" ]; then
-            git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/ja7ad/homebrew-tap.git" tap
-            scripts/update-homebrew.sh "${{ needs.verify-version.outputs.version }}" dist tap
-            cd tap
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add Formula/hydra.rb Casks/hydra.rb
-            if ! git diff --staged --quiet; then
-              git commit -m "chore(hydra): bump to v${{ needs.verify-version.outputs.version }}"
-              git push origin main
-            fi
-          else
-            echo "note: HOMEBREW_TAP_TOKEN not set; skipping automated tap update"
-          fi
-
-      - name: Trigger Fedora Copr Build
-        if: needs.verify-version.outputs.prerelease == 'false'
-        env:
-          COPR_CONFIG: ${{ secrets.COPR_CONFIG }}
-          COPR_PROJECT: ${{ secrets.COPR_PROJECT }}
-          VERSION: ${{ needs.verify-version.outputs.version }}
-        run: |
-          set -euo pipefail
-          if [ -n "${COPR_CONFIG:-}" ]; then
-            sudo apt-get update && sudo apt-get install -y rpm
-            pipx install copr-cli
-
-            mkdir -p ~/.config
-            echo "$COPR_CONFIG" > ~/.config/copr
-            chmod 600 ~/.config/copr
-
-            PROJECT="${COPR_PROJECT:-sonycore/hydra}"
-
-            # Create source tarball and directory layout for rpmbuild
-            RPM_TOP="/tmp/rpmbuild"
-            mkdir -p "$RPM_TOP/SOURCES" "$RPM_TOP/SRPMS" "$RPM_TOP/SPECS" "$RPM_TOP/BUILD"
-            git archive --format=tar.gz --prefix="hydra-${VERSION}/" HEAD > "$RPM_TOP/SOURCES/hydra-${VERSION}.tar.gz"
-
-            # Render the spec with the release version baked in. Copr imports
-            # the spec and the tarball into dist-git and then re-runs
-            # `rpmbuild -bs` in mock without our command-line defines, so the
-            # version has to be in the spec itself rather than in `--define`.
-            scripts/render-rpm-spec.sh "$VERSION" "$RPM_TOP/SPECS/hydra.spec"
-
-            # Build the Source RPM (SRPM); the spec now carries the version itself
-            rpmbuild -bs --define "_topdir $RPM_TOP" "$RPM_TOP/SPECS/hydra.spec"
-
-            SRPM=$(ls "$RPM_TOP"/SRPMS/hydra-${VERSION}-*.src.rpm)
-            echo "Built SRPM: $SRPM"
-
-            # Submit SRPM to Copr build system
-            copr-cli build --nowait "$PROJECT" "$SRPM"
-            echo "Triggered Copr build for $PROJECT (v${VERSION})"
-          else
-            echo "note: COPR_CONFIG not set; skipping automated Copr build"
-          fi
-
-      - name: Build and Publish to Launchpad PPA
-        if: needs.verify-version.outputs.prerelease == 'false'
-        env:
-          LAUNCHPAD_GPG_KEY: ${{ secrets.LAUNCHPAD_GPG_KEY }}
-          LAUNCHPAD_PPA: ${{ secrets.LAUNCHPAD_PPA }}
-          VERSION: ${{ needs.verify-version.outputs.version }}
-        run: |
-          set -euo pipefail
-          if [ -n "${LAUNCHPAD_GPG_KEY:-}" ] && [ -n "${LAUNCHPAD_PPA:-}" ]; then
-            sudo apt-get update
-            sudo apt-get install -y devscripts debhelper dput
-
-            # Import GPG private signing key
-            echo "$LAUNCHPAD_GPG_KEY" | gpg --import --batch --yes
-
-            # Fingerprint of the first *secret* key
-            GPG_KEY_ID=$(gpg --list-secret-keys --with-colons \
-              | awk -F: '/^sec:/ { want = 1; next } want && /^fpr:/ { print $10; exit }')
-            if [ -z "$GPG_KEY_ID" ]; then
-              echo "error: LAUNCHPAD_GPG_KEY imported no secret key; there is nothing to sign with." >&2
-              echo "hint: the secret must be an ASCII-armored *private* key," >&2
-              echo "      i.e. gpg --export-secret-keys --armor <keyid>, not gpg --export." >&2
-              echo "keys currently in the keyring:" >&2
-              gpg --list-keys --keyid-format LONG >&2 || true
-              exit 1
-            fi
-            echo "Signing PPA uploads with GPG key $GPG_KEY_ID"
-            GPG_USER=$(gpg --list-secret-keys --with-colons | awk -F: '/^uid:/ { print $10; exit }')
-            [ -n "$GPG_USER" ] || GPG_USER="Hydra Maintainers <dev@hydra.app>"
-
-            # Enable passive FTP for dput globally
-            printf '[DEFAULT]\npassive_ftp = 1\n' > ~/.dput.cf
-
-            # Vendor dependencies for offline building
-            cargo vendor vendor/
-
-            # Remove per-crate checksum manifests (they list paths that dpkg-source
-            # omits and cargo would reject)
-            find vendor -name .cargo-checksum.json -print0 \
-              | xargs -0 perl -pi -e 's/"files":\{[^}]*\}/"files":{}/'
-
-            # Copy Debian packaging files to debian/ directory
-            cp -r packaging/debian debian
-
-            # Update changelog and build source packages for each distribution.
-            # The version deliberately carries no hyphen: this is a 3.0 (native)
-            # package, for which a Debian revision is invalid ("native package
-            # version may not have a revision"), so the series suffix goes into the
-            # upstream version instead.
-            for entry in "stonking:26.10" "resolute:26.04" "oracular:24.10" "noble:24.04" "jammy:22.04"; do
-              DISTRO="${entry%%:*}"; SERIES="${entry##*:}"
-              DEB_VERSION="${VERSION}ppa1~ubuntu${SERIES}.1"
-
-              printf "hydra (%s) %s; urgency=medium\n\n  * Automated Launchpad PPA release for %s.\n\n -- %s  %s\n" \
-                "$DEB_VERSION" "$DISTRO" "$DISTRO" "$GPG_USER" "$(date -R -u)" > debian/changelog
-
-              debuild --no-lintian -S -d -k"$GPG_KEY_ID"
-
-              CHANGES="../hydra_${DEB_VERSION}_source.changes"
-              [ -f "$CHANGES" ] || { echo "::error::$CHANGES not produced"; ls -1 ../*.changes >&2 || true; exit 1; }
-
-              # Launchpad's FTP endpoint intermittently answers
-              #   550 Requested action not taken: internal server error
-              # and drops the passive data channel (Launchpad bug #2043679); it has
-              # consistently hit the second upload of a run. Retry with backoff;
-              # -f makes dput ignore its own .upload log on retries, and timeout
-              # stops a hung FTP session from stalling the job.
-              for attempt in 1 2 3 4 5; do
-                if timeout 600 dput -u -f "$LAUNCHPAD_PPA" "$CHANGES"; then
-                  echo "queued $DISTRO on attempt $attempt (acceptance is reported by Launchpad via email)"
-                  break
-                fi
-                [ "$attempt" -lt 5 ] || { echo "::error::dput failed 5 times for $DISTRO"; exit 1; }
-                echo "dput failed for $DISTRO (attempt $attempt); retrying in $((attempt * 30))s"
-                sleep $((attempt * 30))
-              done
-              [ "$DISTRO" = jammy ] || sleep 30
-            done
-            echo "Uploaded PPA packages to $LAUNCHPAD_PPA"
-          else
-            echo "note: LAUNCHPAD_GPG_KEY or LAUNCHPAD_PPA not set; skipping Launchpad release"
-          fi
-
-      - name: Publish to AUR
-        if: needs.verify-version.outputs.prerelease == 'false'
-        env:
-          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          VERSION: ${{ needs.verify-version.outputs.version }}
-        run: |
-          set -euo pipefail
-          if [ -n "${AUR_SSH_PRIVATE_KEY:-}" ]; then
-            mkdir -p ~/.ssh
-            echo "$AUR_SSH_PRIVATE_KEY" > ~/.ssh/aur_ed25519
-            chmod 600 ~/.ssh/aur_ed25519
-            ssh-keyscan -H aur.archlinux.org >> ~/.ssh/known_hosts 2>/dev/null
-
-            export GIT_SSH_COMMAND="ssh -i ~/.ssh/aur_ed25519 -o StrictHostKeyChecking=accept-new"
-            scripts/update-aur.sh "$VERSION" dist
-          else
-            echo "note: AUR_SSH_PRIVATE_KEY not set; skipping automated AUR publish"
-          fi
+          draft: false
+          prerelease: false
+          files: |
+            *.zip
+            *.tar.gz
