@@ -1519,8 +1519,8 @@ fn local_digests(
     path: &std::path::Path,
     advertised: &[pdl_net::digest::Advertised],
 ) -> std::io::Result<Vec<(pdl_net::digest::Algo, String)>> {
-    use pdl_net::digest::Algo;
     use md5::Digest as _;
+    use pdl_net::digest::Algo;
     use std::io::Read;
     let want: Vec<Algo> = advertised
         .iter()

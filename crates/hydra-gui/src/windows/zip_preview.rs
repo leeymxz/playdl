@@ -12,9 +12,9 @@
 use crate::app::{App, El, Message, WinKind, ZipPeek};
 use crate::windows::dlg_btn_primary;
 use crate::{fmt, i18n::tr, icons, model, theme};
-use pdl_net::zipdir::{DosTime, Entry};
 use iced::widget::{column, container, row, scrollable, svg, text};
 use iced::{Background, Length};
+use pdl_net::zipdir::{DosTime, Entry};
 
 const CELL_H: f32 = 22.0;
 const ICON: f32 = 16.0;
