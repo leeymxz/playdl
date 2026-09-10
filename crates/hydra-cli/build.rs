@@ -18,7 +18,11 @@ fn main() {
         // Fallback: try the root docs folder
         let ico2 = workspace_dir.join("docs/playdl.ico");
         if !ico2.exists() {
-            panic!("playdl.ico not found at {} or {}", ico.display(), ico2.display());
+            panic!(
+                "playdl.ico not found at {} or {}",
+                ico.display(),
+                ico2.display()
+            );
         }
     }
     println!("cargo:rerun-if-changed={}", ico.display());
