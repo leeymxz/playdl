@@ -30,3 +30,5 @@ test-gui.ps1
 
 
 pe.txt\npo.txt\nrebrand_gui.ps1\nreupload.ps1
+
+fix_author.ps1\nfix_locale.ps1\npe.txt\npo.txt
