@@ -104,7 +104,7 @@ fn install_with_menu(menu: Menu) {
 
     let mut builder = TrayIconBuilder::new()
         .with_menu(Box::new(menu))
-        .with_tooltip("Hydra");
+        .with_tooltip("PlayDL");
     // tray-icon pops the menu on either button by default, while the Click
     // event fires regardless — so a left-click used to raise the window
     // *behind* an unwanted menu. Left-click activates, right-click opens the

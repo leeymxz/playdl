@@ -50,8 +50,8 @@ Name: "addtopath"; Description: "添加到系统 PATH（可在任意终端使用
 Source: "..\..\target\release\playdl.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 Source: "..\..\target\release\pdl.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 
-; 真正的桌面 GUI 程序
-Source: "..\..\target\release\playdl-desktop.exe"; DestDir: "{app}"; Flags: ignoreversion
+; 真正的桌面 GUI 程序（完整 IDM 风格）
+Source: "..\..\target\release\playdl-gui.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 ; Logo 与图标
 Source: "..\..\docs\logo.png"; DestDir: "{app}"; Flags: ignoreversion
@@ -65,14 +65,14 @@ Source: "..\..\LICENSE-APACHE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\LICENSING.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\PlayDL 下载器"; Filename: "{app}\playdl-desktop.exe"; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"
+Name: "{group}\PlayDL 下载器"; Filename: "{app}\playdl-gui.exe"; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"
 Name: "{group}\PlayDL CLI终端"; Filename: "{app}\bin\playdl.exe"; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"
 Name: "{group}\卸载 PlayDL"; Filename: "{uninstallexe}"; IconFilename: "{app}\playdl.ico"
-Name: "{commondesktop}\PlayDL 下载器"; Filename: "{app}\playdl-desktop.exe"; Tasks: desktopicon; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"
+Name: "{commondesktop}\PlayDL 下载器"; Filename: "{app}\playdl-gui.exe"; Tasks: desktopicon; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"
 
 [Run]
 ; 安装完成后运行选项
-Filename: "{app}\playdl-desktop.exe"; Description: "启动 PlayDL 下载器"; Flags: postinstall nowait skipifsilent unchecked
+Filename: "{app}\playdl-gui.exe"; Description: "启动 PlayDL 下载器"; Flags: postinstall nowait skipifsilent unchecked
 Filename: "{app}\bin\playdl.exe"; Parameters: "--help"; Description: "查看命令行帮助"; Flags: postinstall nowait skipifsilent unchecked
 
 ; 添加到系统 PATH（需要管理员权限）

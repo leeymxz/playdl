@@ -54,7 +54,7 @@ fn section<'a>(title: String) -> El<'a> {
 
 fn general(app: &App) -> El<'_> {
     let s = &app.options.draft;
-    // Which extensions are talking to Hydra right now. A tick with nothing
+    // Which extensions are talking to PlayDL right now. A tick with nothing
     // beside it means the box is set but no extension has connected — which
     // is the difference between "capture is off" and "capture cannot happen",
     // and the list gave no way to tell them apart before.
@@ -94,7 +94,7 @@ fn general(app: &App) -> El<'_> {
             .size(15.0)
             .text_size(theme::FONT_SIZE)
             .style(theme::check),
-        tr("Removes Hydra from the Dock and Cmd-Tab while it runs in the tray; the Dock icon and menu bar return while a window is open."),
+        tr("Removes PlayDL from the Dock and Cmd-Tab while it runs in the tray; the Dock icon and menu bar return while a window is open."),
     ));
     #[cfg(target_os = "windows")]
     let hide_taskbar: Option<El<'_>> = Some(hinted(
@@ -104,7 +104,7 @@ fn general(app: &App) -> El<'_> {
             .size(15.0)
             .text_size(theme::FONT_SIZE)
             .style(theme::check),
-        tr("Hydra windows get no taskbar button; reach the app from the tray icon. Applies to windows opened after the change."),
+        tr("PlayDL windows get no taskbar button; reach the app from the tray icon. Applies to windows opened after the change."),
     ));
     // Linux: an X11 window-manager hint per window. Wayland has no
     // skip-taskbar protocol at all — a checkbox that cannot act would only
@@ -121,7 +121,7 @@ fn general(app: &App) -> El<'_> {
                     .size(15.0)
                     .text_size(theme::FONT_SIZE)
                     .style(theme::check),
-                tr("Keeps Hydra windows out of the taskbar and the workspace switcher; reach the app from the tray icon. Wayland has no way to hide an open window, so there it applies while Hydra runs in the tray."),
+                tr("Keeps PlayDL windows out of the taskbar and the workspace switcher; reach the app from the tray icon. Wayland has no way to hide an open window, so there it applies while PlayDL runs in the tray."),
             )
         });
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
@@ -130,12 +130,12 @@ fn general(app: &App) -> El<'_> {
         column![
         section(tr("Browser/System Integration")),
         hinted(
-            checkbox(s.launch_on_startup).label(tr("Launch Hydra on startup"))
+            checkbox(s.launch_on_startup).label(tr("Launch PlayDL on startup"))
                 .on_toggle(|b| o(OptField::LaunchStartup(b)))
                 .size(15.0)
                 .text_size(theme::FONT_SIZE)
                 .style(theme::check),
-            tr("Registers Hydra as a login item so downloads and queues continue after a reboot."),
+            tr("Registers PlayDL as a login item so downloads and queues continue after a reboot."),
         ),
         hinted(
             checkbox(s.start_in_tray).label(tr("Launch minimized to system tray"))
@@ -151,7 +151,7 @@ fn general(app: &App) -> El<'_> {
                 .size(15.0)
                 .text_size(theme::FONT_SIZE)
                 .style(theme::check),
-            tr("Closing the main window leaves Hydra running in the tray, where queues and transfers carry on; open it again from the tray icon. Off: closing the window exits Hydra."),
+            tr("Closing the main window leaves PlayDL running in the tray, where queues and transfers carry on; open it again from the tray icon. Off: closing the window exits PlayDL."),
         ),
     ];
     // Straight after "Close to system tray": both decide what the app looks
@@ -166,7 +166,7 @@ fn general(app: &App) -> El<'_> {
                 .size(15.0)
                 .text_size(theme::FONT_SIZE)
                 .style(theme::check),
-            tr("Asks the release server for a newer Hydra when the app starts. Only the check is automatic; installing always waits for your confirmation."),
+            tr("Asks the release server for a newer PlayDL when the app starts. Only the check is automatic; installing always waits for your confirmation."),
         ),
         hinted(
             checkbox(s.beta_channel).label(tr("Download Beta channel"))
@@ -209,7 +209,7 @@ fn general(app: &App) -> El<'_> {
             .style(theme::panel)
             .into(),
         text(tr(
-            "Hydra registers itself with these browsers automatically; install the Hydra extension in each one you tick."
+            "PlayDL registers itself with these browsers automatically; install the PlayDL extension in each one you tick."
         ))
             .size(theme::FONT_SIZE - 1.0)
             .color(theme::dim_text(&iced::Theme::Light))
@@ -514,7 +514,7 @@ fn connection(app: &App) -> El<'_> {
                 .size(15.0)
                 .text_size(theme::FONT_SIZE)
                 .style(theme::check),
-            tr("Caps how much Hydra may transfer per period — for metered or capped connections. Transfers pause when the cap is reached and resume by themselves when the next period starts."),
+            tr("Caps how much PlayDL may transfer per period — for metered or capped connections. Transfers pause when the cap is reached and resume by themselves when the next period starts."),
         ),
         row![
             text(tr("Download no more than")).size(theme::FONT_SIZE),
@@ -729,13 +729,13 @@ fn sites(app: &App) -> El<'_> {
 /// The Chrome Web Store listing. Edge has a store of its own (below); the
 /// remaining Chromium browsers install the same item from here.
 const CHROME_STORE: &str =
-    "https://chromewebstore.google.com/detail/hydra-download-manager-in/oieelfilllghmbnhofajpgpmmilfihmo";
+    "https://chromewebstore.google.com/detail/playdl-download-manager-in/oieelfilllghmbnhofajpgpmmilfihmo";
 
 /// The Firefox Add-ons listing.
 /// The setup guide behind the FFmpeg row. A wiki page rather than a
 /// paragraph in this dialog: what to install differs per platform, and it
 /// changes faster than the app ships.
-const FFMPEG_WIKI: &str = "https://github.com/ja7ad/hydra/wiki/Hydra-ffmpeg-integration";
+const FFMPEG_WIKI: &str = "https://github.com/ja7ad/playdl/wiki/PlayDL-ffmpeg-integration";
 
 /// The "not present" counterpart to `theme::PROGRESS_GREEN`.
 const OFFLINE_RED: u32 = 0xB3462E;
@@ -744,7 +744,7 @@ const FIREFOX_STORE: &str = "https://addons.mozilla.org/en-US/firefox/addon/hdm-
 
 /// The Microsoft Edge Add-ons listing: same extension, Edge's own store.
 const EDGE_STORE: &str =
-    "https://microsoftedge.microsoft.com/addons/detail/hydra-download-manager-in/obemipfpeenmhkdpkobdkeedhdakaoai";
+    "https://microsoftedge.microsoft.com/addons/detail/playdl-download-manager-in/obemipfpeenmhkdpkobdkeedhdakaoai";
 
 /// One extension row: brand mark on the left, what the extension does in the
 /// middle, the link button on the right. `link` is `None` for a browser with
@@ -957,7 +957,7 @@ fn extensions(_app: &App) -> El<'_> {
     column![
         section(tr("Browser extensions")),
         text(tr(
-            "Install the Hydra extension to capture downloads straight from your browser."
+            "Install the PlayDL extension to capture downloads straight from your browser."
         ))
         .size(theme::FONT_SIZE),
         ext_row(
@@ -991,7 +991,7 @@ fn extensions(_app: &App) -> El<'_> {
         ext_row(
             crate::icons::browser_safari(),
             "Safari",
-            tr("Ships inside the macOS app; enable Hydra under Safari > Settings > Extensions."),
+            tr("Ships inside the macOS app; enable PlayDL under Safari > Settings > Extensions."),
             tr("Not on store yet"),
             None,
         ),

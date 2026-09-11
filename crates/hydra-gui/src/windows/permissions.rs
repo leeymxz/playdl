@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Javad Rajabzadeh
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The permissions guide: what access Hydra needs on this OS, whether it
+//! The permissions guide: what access PlayDL needs on this OS, whether it
 //! currently has it, and one-click jumps into the right settings pane.
 //!
 //! Nothing here can GRANT anything — that is the operating system's job by
@@ -27,7 +27,7 @@ pub struct PermStatus {
 /// Cheap synchronous probes; called when the window opens and on Tick while
 /// it stays open.
 pub fn probe(download_dir: &str, autostart_expected: bool) -> PermStatus {
-    let probe_file = std::path::Path::new(download_dir).join(".hydra-access-probe");
+    let probe_file = std::path::Path::new(download_dir).join(".playdl-access-probe");
     let folder = std::fs::create_dir_all(download_dir)
         .and_then(|()| std::fs::write(&probe_file, b"ok"))
         .map(|()| {
@@ -110,7 +110,7 @@ pub fn view(app: &App) -> El<'_> {
     items = items.push(entry(
         st.folder,
         tr("Download folder access"),
-        tr("Hydra must write into your download folders. macOS asks the first time; if it was denied, allow Hydra under Files & Folders — or pick the folder once through the system dialog, which grants it automatically."),
+        tr("PlayDL must write into your download folders. macOS asks the first time; if it was denied, allow PlayDL under Files & Folders — or pick the folder once through the system dialog, which grants it automatically."),
         if cfg!(target_os = "macos") {
             Some((
                 tr("Open Files & Folders settings"),
@@ -127,7 +127,7 @@ pub fn view(app: &App) -> El<'_> {
         items = items.push(entry(
             st.full_disk,
             tr("Full Disk Access (optional)"),
-            tr("Lets Hydra save into any folder without per-folder prompts. Add Hydra with the + button, switch it on, then relaunch the app. Not required for normal use."),
+            tr("Lets PlayDL save into any folder without per-folder prompts. Add PlayDL with the + button, switch it on, then relaunch the app. Not required for normal use."),
             Some((
                 tr("Open Full Disk Access settings"),
                 Message::PermOpenPane(
@@ -138,7 +138,7 @@ pub fn view(app: &App) -> El<'_> {
         items = items.push(entry(
             st.login_item,
             tr("Login item"),
-            tr("\"Launch Hydra on startup\" registers a login item; macOS lists it under General > Login Items where you can verify or disable it."),
+            tr("\"Launch PlayDL on startup\" registers a login item; macOS lists it under General > Login Items where you can verify or disable it."),
             Some((
                 tr("Open Login Items settings"),
                 Message::PermOpenPane(
@@ -152,7 +152,7 @@ pub fn view(app: &App) -> El<'_> {
         items = items.push(entry(
             st.folder,
             tr("Controlled folder access"),
-            tr("If Windows Security's ransomware protection blocks Hydra from Documents/Downloads, allow Hydra under \"Allow an app through Controlled folder access\"."),
+            tr("If Windows Security's ransomware protection blocks PlayDL from Documents/Downloads, allow PlayDL under \"Allow an app through Controlled folder access\"."),
             Some((
                 tr("Open Windows Security"),
                 Message::PermOpenPane("windowsdefender://ransomware"),
@@ -174,7 +174,7 @@ pub fn view(app: &App) -> El<'_> {
     // dialog-level action.
     container(
         column![
-            text(tr("Green means Hydra verified the access just now; red means the OS is currently refusing it."))
+            text(tr("Green means PlayDL verified the access just now; red means the OS is currently refusing it."))
                 .size(theme::FONT_SIZE - 1.0)
                 .color(theme::dim_text(&iced::Theme::Light)),
             scrollable(items).height(Length::Fill),

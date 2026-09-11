@@ -84,7 +84,7 @@ pub fn view(app: &App) -> El<'_> {
             Some(Message::Menu(MenuAction::Options)),
         ),
         // Shortcut into Options > Extensions: the browser add-on is how most
-        // downloads reach Hydra, so it gets a toolbar entry of its own.
+        // downloads reach PlayDL, so it gets a toolbar entry of its own.
         tool(
             icons::extensions(true),
             tr("Extensions"),

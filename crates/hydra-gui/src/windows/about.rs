@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Javad Rajabzadeh
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! About Hydra.
+//! 鍏充簬 PlayDL.
 
 use crate::app::{App, El, Message, WinKind};
 use crate::windows::dlg_btn_primary;
@@ -19,7 +19,7 @@ pub fn view(app: &App) -> El<'_> {
                 .width(64.0)
                 .height(64.0),
                 column![
-                    text("Hydra").size(22),
+                    text("PlayDL").size(22),
                     text(format!("{} {}", tr("Version"), env!("CARGO_PKG_VERSION")))
                         .size(theme::FONT_SIZE),
                 ]
@@ -31,7 +31,7 @@ pub fn view(app: &App) -> El<'_> {
             text("© 2026 Javad Rajabzadeh — GPL-3.0-or-later")
                 .size(theme::FONT_SIZE - 1.0)
                 .color(theme::dim_text(&iced::Theme::Light)),
-            text("https://github.com/ja7ad/hydra")
+            text("https://github.com/ja7ad/playdl")
                 .size(theme::FONT_SIZE - 1.0)
                 .color(iced::Color::from_rgb8(0x1F, 0x3F, 0xC4)),
             iced::widget::space::vertical(),

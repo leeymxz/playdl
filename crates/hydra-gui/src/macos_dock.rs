@@ -5,10 +5,10 @@
 //!
 //! "Hide Dock icon" switches the NSApplication activation policy between
 //! Regular and Accessory. AppKit never gives an Accessory app the system
-//! menu bar, and on macOS all of Hydra's menus live there — so going
+//! menu bar, and on macOS all of PlayDL's menus live there — so going
 //! Accessory while a window is open would leave the app unusable (the
 //! original hide-Dock bug). The policy is therefore window-aware: Regular
-//! whenever any Hydra window is open (Dock tile + menu bar), Accessory only
+//! whenever any PlayDL window is open (Dock tile + menu bar), Accessory only
 //! while the app lives in the tray with no windows.
 
 #![cfg(target_os = "macos")]

@@ -572,6 +572,6 @@ pub fn title(app: &App, id: crate::model::DlId) -> String {
                 .unwrap_or_default();
             format!("{pct}{}", d.file_name)
         }
-        None => "Hydra".into(),
+        None => "PlayDL".into(),
     }
 }

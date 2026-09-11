@@ -14,7 +14,7 @@
 //! Wayland has no equivalent: a client cannot ask the compositor to keep it
 //! out of the dock or the switcher, and no protocol (not even
 //! foreign-toplevel) offers one. On a Wayland session the setting therefore
-//! only takes effect the way it does on macOS — while Hydra runs in the tray
+//! only takes effect the way it does on macOS — while PlayDL runs in the tray
 //! with no window open, nothing shows in the dock or in Alt-Tab.
 
 #![cfg(target_os = "linux")]
@@ -146,7 +146,7 @@ fn note_wayland() {
     if ONCE.set(()).is_ok() {
         crate::log::info(
             "hide from taskbar: Wayland has no skip-taskbar protocol, so open windows stay \
-             in the dock; Hydra still leaves it while it runs in the tray with no window open",
+             in the dock; PlayDL still leaves it while it runs in the tray with no window open",
         );
     }
 }

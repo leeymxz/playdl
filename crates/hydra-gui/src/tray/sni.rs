@@ -20,7 +20,7 @@
 //! would need exactly the GTK stack above.
 //!
 //! No shell speaks it -> no `org.kde.StatusNotifierWatcher` on the bus ->
-//! [`is_active`] stays false and Hydra keeps behaving like a plain windowed
+//! [`is_active`] stays false and PlayDL keeps behaving like a plain windowed
 //! app (closing the window quits) instead of vanishing into a tray that
 //! isn't there. The service stays subscribed either way, so a watcher that
 //! shows up later (GNOME Shell restart on Xorg, extension enabled after
@@ -51,17 +51,17 @@ static REFRESH: OnceLock<mpsc::Sender<()>> = OnceLock::new();
 /// watcher; `icon_pixmap` reads it on every host request.
 static WHITE: AtomicBool = AtomicBool::new(true);
 
-struct HydraTray;
+struct PlayDLTray;
 
-impl ksni::Tray for HydraTray {
+impl ksni::Tray for PlayDLTray {
     fn id(&self) -> String {
         // Equal to the .desktop basename so the shell can tie the item back
         // to the application entry.
-        "hydra".into()
+        "playdl".into()
     }
 
     fn title(&self) -> String {
-        crate::i18n::tr("Hydra Download Manager")
+        crate::i18n::tr("PlayDL Download Manager")
     }
 
     fn icon_pixmap(&self) -> Vec<ksni::Icon> {
@@ -79,8 +79,8 @@ impl ksni::Tray for HydraTray {
 
     fn tool_tip(&self) -> ToolTip {
         ToolTip {
-            title: "Hydra".into(),
-            description: crate::i18n::tr("Hydra Download Manager"),
+            title: "PlayDL".into(),
+            description: crate::i18n::tr("PlayDL Download Manager"),
             ..Default::default()
         }
     }
@@ -133,14 +133,14 @@ fn escape(label: &str) -> String {
     label.replace('_', "__")
 }
 
-fn send(id: &str) -> Box<dyn Fn(&mut HydraTray) + Send> {
+fn send(id: &str) -> Box<dyn Fn(&mut PlayDLTray) + Send> {
     let id = id.to_string();
     Box::new(move |_| {
         let _ = crate::menubus::sender().send(id.clone());
     })
 }
 
-fn render(entries: &[Entry]) -> Vec<MenuItem<HydraTray>> {
+fn render(entries: &[Entry]) -> Vec<MenuItem<PlayDLTray>> {
     entries
         .iter()
         .map(|e| match e {
@@ -190,14 +190,14 @@ pub fn install(entries: Vec<Entry>) {
     // (and can sit through a timeout when the bus is unhealthy) — never
     // something to do on the render thread.
     let spawned = std::thread::Builder::new()
-        .name("hydra-tray".into())
+        .name("playdl-tray".into())
         .spawn(move || {
             watch_theme();
             // `assume_sni_available`: a missing watcher becomes a
             // `watcher_offline` callback the service recovers from, instead
             // of a hard error that would give up for the whole session — the
-            // shell often finishes starting after an autostarted Hydra.
-            match HydraTray.assume_sni_available(true).spawn() {
+            // shell often finishes starting after an autostarted PlayDL.
+            match PlayDLTray.assume_sni_available(true).spawn() {
                 Ok(handle) => {
                     if !OFFLINE.load(Ordering::Relaxed) {
                         ACTIVE.store(true, Ordering::Relaxed);
@@ -278,7 +278,7 @@ fn watch_theme() {
         return; // no portal: keep the startup pick, like Windows
     };
     let _ = std::thread::Builder::new()
-        .name("hydra-tray-theme".into())
+        .name("playdl-tray-theme".into())
         .spawn(move || {
             for mode in watcher.iter() {
                 let white = panel_wants_white();

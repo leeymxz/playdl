@@ -60,14 +60,14 @@ pub fn view(app: &App) -> El<'_> {
         Some(ConfirmKind::PermissionWarn { dir }) => (
             format!(
                 "{} ({dir})",
-                tr("Hydra cannot write into the download folder. Grant access when macOS asks, allow Hydra in System Settings > Privacy & Security, or pick another folder per download.")
+                tr("PlayDL cannot write into the download folder. Grant access when macOS asks, allow PlayDL in System Settings > Privacy & Security, or pick another folder per download.")
             ),
             false,
         ),
         Some(ConfirmKind::UpToDate) => (
             format!(
-                "{} (Hydra {})",
-                tr("You are using the latest version of Hydra."),
+                "{} (PlayDL {})",
+                tr("You are using the latest version of PlayDL."),
                 env!("CARGO_PKG_VERSION")
             ),
             false,

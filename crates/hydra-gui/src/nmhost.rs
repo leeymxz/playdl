@@ -3,7 +3,7 @@
 
 //! Native-messaging host self-registration.
 //!
-//! A browser only talks to `hydra-host` if it finds a manifest naming that
+//! A browser only talks to `playdl-host` if it finds a manifest naming that
 //! binary, and every browser looks for it in its own per-user directory (or,
 //! on Windows, under its own `HKCU` key). `scripts/install-native-host.sh`
 //! writes those by hand, which is fine for a checkout and wrong for an
@@ -24,7 +24,7 @@
 
 use std::path::{Path, PathBuf};
 
-const HOST_NAME: &str = "com.hydra.host";
+const HOST_NAME: &str = "com.playdl.host";
 
 /// Chromium extension id, derived from the `key` pinned in
 /// `extensions/chrome/manifest.json` (first 16 bytes of SHA-256 over the DER
@@ -35,9 +35,9 @@ const CHROME_EXT_ID: &str = "jpnonmbbkjdpeebdhkjoliklfhkdcomj";
 
 /// Firefox allow-lists by add-on id, not by an extension origin. Mirrors
 /// `browser_specific_settings.gecko.id` in `extensions/firefox/manifest.json`.
-const FIREFOX_EXT_ID: &str = "hydra@ja7ad.github.io";
+const FIREFOX_EXT_ID: &str = "playdl@ja7ad.github.io";
 
-/// Where `hydra-host` lives: next to the running executable. Packaging puts
+/// Where `playdl-host` lives: next to the running executable. Packaging puts
 /// both binaries in the same directory on every platform, and resolving it
 /// relative to `current_exe` means a moved or relocated install still points
 /// at its own host rather than at whatever was there at install time.
@@ -45,9 +45,9 @@ fn host_binary() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
     let dir = exe.parent()?;
     let name = if cfg!(target_os = "windows") {
-        "hydra-host.exe"
+        "playdl-host.exe"
     } else {
-        "hydra-host"
+        "playdl-host"
     };
     let path = dir.join(name);
     path.is_file().then_some(path)
@@ -65,7 +65,7 @@ fn manifest(host_path: &Path, gecko: bool) -> String {
         )
     };
     format!(
-        "{{\n  \"name\": {},\n  \"description\": \"Hydra Download Manager native host\",\n  \"path\": {},\n  \"type\": \"stdio\",\n  {allow}\n}}\n",
+        "{{\n  \"name\": {},\n  \"description\": \"PlayDL Download Manager native host\",\n  \"path\": {},\n  \"type\": \"stdio\",\n  {allow}\n}}\n",
         json_str(HOST_NAME),
         json_str(&host_path.to_string_lossy()),
     )
@@ -91,7 +91,7 @@ fn json_str(s: &str) -> String {
     out
 }
 
-/// Write `body` to `dir/com.hydra.host.json`, but only when `root` exists —
+/// Write `body` to `dir/com.playdl.host.json`, but only when `root` exists —
 /// that is the test for "this browser is installed for this user". Returns
 /// the path when something was actually written.
 #[cfg(any(not(target_os = "windows"), test))]
@@ -161,7 +161,7 @@ fn targets(home: &Path) -> Vec<(PathBuf, PathBuf, bool)> {
         // browser gets its own private tree. Ubuntu has shipped Firefox as a
         // SNAP by default since 22.04, so on a stock Ubuntu the classic
         // paths below match nothing and the extension is left reporting
-        // "Hydra is not reachable" with no indication why.
+        // "PlayDL is not reachable" with no indication why.
         let snap = home.join("snap");
         let flat = home.join(".var/app");
         vec![
@@ -223,13 +223,13 @@ const WIN_KEYS: &[(&str, bool)] = &[
 /// Point every browser's `HKCU` key at its manifest. Unlike the Unix side
 /// there is nothing to probe for first: writing a key for a browser that is
 /// not installed is inert, and creating it in advance means a browser
-/// installed later works without Hydra being restarted.
+/// installed later works without PlayDL being restarted.
 #[cfg(target_os = "windows")]
 fn register_windows(host: &Path) {
     use winreg::enums::HKEY_CURRENT_USER;
     use winreg::RegKey;
 
-    // One manifest per dialect, in Hydra's own directory: on Windows the
+    // One manifest per dialect, in PlayDL's own directory: on Windows the
     // browser is told where to look, so there is nothing to place inside a
     // browser-owned folder.
     let dir = crate::model::app_dir();
@@ -283,7 +283,7 @@ fn register_windows(host: &Path) {
 /// the WebSocket transport still works whenever the app is already running.
 pub fn ensure_registered() {
     // A `--config DIR` instance registers nothing. The manifest is
-    // machine-wide per user and carries no arguments, so `hydra-host` always
+    // machine-wide per user and carries no arguments, so `playdl-host` always
     // reads ipc.json from the DEFAULT application directory: registering
     // here would point every browser at a host that talks to the ordinary
     // install (or to nothing at all), and overwrite that install's
@@ -301,7 +301,7 @@ pub fn ensure_registered() {
         .spawn(|| {
             let Some(host) = host_binary() else {
                 crate::log::warn(
-                    "nmhost: hydra-host is not next to the app; browser capture cannot launch Hydra",
+                    "nmhost: playdl-host is not next to the app; browser capture cannot launch PlayDL",
                 );
                 return;
             };
@@ -344,10 +344,10 @@ mod tests {
 
     #[test]
     fn chromium_manifest_allow_lists_the_extension_origin() {
-        let m = manifest(Path::new("/opt/hydra/hydra-host"), false);
+        let m = manifest(Path::new("/opt/playdl/playdl-host"), false);
         assert!(m.contains(&format!("chrome-extension://{CHROME_EXT_ID}/")));
         assert!(m.contains("\"allowed_origins\""));
-        assert!(m.contains("\"path\": \"/opt/hydra/hydra-host\""));
+        assert!(m.contains("\"path\": \"/opt/playdl/playdl-host\""));
         assert!(!m.contains("allowed_extensions"));
         // Must parse: a browser silently ignores a malformed manifest.
         serde_json::from_str::<serde_json::Value>(&m).unwrap();
@@ -355,7 +355,7 @@ mod tests {
 
     #[test]
     fn firefox_manifest_allow_lists_the_addon_id() {
-        let m = manifest(Path::new("/opt/hydra/hydra-host"), true);
+        let m = manifest(Path::new("/opt/playdl/playdl-host"), true);
         assert!(m.contains(FIREFOX_EXT_ID));
         assert!(m.contains("\"allowed_extensions\""));
         assert!(!m.contains("allowed_origins"));
@@ -364,11 +364,11 @@ mod tests {
 
     #[test]
     fn windows_paths_survive_json_escaping() {
-        let m = manifest(Path::new(r"C:\Program Files\Hydra\hydra-host.exe"), false);
+        let m = manifest(Path::new(r"C:\Program Files\PlayDL\playdl-host.exe"), false);
         let v: serde_json::Value = serde_json::from_str(&m).unwrap();
         assert_eq!(
             v["path"].as_str().unwrap(),
-            r"C:\Program Files\Hydra\hydra-host.exe"
+            r"C:\Program Files\PlayDL\playdl-host.exe"
         );
     }
 
@@ -377,7 +377,7 @@ mod tests {
     fn linux_covers_snap_and_flatpak_browsers() {
         // Ubuntu ships Firefox as a snap, whose profile is nowhere near
         // ~/.mozilla. Missing it means a stock Ubuntu registers nothing and
-        // the extension reports "Hydra is not reachable" with no clue why.
+        // the extension reports "PlayDL is not reachable" with no clue why.
         let home = std::path::Path::new("/home/tester");
         let dirs: Vec<String> = targets(home)
             .into_iter()
@@ -407,7 +407,7 @@ mod tests {
 
     #[test]
     fn nothing_is_written_where_the_browser_is_absent() {
-        let tmp = std::env::temp_dir().join(format!("hydra-nmhost-{}", std::process::id()));
+        let tmp = std::env::temp_dir().join(format!("playdl-nmhost-{}", std::process::id()));
         let root = tmp.join("not-installed");
         let dir = root.join("NativeMessagingHosts");
         assert!(write_manifest(&root, &dir, "{}").is_none());
@@ -416,14 +416,14 @@ mod tests {
 
     #[test]
     fn an_unchanged_manifest_is_not_rewritten() {
-        let tmp = std::env::temp_dir().join(format!("hydra-nmhost-same-{}", std::process::id()));
+        let tmp = std::env::temp_dir().join(format!("playdl-nmhost-same-{}", std::process::id()));
         let dir = tmp.join("NativeMessagingHosts");
         std::fs::create_dir_all(&tmp).unwrap();
-        let body = manifest(Path::new("/opt/hydra/hydra-host"), false);
+        let body = manifest(Path::new("/opt/playdl/playdl-host"), false);
         assert!(write_manifest(&tmp, &dir, &body).is_some());
         assert!(write_manifest(&tmp, &dir, &body).is_none());
         // A changed host path does get written through.
-        let moved = manifest(Path::new("/usr/local/bin/hydra-host"), false);
+        let moved = manifest(Path::new("/usr/local/bin/playdl-host"), false);
         assert!(write_manifest(&tmp, &dir, &moved).is_some());
         std::fs::remove_dir_all(&tmp).ok();
     }

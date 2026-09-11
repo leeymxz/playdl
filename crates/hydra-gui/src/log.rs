@@ -129,7 +129,7 @@ pub fn banner() {
         .map(|n| n.get())
         .unwrap_or(0);
     info(&format!(
-        "hydra-gui {} | {} {} | {} | {} core(s) | ffmpeg: {}",
+        "playdl-gui {} | {} {} | {} | {} core(s) | ffmpeg: {}",
         env!("CARGO_PKG_VERSION"),
         std::env::consts::OS,
         std::env::consts::ARCH,

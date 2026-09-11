@@ -369,7 +369,7 @@ fn spawn_engine() -> UnboundedSender<Cmd> {
     // channel so the live map sheds finished entries.
     let cmd_tx2 = cmd_tx.clone();
     std::thread::Builder::new()
-        .name("hydra-engine".into())
+        .name("playdl-engine".into())
         .spawn(move || {
             let rt = tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
@@ -950,7 +950,7 @@ async fn fetch_metalink(url: &str, user_agent: &str) -> Result<pdl_net::Metalink
 /// writable parent — deletable from the parent, so drop and recreate it.
 fn ensure_writable_dir(dir: &std::path::Path) {
     let _ = std::fs::create_dir_all(dir);
-    let probe = dir.join(".hydra-write-probe");
+    let probe = dir.join(".playdl-write-probe");
     match std::fs::write(&probe, b"x") {
         Ok(()) => {
             let _ = std::fs::remove_file(&probe);
@@ -976,7 +976,7 @@ fn friendly_io(e: &std::io::Error, path: &str) -> String {
         format!(
             "{} ({path})",
             crate::i18n::tr(
-                "Access to the download folder was denied. Allow Hydra under System Settings > Privacy & Security > Files and Folders, or choose another folder."
+                "Access to the download folder was denied. Allow PlayDL under System Settings > Privacy & Security > Files and Folders, or choose another folder."
             )
         )
     } else {
@@ -2651,7 +2651,7 @@ mod tests {
 
     fn scratch(name: &str, body: &str) -> String {
         let p = std::env::temp_dir().join(format!(
-            "hydra-gui-metalink-{name}-{}.meta4",
+            "playdl-gui-metalink-{name}-{}.meta4",
             std::process::id()
         ));
         std::fs::write(&p, body).unwrap();
@@ -2757,7 +2757,7 @@ mod tests {
 
         // A LOCAL file's content, because a document saved by a browser is as
         // likely to be called `download(1)` as anything else.
-        let p = std::env::temp_dir().join(format!("hydra-gui-ml-content-{}", std::process::id()));
+        let p = std::env::temp_dir().join(format!("playdl-gui-ml-content-{}", std::process::id()));
         std::fs::write(&p, DOC).unwrap();
         assert!(metalink_address(&p.to_string_lossy()));
         // ...and an unrelated XML file that merely mentions the word is not one:
@@ -2962,7 +2962,7 @@ mod tests {
 
     #[test]
     fn set_mtime_stamps_the_file() {
-        let path = std::env::temp_dir().join("hydra-gui-mtime-test.bin");
+        let path = std::env::temp_dir().join("playdl-gui-mtime-test.bin");
         std::fs::write(&path, b"x").expect("write");
         set_mtime(&path, 1_445_412_480).expect("set mtime");
         let got = std::fs::metadata(&path)
@@ -3040,7 +3040,7 @@ mod tests {
         let mut rx = take_events().expect("events");
         let dir = std::env::temp_dir();
         for run in 1..=2u64 {
-            let final_path = dir.join(format!("hydra-ab-{run}.bin"));
+            let final_path = dir.join(format!("playdl-ab-{run}.bin"));
             let _ = std::fs::remove_file(&final_path);
             let conns: usize = std::env::var("HYDRA_AB_CONNS")
                 .ok()
@@ -3051,9 +3051,9 @@ mod tests {
                 url: url.clone(),
                 auth: None,
                 conns,
-                user_agent: "hydra-gui-ab".into(),
+                user_agent: "playdl-gui-ab".into(),
                 temp_path: dir
-                    .join(format!("hydra-ab-{run}.part"))
+                    .join(format!("playdl-ab-{run}.part"))
                     .to_string_lossy()
                     .into_owned(),
                 final_path: final_path.to_string_lossy().into_owned(),
@@ -3109,7 +3109,7 @@ mod tests {
             .build()
             .unwrap();
         let doc = rt
-            .block_on(probe_metalink(src, "hydra-gui-test".into()))
+            .block_on(probe_metalink(src, "playdl-gui-test".into()))
             .expect("the document must resolve");
         let f = doc.files.first().expect("at least one file").clone();
         eprintln!(
@@ -3129,15 +3129,15 @@ mod tests {
         ensure_started();
         let mut rx = take_events().expect("events");
         let dir = std::env::temp_dir();
-        let final_path = dir.join(format!("hydra-gui-metalink-{}", f.name));
+        let final_path = dir.join(format!("playdl-gui-metalink-{}", f.name));
         let _ = std::fs::remove_file(&final_path);
         send(Cmd::Start(Box::new(StartSpec {
             id: 1,
             url: f.primary.clone(),
             conns: 8,
-            user_agent: "hydra-gui-test".into(),
+            user_agent: "playdl-gui-test".into(),
             temp_path: dir
-                .join("hydra-gui-metalink.part")
+                .join("playdl-gui-metalink.part")
                 .to_string_lossy()
                 .into_owned(),
             final_path: final_path.to_string_lossy().into_owned(),
@@ -3206,7 +3206,7 @@ mod tests {
         };
         ensure_started();
         let mut rx = take_events().expect("events");
-        let dir = std::env::temp_dir().join(format!("hydra-gui-mlurl-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("playdl-gui-mlurl-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         // Deliberately the name the URL implies, which is what the dialog would
         // have derived: the document must overwrite it.
@@ -3215,7 +3215,7 @@ mod tests {
             id: 1,
             url,
             conns: 4,
-            user_agent: "hydra-gui-test".into(),
+            user_agent: "playdl-gui-test".into(),
             temp_path: dir.join("metalink.part").to_string_lossy().into_owned(),
             final_path: guessed.to_string_lossy().into_owned(),
             ..StartSpec::plain()
@@ -3271,16 +3271,16 @@ mod tests {
         ensure_started();
         let mut rx = take_events().expect("events");
         let dir = std::env::temp_dir();
-        let final_path = dir.join("hydra-gui-live-test.bin");
+        let final_path = dir.join("playdl-gui-live-test.bin");
         let _ = std::fs::remove_file(&final_path);
         send(Cmd::Start(Box::new(StartSpec {
             id: 1,
             url,
             auth: None,
             conns: 8,
-            user_agent: "hydra-gui-test".into(),
+            user_agent: "playdl-gui-test".into(),
             temp_path: dir
-                .join("hydra-gui-live-test.part")
+                .join("playdl-gui-live-test.part")
                 .to_string_lossy()
                 .into_owned(),
             final_path: final_path.to_string_lossy().into_owned(),
@@ -3675,7 +3675,7 @@ pub fn drm_refusal(system: &str) -> String {
     format!(
         "{system} DRM: {}",
         crate::i18n::tr(
-            "this stream is protected. Hydra does not bypass the technical measures that protect audio and video content, so it cannot be downloaded."
+            "this stream is protected. PlayDL does not bypass the technical measures that protect audio and video content, so it cannot be downloaded."
         )
     )
 }
@@ -5016,7 +5016,7 @@ mod stream_tests {
     }
 
     fn tmp(name: &str) -> std::path::PathBuf {
-        let d = std::env::temp_dir().join(format!("hydra-stream-{}-{name}", std::process::id()));
+        let d = std::env::temp_dir().join(format!("playdl-stream-{}-{name}", std::process::id()));
         let _ = std::fs::create_dir_all(&d);
         d
     }
@@ -5064,7 +5064,7 @@ mod stream_tests {
             container: "TS".into(),
             cookies: Some("sid=s3cr3t".into()),
             referer: Some("https://page.example/watch".into()),
-            user_agent: "hydra-test/1".into(),
+            user_agent: "playdl-test/1".into(),
             temp_path: dir.join("out.part").to_string_lossy().into_owned(),
             final_path: final_path.to_string_lossy().into_owned(),
         };
@@ -5105,7 +5105,7 @@ mod stream_tests {
                 r.contains("Referer: https://page.example/watch"),
                 "no referer on {r}"
             );
-            assert!(r.contains("hydra-test/1"), "no user-agent on {r}");
+            assert!(r.contains("playdl-test/1"), "no user-agent on {r}");
         }
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -5143,7 +5143,7 @@ mod stream_tests {
             container: "MP4".into(),
             cookies: None,
             referer: None,
-            user_agent: "hydra-test/1".into(),
+            user_agent: "playdl-test/1".into(),
             temp_path: dir.join("out.part").to_string_lossy().into_owned(),
             final_path: final_path.to_string_lossy().into_owned(),
         };
@@ -5193,7 +5193,7 @@ mod stream_tests {
             container: "TS".into(),
             cookies: None,
             referer: None,
-            user_agent: "hydra-test/1".into(),
+            user_agent: "playdl-test/1".into(),
             temp_path: dir.join("out.part").to_string_lossy().into_owned(),
             final_path: final_path.to_string_lossy().into_owned(),
         };
@@ -5264,7 +5264,7 @@ mod stream_tests {
             container: "MP4".into(),
             cookies: None,
             referer: None,
-            user_agent: "hydra-test/1".into(),
+            user_agent: "playdl-test/1".into(),
             temp_path: dir
                 .join(format!("{name}.part"))
                 .to_string_lossy()
@@ -5991,7 +5991,7 @@ mod stream_tests {
             container: "TS".into(),
             cookies: None,
             referer: None,
-            user_agent: "hydra-test/1".into(),
+            user_agent: "playdl-test/1".into(),
             temp_path: dir.join("out.part").to_string_lossy().into_owned(),
             final_path: final_path.to_string_lossy().into_owned(),
         };
@@ -6297,7 +6297,7 @@ mod peek_zip_tests {
             let t0 = std::time::Instant::now();
             let connector = shared_connector().unwrap();
             let c = connector.as_ref();
-            let (url, p) = resolve_link(c, url, "hydra-test", &[])
+            let (url, p) = resolve_link(c, url, "playdl-test", &[])
                 .await
                 .expect("resolve");
             eprintln!(
@@ -6308,7 +6308,7 @@ mod peek_zip_tests {
                 p.ranges
             );
             let u = parse_url(&url).unwrap();
-            let t = target_of(&u, vec![], "hydra-test");
+            let t = target_of(&u, vec![], "playdl-test");
             let t1 = std::time::Instant::now();
             let total = p.size;
             let tail = pdl_net::fetch_small_range(
@@ -6329,7 +6329,7 @@ mod peek_zip_tests {
                 dir.offset >= total - tail.len() as u64
             );
             let t2 = std::time::Instant::now();
-            let all = peek_zip(url, "hydra-test".into(), vec![], None)
+            let all = peek_zip(url, "playdl-test".into(), vec![], None)
                 .await
                 .expect("peek");
             eprintln!(
@@ -6338,7 +6338,7 @@ mod peek_zip_tests {
                 all.len()
             );
             let t3 = std::time::Instant::now();
-            let all = peek_zip(original, "hydra-test".into(), vec![], Some(total))
+            let all = peek_zip(original, "playdl-test".into(), vec![], Some(total))
                 .await
                 .expect("peek");
             eprintln!(
@@ -6364,7 +6364,7 @@ mod peek_zip_tests {
         let spec = StartSpec {
             cookies: Some("sid=1".into()),
             referer: Some("https://www.example.com/watch".into()),
-            user_agent: "hydra-test".into(),
+            user_agent: "playdl-test".into(),
             ..StartSpec::plain()
         };
         let u = parse_url("https://cdn.example.com/a.mp4?e=1&s=2").unwrap();

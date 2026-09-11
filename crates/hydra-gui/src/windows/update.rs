@@ -28,7 +28,7 @@ pub fn view(app: &App) -> El<'_> {
         .width(48.0)
         .height(48.0),
         column![
-            text(tr("A new version of Hydra is available")).size(theme::FONT_SIZE + 3.0),
+            text(tr("A new version of PlayDL is available")).size(theme::FONT_SIZE + 3.0),
             text(format!(
                 "{} {}   —   {} {}",
                 tr("New version:"),
@@ -67,7 +67,7 @@ pub fn view(app: &App) -> El<'_> {
     let status: El<'_> = match &app.updater.phase {
         UpdatePhase::Idle if !info.in_place => {
             let mut col = column![text(tr(
-                "This copy of Hydra cannot update itself in place. Download the new installer and install it the way you installed this one."
+                "This copy of PlayDL cannot update itself in place. Download the new installer and install it the way you installed this one."
             ))
             .size(theme::FONT_SIZE - 1.0)
             .color(iced::Color::from_rgb8(0x9A, 0x6A, 0x00))]
@@ -78,13 +78,13 @@ pub fn view(app: &App) -> El<'_> {
             col.into()
         }
         // A root-owned install (a tarball unpacked with sudo) is still
-        // Hydra's to replace — the finisher just has to ask first, and
+        // PlayDL's to replace — the finisher just has to ask first, and
         // saying so before the download beats an unexplained password panel
         // after the app has quit.
         UpdatePhase::Idle if info.needs_auth => column![
             download_line(&info.asset_name, info.size),
             text(tr(
-                "Hydra is installed for all users; finishing the update will ask for your administrator password."
+                "PlayDL is installed for all users; finishing the update will ask for your administrator password."
             ))
             .size(theme::FONT_SIZE - 1.0)
             .color(theme::dim_text(&iced::Theme::Light)),
@@ -122,7 +122,7 @@ pub fn view(app: &App) -> El<'_> {
         UpdatePhase::Preparing => text(tr("Preparing the update..."))
             .size(theme::FONT_SIZE)
             .into(),
-        UpdatePhase::Restarting => text(tr("Hydra will now restart to finish the update."))
+        UpdatePhase::Restarting => text(tr("PlayDL will now restart to finish the update."))
             .size(theme::FONT_SIZE)
             .into(),
         UpdatePhase::Failed(e) => text(format!("{} {e}", tr("Update failed:")))
@@ -370,7 +370,7 @@ mod tests {
     #[test]
     fn inline_markdown_strips_to_text() {
         assert_eq!(clean_inline("**Bold** fix"), "Bold fix");
-        assert_eq!(clean_inline("use `hydra update`"), "use hydra update");
+        assert_eq!(clean_inline("use `playdl update`"), "use playdl update");
         assert_eq!(
             clean_inline("by [someone](https://github.com/x) in #12"),
             "by someone in #12"
@@ -381,21 +381,21 @@ mod tests {
     #[test]
     fn pr_urls_become_numbers() {
         assert_eq!(
-            shorten_refs("Fix quota tracking by @ja7ad in https://github.com/ja7ad/hydra/pull/15"),
+            shorten_refs("Fix quota tracking by @ja7ad in https://github.com/ja7ad/playdl/pull/15"),
             "Fix quota tracking by @ja7ad (#15)"
         );
         assert_eq!(
-            shorten_refs("closes https://github.com/ja7ad/hydra/issues/9."),
+            shorten_refs("closes https://github.com/ja7ad/playdl/issues/9."),
             "closes (#9)"
         );
         // Other URLs, and prose that merely contains "in", stay put.
-        let keep = "See https://hydra.dev/docs in the manual";
+        let keep = "See https://playdl.dev/docs in the manual";
         assert_eq!(shorten_refs(keep), keep);
     }
 
     #[test]
     fn changelog_line_splits_into_label_and_link() {
-        let line = "Full Changelog: https://github.com/ja7ad/hydra/compare/v0.3.3-rc...v0.3.4-rc";
+        let line = "Full Changelog: https://github.com/ja7ad/playdl/compare/v0.3.3-rc...v0.3.4-rc";
         let (label, url) = trailing_link(line).expect("trailing url");
         assert_eq!(label, "Full Changelog:");
         assert_eq!(link_label(&url), "v0.3.3-rc...v0.3.4-rc");

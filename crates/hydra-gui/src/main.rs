@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Javad Rajabzadeh
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! hydra-gui: desktop front end for the hydra download engine.
+//! playdl-gui: desktop front end for the playdl download engine.
 //!
 //! Runs as an iced daemon: the main window plus every dialog (Add URL, File
 //! Info, progress, Options, Scheduler, ...) is its own OS window.
@@ -87,13 +87,13 @@ fn main() -> iced::Result {
         Ok(Some(dir)) => match prepare_app_dir(dir) {
             Ok(dir) => model::set_app_dir(dir),
             Err(e) => {
-                eprintln!("hydra-gui: --config: {e}");
+                eprintln!("playdl-gui: --config: {e}");
                 std::process::exit(1);
             }
         },
         Ok(None) => {}
         Err(msg) => {
-            eprintln!("hydra-gui: {msg}");
+            eprintln!("playdl-gui: {msg}");
             std::process::exit(2);
         }
     }
@@ -286,7 +286,7 @@ fn boot() -> (App, Task<Message>) {
     }
     // Dock visibility before any window opens, so a tray-only launch never
     // flashes a Dock tile. A window about to open forces Regular: Accessory
-    // apps get no menu bar, and on macOS every Hydra menu lives there.
+    // apps get no menu bar, and on macOS every PlayDL menu lives there.
     #[cfg(target_os = "macos")]
     macos_dock::sync(app.cfg.settings.hide_from_taskbar, !start_hidden);
     if start_hidden {
@@ -335,22 +335,22 @@ fn title(app: &App, id: window::Id) -> String {
     use crate::i18n::tr;
     match app.windows.get(&id) {
         // Version lives in the About dialog only.
-        Some(WinKind::Main) => tr("Hydra Download Manager"),
+        Some(WinKind::Main) => tr("PlayDL Download Manager"),
         Some(WinKind::AddUrl) => tr("Enter new address to download"),
         Some(WinKind::FileInfo(_)) => tr("Download File Info"),
         Some(WinKind::Progress(dl)) => windows::progress::title(app, *dl),
         Some(WinKind::Complete(_)) => tr("Download complete"),
-        Some(WinKind::Options) => tr("Hydra Configuration"),
+        Some(WinKind::Options) => tr("PlayDL 璁剧疆"),
         Some(WinKind::Scheduler) => tr("Scheduler"),
         Some(WinKind::Batch) => tr("Add batch download"),
-        Some(WinKind::About) => tr("About Hydra"),
+        Some(WinKind::About) => tr("鍏充簬 PlayDL"),
         Some(WinKind::Shortcuts) => tr("Keyboard Shortcuts"),
-        Some(WinKind::Confirm) => tr("Hydra"),
+        Some(WinKind::Confirm) => tr("PlayDL"),
         Some(WinKind::Permissions) => tr("Permissions"),
-        Some(WinKind::Update) => tr("Update Hydra"),
-        Some(WinKind::Power) => tr("Hydra"),
+        Some(WinKind::Update) => tr("鏇存柊 PlayDL"),
+        Some(WinKind::Power) => tr("PlayDL"),
         Some(WinKind::ZipPreview(_)) => tr("Zip preview"),
-        None => "Hydra".into(),
+        None => "PlayDL".into(),
     }
 }
 
@@ -537,29 +537,29 @@ mod tests {
 
     #[test]
     fn no_flag_means_the_platform_directory() {
-        assert_eq!(parse(&["hydra-gui", "--minimized"]), Ok(None));
+        assert_eq!(parse(&["playdl-gui", "--minimized"]), Ok(None));
     }
 
     #[test]
     fn both_spellings_are_accepted() {
         let want = Ok(Some(PathBuf::from("./here")));
-        assert_eq!(parse(&["hydra-gui", "--config", "./here"]), want);
-        assert_eq!(parse(&["hydra-gui", "--config=./here"]), want);
+        assert_eq!(parse(&["playdl-gui", "--config", "./here"]), want);
+        assert_eq!(parse(&["playdl-gui", "--config=./here"]), want);
         assert_eq!(
-            parse(&["hydra-gui", "--minimized", "--config", "./here"]),
+            parse(&["playdl-gui", "--minimized", "--config", "./here"]),
             want
         );
     }
 
     #[test]
     fn a_missing_or_empty_directory_is_an_error() {
-        assert!(parse(&["hydra-gui", "--config"]).is_err());
-        assert!(parse(&["hydra-gui", "--config", ""]).is_err());
-        assert!(parse(&["hydra-gui", "--config="]).is_err());
+        assert!(parse(&["playdl-gui", "--config"]).is_err());
+        assert!(parse(&["playdl-gui", "--config", ""]).is_err());
+        assert!(parse(&["playdl-gui", "--config="]).is_err());
     }
 
     #[test]
     fn the_executable_path_is_never_read_as_a_flag() {
-        assert_eq!(parse(&["/opt/--config=oops/hydra-gui"]), Ok(None));
+        assert_eq!(parse(&["/opt/--config=oops/playdl-gui"]), Ok(None));
     }
 }

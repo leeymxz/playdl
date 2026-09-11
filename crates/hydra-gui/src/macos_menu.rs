@@ -75,9 +75,9 @@ pub fn reinstall(state: &MenuState, queues: &[String], languages: &[String]) {
 
     let menu = Menu::new();
 
-    let app_m = Submenu::new("Hydra", true);
+    let app_m = Submenu::new("PlayDL", true);
     let _ = app_m.append_items(&[
-        &item("About Hydra", MenuAction::About),
+        &item("鍏充簬 PlayDL", MenuAction::About),
         &PredefinedMenuItem::separator(),
         &PredefinedMenuItem::hide(None),
         &PredefinedMenuItem::hide_others(None),
@@ -86,7 +86,7 @@ pub fn reinstall(state: &MenuState, queues: &[String], languages: &[String]) {
         // Not `PredefinedMenuItem::quit`: that one calls AppKit's terminate
         // straight away, so the download list and config never get their
         // final flush. Our own Exit saves first, then exits.
-        &item_accel("Exit Hydra", MenuAction::Exit, "Cmd+Q"),
+        &item_accel("Exit PlayDL", MenuAction::Exit, "Cmd+Q"),
     ]);
     let _ = menu.append(&app_m);
 
@@ -200,14 +200,14 @@ pub fn reinstall(state: &MenuState, queues: &[String], languages: &[String]) {
 
     let help = Submenu::new(tr("Help"), true);
     let _ = help.append_items(&[
-        &item("Hydra Home Page", MenuAction::HomePage),
+        &item("PlayDL 涓婚〉", MenuAction::HomePage),
         &item("Contribute on GitHub", MenuAction::Contribute),
         &item("Keyboard Shortcuts", MenuAction::Shortcuts),
         &item("Permissions", MenuAction::Permissions),
         &item("Logs", MenuAction::Logs),
         &item("Report an Issue", MenuAction::ReportIssue),
         &item("Check for updates", MenuAction::CheckUpdates),
-        &item("About Hydra", MenuAction::About),
+        &item("鍏充簬 PlayDL", MenuAction::About),
     ]);
     let _ = menu.append(&help);
 

@@ -1,10 +1,10 @@
 // Copyright (C) 2026 Javad Rajabzadeh
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Embeds the Windows resources — hydra.ico and a VERSIONINFO block — into
-//! hydra-gui.exe. Explorer, the taskbar, and Task Manager's "Startup apps"
+//! Embeds the Windows resources — playdl.ico and a VERSIONINFO block — into
+//! playdl-gui.exe. Explorer, the taskbar, and Task Manager's "Startup apps"
 //! page all read these, so without them the exe gets a generic icon and the
-//! login item shows an anonymous name instead of "Hydra Download Manager".
+//! login item shows an anonymous name instead of "PlayDL Download Manager".
 //!
 //! The .rc is generated here (version comes from Cargo.toml) and compiled by
 //! embed-resource: rc.exe on a Windows host, llvm-rc when cross-compiling
@@ -20,9 +20,9 @@ fn main() {
 
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     let ico = manifest_dir
-        .join("../../scripts/windows/hydra.ico")
+        .join("../../docs/playdl.ico")
         .canonicalize()
-        .expect("scripts/windows/hydra.ico not found");
+        .expect("docs/playdl.ico not found");
     println!("cargo:rerun-if-changed={}", ico.display());
 
     let version = std::env::var("CARGO_PKG_VERSION").unwrap();
@@ -46,14 +46,14 @@ BEGIN
   BEGIN
     BLOCK "040904B0"
     BEGIN
-      VALUE "ProductName", "Hydra Download Manager"
-      VALUE "FileDescription", "Hydra Download Manager"
+      VALUE "ProductName", "PlayDL Download Manager"
+      VALUE "FileDescription", "PlayDL Download Manager"
       VALUE "FileVersion", "{version}"
       VALUE "ProductVersion", "{version}"
       VALUE "CompanyName", "Javad Rajabzadeh"
       VALUE "LegalCopyright", "(C) 2026 Javad Rajabzadeh. GPL-3.0-or-later."
-      VALUE "OriginalFilename", "hydra-gui.exe"
-      VALUE "InternalName", "hydra-gui"
+      VALUE "OriginalFilename", "playdl-gui.exe"
+      VALUE "InternalName", "playdl-gui"
     END
   END
   BLOCK "VarFileInfo"
@@ -64,7 +64,7 @@ END
 "#
     );
 
-    let rc_path = PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("hydra-gui.rc");
+    let rc_path = PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("playdl-gui.rc");
     std::fs::write(&rc_path, rc).unwrap();
     embed_resource::compile(&rc_path, embed_resource::NONE)
         .manifest_required()

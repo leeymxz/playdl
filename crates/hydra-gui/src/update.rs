@@ -28,13 +28,13 @@ pub struct UpdateInfo {
     pub size: u64,
     /// `SHA256SUMS.txt` asset, when the release publishes one.
     pub sums_url: Option<String>,
-    /// Whether Hydra can install this update itself. False for a packaged
+    /// Whether PlayDL can install this update itself. False for a packaged
     /// install (`/usr/bin` from a deb or rpm, a `.pkg` in `/Applications`):
     /// the dialog then offers the installer instead.
     pub in_place: bool,
     /// Whether finishing the update will ask for an administrator password
     /// — a root-owned install (a tarball unpacked into `/usr/local` with
-    /// sudo) that Hydra may still replace, once the user authorises it.
+    /// sudo) that PlayDL may still replace, once the user authorises it.
     pub needs_auth: bool,
     /// The `.deb`/`.rpm` for this machine, when the install is packaged and
     /// the release ships one: (file name, download URL, size).
@@ -54,7 +54,7 @@ pub enum UpdateEvent {
 }
 
 fn user_agent() -> String {
-    format!("hydra-gui/{}", env!("CARGO_PKG_VERSION"))
+    format!("playdl-gui/{}", env!("CARGO_PKG_VERSION"))
 }
 
 /// Ask the release API whether a newer GUI bundle exists for this machine.
@@ -89,7 +89,7 @@ pub async fn check(beta: bool) -> Result<Option<UpdateInfo>, String> {
         ));
         return Ok(None);
     };
-    // Can the finisher actually rewrite this install? Everything Hydra put
+    // Can the finisher actually rewrite this install? Everything PlayDL put
     // there itself — an unpacked archive, a macOS `.app`, a per-user
     // Windows install — it can replace; a root-owned copy takes an
     // authorisation prompt; only a package manager's files (`/usr/bin` from
@@ -236,9 +236,9 @@ async fn drive(
     // not a directory, and mounting it to fish one binary out would buy
     // nothing the shipped finisher cannot already do.
     let updater_name = if cfg!(target_os = "windows") {
-        "hydra-updater.exe"
+        "playdl-updater.exe"
     } else {
-        "hydra-updater"
+        "playdl-updater"
     };
     let exe = std::env::current_exe()?;
     let install_dir = exe

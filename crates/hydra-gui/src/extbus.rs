@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Browser-extension bridge: a loopback TCP listener the native-messaging
-//! host (`hydra-host`) connects to on behalf of the Chrome/Firefox add-ons.
+//! host (`playdl-host`) connects to on behalf of the Chrome/Firefox add-ons.
 //!
 //! Why TCP and not a unix socket / named pipe: one code path on every OS,
 //! plain `std::net` (no extra runtime plumbing), and the browser can never
-//! reach it directly anyway — only `hydra-host` does, authenticated by a
+//! reach it directly anyway — only `playdl-host` does, authenticated by a
 //! random token. Port and token are published to `<app_dir>/ipc.json`,
 //! readable only by the owning user, which is the same trust boundary the
 //! config itself lives behind.
@@ -16,13 +16,13 @@
 //! cached filter list converges without a dedicated poll.
 //!
 //! There are two front doors to the same request handler:
-//!  - the ephemeral line-protocol port, used by `hydra-host`, authenticated
+//!  - the ephemeral line-protocol port, used by `playdl-host`, authenticated
 //!    by the ipc.json token (browsers cannot read files, hosts can);
 //!  - a WebSocket listener on a KNOWN port (6799, fallback 16799), spoken
 //!    directly by the browser extension, authenticated by the `Origin`
 //!    header (browsers always send `chrome-extension://...` and never let a
 //!    page forge it). A live WS connection doubles as the extension's
-//!    "hydra is running" indicator.
+//!    "playdl is running" indicator.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -116,7 +116,7 @@ pub struct ExtStream {
 /// the UI thread has taken the download.
 ///
 /// The extension CANCELS AND ERASES the browser's own copy when it sees
-/// `ok`, so that word has to mean "hydra owns this now". It used to mean
+/// `ok`, so that word has to mean "playdl owns this now". It used to mean
 /// "a message went onto a channel", and the difference is a lost file: an
 /// app that dies between the two (on Windows the browser kills the whole
 /// native-messaging job the moment the host answers) takes the download
@@ -145,7 +145,7 @@ pub enum ExtEvent {
     Stream(Box<ExtStream>),
     /// "Download all links": many URLs -> the batch window.
     Links(Vec<String>),
-    /// Popup's "Open Hydra": surface the main window.
+    /// Popup's "Open PlayDL": surface the main window.
     Open,
     /// A newer build launched and asked this instance to step aside so the
     /// surviving process is the new version (see `signal_existing`).
@@ -502,7 +502,7 @@ fn dispatch(req: &serde_json::Value, trusted: bool) -> serde_json::Value {
                         crate::log::warn(
                             "extbus: capture was not taken up; handing it back to the browser",
                         );
-                        (false, Some("hydra did not take the download"))
+                        (false, Some("playdl did not take the download"))
                     }
                 }
             }
@@ -663,7 +663,7 @@ fn serve_ws(stream: TcpStream) {
 
     // A browser always stamps extension contexts with their real origin and
     // pages cannot forge it — this is the authentication. (Native processes
-    // could connect, but a same-user process already owns ~/.config/hydra.)
+    // could connect, but a same-user process already owns ~/.config/playdl.)
     let origin = header("Origin").unwrap_or_default();
     let origin_ok = [
         "chrome-extension://",

@@ -152,7 +152,7 @@ fn schedule_tab<'a>(q: &'a QueueDef) -> El<'a> {
         ]
         .spacing(30),
         checkbox(sc.start_on_startup)
-            .label(tr("Start download on Hydra startup"))
+            .label(tr("Start download on PlayDL startup"))
             .on_toggle(|b| s(SchField::OnStartup(b)))
             .size(15.0)
             .text_size(theme::FONT_SIZE)
@@ -231,7 +231,7 @@ fn schedule_tab<'a>(q: &'a QueueDef) -> El<'a> {
         .spacing(10)
         .align_y(iced::Alignment::Center),
         checkbox(sc.exit_when_done)
-            .label(tr("Exit Hydra when done"))
+            .label(tr("Exit PlayDL when done"))
             .on_toggle(|b| s(SchField::ExitDone(b)))
             .size(15.0)
             .text_size(theme::FONT_SIZE)

@@ -63,7 +63,7 @@ fn model(queues: &[String], power_save: bool) -> Vec<Entry> {
     vec![
         Entry::Item {
             id: "show_main".into(),
-            label: tr("Show Hydra"),
+            label: tr("Show PlayDL"),
         },
         Entry::Separator,
         Entry::Sub {
@@ -105,7 +105,7 @@ fn model(queues: &[String], power_save: bool) -> Vec<Entry> {
             checked: power_save,
         },
         item("Options", MenuAction::Options),
-        item("About Hydra", MenuAction::About),
+        item("鍏充簬 PlayDL", MenuAction::About),
         Entry::Separator,
         item("Exit", MenuAction::Exit),
     ]
@@ -128,7 +128,7 @@ pub fn reinstall(queues: &[String], power_save: bool) {
 }
 
 /// Whether the app is reachable from a tray icon right now. Closing the last
-/// window is only allowed to leave Hydra running when this is true —
+/// window is only allowed to leave PlayDL running when this is true —
 /// otherwise the process would live on with no way to reach it (a GNOME
 /// session without the AppIndicator extension, a failed Windows shell
 /// notification area registration).

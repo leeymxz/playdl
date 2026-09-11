@@ -1289,8 +1289,8 @@ pub struct PowerPrompt {
     pub action: PowerAction,
     /// Seconds left. Counts down to zero, then the action runs.
     pub secs: u8,
-    /// Quit Hydra when the countdown ends even if the action leaves the
-    /// session up — a queue's "Exit Hydra when done", which is set
+    /// Quit PlayDL when the countdown ends even if the action leaves the
+    /// session up — a queue's "Exit PlayDL when done", which is set
     /// independently of the power action and outlives cancelling it.
     pub exit_after: bool,
 }
@@ -1370,7 +1370,7 @@ impl App {
         let Some(dir) = self.cfg.categories.first().map(|c| c.dir.clone()) else {
             return Task::none();
         };
-        let probe = std::path::Path::new(&dir).join(".hydra-access-probe");
+        let probe = std::path::Path::new(&dir).join(".playdl-access-probe");
         let ok = std::fs::create_dir_all(&dir)
             .and_then(|()| std::fs::write(&probe, b"ok"))
             .map(|()| {
@@ -1825,10 +1825,10 @@ impl App {
         // below is X11/Windows-only: without this the shell has nothing to
         // match on and falls back to a generic icon even though the app
         // menu entry shows the logo. Must stay equal to the basename of
-        // hydra.desktop (scripts/package-linux.sh, install.sh).
+        // playdl.desktop (scripts/package-linux.sh, install.sh).
         #[cfg(target_os = "linux")]
         let platform_specific = window::settings::PlatformSpecific {
-            application_id: "hydra".to_string(),
+            application_id: "playdl".to_string(),
             ..Default::default()
         };
         #[cfg(not(any(target_os = "windows", target_os = "linux")))]
@@ -1965,7 +1965,7 @@ impl App {
         }
         let q = &mut self.state.dl_quota;
         // The window opens at the first accounted byte, not at app start: an
-        // idle Hydra must not burn through periods it never downloaded in.
+        // idle PlayDL must not burn through periods it never downloaded in.
         if q.window_start == 0 {
             q.window_start = fmt::now_unix();
         }
@@ -2107,7 +2107,7 @@ impl App {
                 cookies: d.cookies.clone(),
                 referer: si.referer,
                 // The browser's UA when the extension sent one: the origin
-                // handed the manifest to THAT client, not to Hydra.
+                // handed the manifest to THAT client, not to PlayDL.
                 user_agent: si.user_agent.unwrap_or(user_agent),
                 temp_path: part,
                 final_path: d.full_path().to_string_lossy().into_owned(),
@@ -2430,7 +2430,7 @@ impl App {
             }
             if f.info.signed {
                 crate::log::warn(&format!(
-                    "#{id} the mirror list carries an OpenPGP signature over {}; Hydra records it but does not verify it",
+                    "#{id} the mirror list carries an OpenPGP signature over {}; PlayDL records it but does not verify it",
                     f.name
                 ));
             }
@@ -2511,7 +2511,7 @@ impl App {
         let task = self.close_window(WinKind::Progress(id));
         // A pending power action makes the complete dialog moot: the
         // countdown takes the screen instead, and whatever the user does
-        // with it decides whether Hydra is still here afterwards.
+        // with it decides whether PlayDL is still here afterwards.
         if let Some(action) = self
             .item(id)
             .filter(|d| d.shutdown_after)
@@ -2541,8 +2541,8 @@ impl App {
     /// flushed up front all the same — the countdown ends in a call that can
     /// stop the process where it stands.
     ///
-    /// `exit_after` quits Hydra once the countdown resolves even if the
-    /// action itself leaves the session running (a queue's "Exit Hydra when
+    /// `exit_after` quits PlayDL once the countdown resolves even if the
+    /// action itself leaves the session running (a queue's "Exit PlayDL when
     /// done"); cancelling the power action does not cancel that.
     ///
     /// A second call while one countdown is already up is ignored: two
@@ -2579,7 +2579,7 @@ impl App {
         self.flush_saves();
         run_power_action(p.action);
         // Shutdown and log off end the process anyway; sleeping only
-        // suspends the machine, so Hydra stays up and is still here on wake
+        // suspends the machine, so PlayDL stays up and is still here on wake
         // unless the queue also asked it to exit.
         if p.action.ends_session() || p.exit_after {
             Task::batch([close, iced::exit()])
@@ -2589,7 +2589,7 @@ impl App {
     }
 
     /// Call the pending power action off — the Cancel button, or the OS
-    /// close button on the countdown window. "Exit Hydra when done" is a
+    /// close button on the countdown window. "Exit PlayDL when done" is a
     /// separate instruction and still stands.
     fn cancel_power_action(&mut self) -> Task<Message> {
         let Some(p) = self.power.take() else {
@@ -2754,7 +2754,7 @@ impl App {
             self.save_config();
             self.flush_saves();
             // With a power action pending, the countdown owns the exit too:
-            // "Exit Hydra when done" still happens, but only once the user
+            // "Exit PlayDL when done" still happens, but only once the user
             // has had their ten seconds to call the machine's fate off.
             if let Some(action) = power_action {
                 let armed = self.arm_power_action(action, exit_app);
@@ -3264,7 +3264,7 @@ impl App {
                         self.save_config();
                         self.flush_saves();
                         if self.cfg.settings.close_to_tray && crate::tray::is_active() {
-                            // Hydra lives on in the system tray; Exit is in
+                            // PlayDL lives on in the system tray; Exit is in
                             // the tray menu (and the app menu on macOS).
                             // Without a tray there would be no way back to
                             // the app, so closing quits instead — and so it
@@ -3304,7 +3304,7 @@ impl App {
                         .unwrap_or_else(Task::none),
                     // OS close button on the countdown is Cancel. The window
                     // is already gone, so this only settles the state (and
-                    // any pending "Exit Hydra when done").
+                    // any pending "Exit PlayDL when done").
                     Some(WinKind::Power) => self.cancel_power_action(),
                     Some(WinKind::Update) => {
                         // OS close button is Cancel: stop an in-flight
@@ -4119,7 +4119,7 @@ impl App {
                 if existing.is_some() || file.is_some() {
                     // Logged: the dialog names a path, and the report that
                     // it names one that "does not exist" cannot be told
-                    // apart from a real leftover without knowing what Hydra
+                    // apart from a real leftover without knowing what PlayDL
                     // saw at this instant.
                     crate::log::info(&format!(
                         "duplicate: list={} disk={}",
@@ -4212,7 +4212,7 @@ impl App {
                     };
                     let task = self.update(Message::AddUrlOk);
                     // The item is listed (or a duplicate dialog is up over
-                    // it): hydra owns this download, so the browser may drop
+                    // it): playdl owns this download, so the browser may drop
                     // its own paused copy. Until this, it must not.
                     ack.confirm();
                     task
@@ -4775,7 +4775,7 @@ impl App {
                 // still open here (Options itself), so this stays Regular;
                 // the actual hide happens when the last window closes —
                 // Accessory apps get no menu bar, so hiding the Dock while
-                // a window is up would strip every Hydra menu.
+                // a window is up would strip every PlayDL menu.
                 #[cfg(target_os = "macos")]
                 crate::macos_dock::sync(self.cfg.settings.hide_from_taskbar, true);
                 crate::autostart::apply(
@@ -5660,7 +5660,7 @@ impl App {
                 // A link whose host is on the "don't start downloading
                 // automatically" list starts out unchecked: the user must
                 // opt back in explicitly, same as the extension's own
-                // pre-filter would have refused to hand it to Hydra at all.
+                // pre-filter would have refused to hand it to PlayDL at all.
                 (
                     l.to_string(),
                     prev.unwrap_or_else(|| !site_blocked(l, sites)),
@@ -5900,15 +5900,15 @@ impl App {
                 Task::none()
             }
             MenuAction::HomePage => {
-                let _ = open::that_detached("https://hydra.javad.dev");
+                let _ = open::that_detached("https://playdl.javad.dev");
                 Task::none()
             }
             MenuAction::Contribute => {
-                let _ = open::that_detached("https://github.com/ja7ad/hydra");
+                let _ = open::that_detached("https://github.com/ja7ad/playdl");
                 Task::none()
             }
             MenuAction::ReportIssue => {
-                let _ = open::that_detached("https://github.com/ja7ad/hydra/issues");
+                let _ = open::that_detached("https://github.com/ja7ad/playdl/issues");
                 Task::none()
             }
             MenuAction::About => self.open_window(WinKind::About),
@@ -6516,7 +6516,7 @@ fn adopt_dialog_edits(
 /// open it as though it were the file.
 ///
 /// An EMPTY file is not one either, and that exclusion is what makes browser
-/// capture usable at all. Gecko cannot park a download while Hydra decides
+/// capture usable at all. Gecko cannot park a download while PlayDL decides
 /// (`downloads.pause` there is a one-way cancel — see the extension's
 /// background.js), so Firefox's own transfer is still running when the
 /// capture arrives. Firefox reserves its target name the instant a download
@@ -6524,7 +6524,7 @@ fn adopt_dialog_edits(
 /// bytes into a `name.<random>.ext.part` sibling. That placeholder is the
 /// file this check used to find: every captured download reported "a file
 /// with this name already exists", and by the time the person read the
-/// dialog Hydra had acknowledged the capture, the extension had cancelled
+/// dialog PlayDL had acknowledged the capture, the extension had cancelled
 /// the browser's copy, and Firefox had deleted the placeholder again —
 /// leaving them to look at an empty folder and a dialog naming a file that
 /// was not there. Nothing is lost by ignoring it: an empty file gives the
@@ -7003,7 +7003,7 @@ mod tests {
     /// real name was still being typed.
     #[test]
     fn edits_typed_before_a_fast_finish_are_applied_to_the_finished_file() {
-        let dir = std::env::temp_dir().join(format!("hydra_fi_edit_{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("playdl_fi_edit_{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let dir_s = dir.to_string_lossy().into_owned();
         let mut d = item(7, &dir_s, "archive_1.zip", None, DlState::Complete);
@@ -7407,7 +7407,7 @@ mod tests {
 
     #[test]
     fn the_duplicate_warning_needs_a_real_file_under_the_real_name() {
-        let dir = std::env::temp_dir().join(format!("hydra-dup-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("playdl-dup-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let dir_s = dir.to_string_lossy().into_owned();
@@ -7447,7 +7447,7 @@ mod tests {
     /// person could not find, because the warning was about the browser's
     /// own placeholder rather than about anything they had downloaded.
     ///
-    /// Gecko cannot park a download while Hydra decides, so Firefox's
+    /// Gecko cannot park a download while PlayDL decides, so Firefox's
     /// transfer is still running at capture time — and Firefox reserves its
     /// target name by creating a zero-byte file under the FINAL name while
     /// the bytes go to a `name.<random>.ext.part` sibling. Both files are
@@ -7456,22 +7456,22 @@ mod tests {
     /// against Firefox 155 on macOS before this test was written.
     #[test]
     fn a_browsers_name_reservation_is_not_a_download_to_open() {
-        let dir = std::env::temp_dir().join(format!("hydra-gecko-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("playdl-gecko-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let dir_s = dir.to_string_lossy().into_owned();
 
         // Exactly what Firefox leaves in the download folder a second after
-        // the click, for `libhydra-0.3.0-android.zip`.
-        std::fs::write(dir.join("libhydra-0.3.0-android.zip"), b"").unwrap();
+        // the click, for `libplaydl-0.3.0-android.zip`.
+        std::fs::write(dir.join("libplaydl-0.3.0-android.zip"), b"").unwrap();
         std::fs::write(
-            dir.join("libhydra-0.3.0-android.S7v5x6tB.zip.part"),
+            dir.join("libplaydl-0.3.0-android.S7v5x6tB.zip.part"),
             vec![0xAB; 9_928_704],
         )
         .unwrap();
 
         assert_eq!(
-            collision_file(&dir_s, "libhydra-0.3.0-android.zip", true),
+            collision_file(&dir_s, "libplaydl-0.3.0-android.zip", true),
             None,
             "the browser's own name reservation must not be reported as an existing download"
         );
@@ -7479,15 +7479,15 @@ mod tests {
         // Once the transfer really finishes, the placeholder has become the
         // file: the very next capture of the same asset must warn.
         std::fs::write(
-            dir.join("libhydra-0.3.0-android.zip"),
+            dir.join("libplaydl-0.3.0-android.zip"),
             vec![0xCD; 9_928_704],
         )
         .unwrap();
-        let _ = std::fs::remove_file(dir.join("libhydra-0.3.0-android.S7v5x6tB.zip.part"));
+        let _ = std::fs::remove_file(dir.join("libplaydl-0.3.0-android.S7v5x6tB.zip.part"));
         assert_eq!(
-            collision_file(&dir_s, "libhydra-0.3.0-android.zip", true).as_deref(),
+            collision_file(&dir_s, "libplaydl-0.3.0-android.zip", true).as_deref(),
             Some(
-                dir.join("libhydra-0.3.0-android.zip")
+                dir.join("libplaydl-0.3.0-android.zip")
                     .to_string_lossy()
                     .as_ref()
             )
@@ -7495,9 +7495,9 @@ mod tests {
 
         // ...and once the person deletes that file, the warning is gone for
         // good — the case the issue was filed about.
-        std::fs::remove_file(dir.join("libhydra-0.3.0-android.zip")).unwrap();
+        std::fs::remove_file(dir.join("libplaydl-0.3.0-android.zip")).unwrap();
         assert_eq!(
-            collision_file(&dir_s, "libhydra-0.3.0-android.zip", true),
+            collision_file(&dir_s, "libplaydl-0.3.0-android.zip", true),
             None
         );
 
@@ -7507,7 +7507,7 @@ mod tests {
     #[test]
     fn part_verification_rejects_holes_and_wrong_length() {
         let dir = std::env::temp_dir();
-        let path = dir.join(format!("hydra-part-test-{}.part", std::process::id()));
+        let path = dir.join(format!("playdl-part-test-{}.part", std::process::id()));
         let _ = std::fs::remove_file(&path);
 
         // Missing file never resumes.
@@ -7699,10 +7699,10 @@ mod tests {
     fn unique_file_name_sees_through_dir_spelling() {
         // Same directory spelled with a trailing slash and a `.` segment:
         // the list entry must still count as a collision.
-        let dir = "/nonexistent-hydra-test/downloads";
+        let dir = "/nonexistent-playdl-test/downloads";
         let listed = item(
             1,
-            "/nonexistent-hydra-test/./downloads/",
+            "/nonexistent-playdl-test/./downloads/",
             "a.zip",
             None,
             DlState::Paused,
@@ -7712,7 +7712,7 @@ mod tests {
         // No collision: the name is kept.
         let other = item(
             1,
-            "/nonexistent-hydra-test/elsewhere",
+            "/nonexistent-playdl-test/elsewhere",
             "a.zip",
             None,
             DlState::Paused,

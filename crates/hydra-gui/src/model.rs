@@ -159,7 +159,7 @@ pub struct StreamInfo {
     /// Page the stream played on; sent as `Referer` with every segment.
     #[serde(default)]
     pub referer: Option<String>,
-    /// The BROWSER's User-Agent, not Hydra's. Origins that gate on it hand
+    /// The BROWSER's User-Agent, not PlayDL's. Origins that gate on it hand
     /// a different playlist — or none — to anything else.
     #[serde(default)]
     pub user_agent: Option<String>,
@@ -217,7 +217,7 @@ pub struct MetalinkInfo {
     ///
     /// Stored as text rather than a parsed structure so the GUI's state file
     /// stays independent of `hya-net`'s manifest type: this file is written by
-    /// one version of Hydra and read by the next.
+    /// one version of PlayDL and read by the next.
     #[serde(default)]
     pub pieces: Option<String>,
     /// Where the document came from, for the file-info dialog.
@@ -249,7 +249,7 @@ impl DownloadItem {
     }
 
     /// The `.part` staging file: next to the destination, so completion is a
-    /// same-filesystem rename. hydra writes bytes at their final offsets — no
+    /// same-filesystem rename. playdl writes bytes at their final offsets — no
     /// assembly pass exists, so a separate temp directory would only add a
     /// cross-drive copy at the end.
     pub fn part_file(&self) -> PathBuf {
@@ -422,8 +422,8 @@ pub enum PowerAction {
 
 impl PowerAction {
     /// Whether the action takes the login session with it. Shutting down and
-    /// logging off end the process either way, so Hydra exits with them;
-    /// sleeping only suspends the machine, and Hydra keeps running and is
+    /// logging off end the process either way, so PlayDL exits with them;
+    /// sleeping only suspends the machine, and PlayDL keeps running and is
     /// still there when it wakes.
     pub fn ends_session(self) -> bool {
         matches!(self, PowerAction::Shutdown | PowerAction::LogOff)
@@ -458,7 +458,7 @@ pub struct Settings {
     pub beta_channel: bool,
     /// Autostart launches come up in the tray without opening the window.
     pub start_in_tray: bool,
-    /// Closing the main window leaves Hydra running in the system tray
+    /// Closing the main window leaves PlayDL running in the system tray
     /// (default) instead of quitting, so queues and transfers carry on.
     /// Off: the close button ends the session the way File > Exit does.
     /// Ignored when no tray icon could be installed — without one there
@@ -589,7 +589,7 @@ impl Default for Settings {
             show_hide_buttons: true,
             show_complete_dialog: true,
             remove_completed: false,
-            user_agent: format!("hydra-gui/{}", env!("CARGO_PKG_VERSION")),
+            user_agent: format!("playdl-gui/{}", env!("CARGO_PKG_VERSION")),
             virus_scanner: String::new(),
             virus_args: String::new(),
             // Default: 8 connections; the scheduler settles well at this
@@ -794,10 +794,10 @@ pub fn app_dir_override() -> Option<&'static std::path::Path> {
 /// `--config DIR` moves all of it, so a portable install (a USB stick, a
 /// second profile) keeps its settings and download list beside itself.
 /// Without the flag: deliberately NOT `dirs::config_dir()` everywhere — on
-/// macOS that resolves to `~/Library/Application Support`, and hydra's
-/// convention (shared with the CLI) is `~/.config/hydra` on both Linux and
-/// macOS. Windows uses `%APPDATA%\hydra`
-/// (`Users\{user}\AppData\Roaming\hydra`).
+/// macOS that resolves to `~/Library/Application Support`, and playdl's
+/// convention (shared with the CLI) is `~/.config/playdl` on both Linux and
+/// macOS. Windows uses `%APPDATA%\playdl`
+/// (`Users\{user}\AppData\Roaming\playdl`).
 pub fn app_dir() -> PathBuf {
     if let Some(dir) = APP_DIR_OVERRIDE.get() {
         return dir.clone();
@@ -806,14 +806,14 @@ pub fn app_dir() -> PathBuf {
     {
         dirs::config_dir()
             .unwrap_or_else(std::env::temp_dir)
-            .join("hydra")
+            .join("playdl")
     }
     #[cfg(not(target_os = "windows"))]
     {
         dirs::home_dir()
             .unwrap_or_else(std::env::temp_dir)
             .join(".config")
-            .join("hydra")
+            .join("playdl")
     }
 }
 
@@ -840,7 +840,7 @@ pub const SHORTCUT_ACTIONS: [(&str, &str, &str); 12] = [
         "Remove selected downloads from the list",
     ),
     ("close_window", "cmd+w", "Close window"),
-    ("quit", "cmd+q", "Exit Hydra"),
+    ("quit", "cmd+q", "Exit PlayDL"),
 ];
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -874,7 +874,7 @@ pub struct DlQuota {
     pub used: u64,
     /// Unix seconds the window opened; 0 = no window running yet. The window
     /// starts at the first accounted byte, not at app start, so an idle
-    /// Hydra does not burn through periods it never downloaded in.
+    /// PlayDL does not burn through periods it never downloaded in.
     pub window_start: i64,
 }
 
@@ -1181,8 +1181,8 @@ mod tests {
 
     #[test]
     fn only_sleeping_leaves_the_session_up() {
-        // Shutdown and log off take the process with them, so Hydra exits
-        // alongside them; sleep suspends the machine and Hydra is still
+        // Shutdown and log off take the process with them, so PlayDL exits
+        // alongside them; sleep suspends the machine and PlayDL is still
         // there on wake.
         assert!(PowerAction::Shutdown.ends_session());
         assert!(PowerAction::LogOff.ends_session());
