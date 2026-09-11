@@ -213,7 +213,7 @@ pub fn entries(kind: MenuBarKind, app: &App) -> Vec<Entry> {
                 crate::i18n::available()
                     .into_iter()
                     .map(|tag| {
-                        let cur = app.cfg.language.clone().unwrap_or_else(|| "en".into());
+                        let cur = app.cfg.language.clone().unwrap_or_else(crate::i18n::detect_system_locale);
                         let cur = if cur == "English" {
                             "en".to_string()
                         } else {

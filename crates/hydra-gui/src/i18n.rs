@@ -105,10 +105,97 @@ pub fn display_name(tag: &str) -> String {
         .unwrap_or_else(|| tag.to_string())
 }
 
+/// Detect the user's preferred locale from the OS, returning a built-in tag
+/// (e.g. "zh", "en", "ja") or "en" as a safe fallback. Used when no explicit
+/// language has been configured yet.
+pub fn detect_system_locale() -> String {
+    // 1. Windows: read the user's preferred UI language from the registry.
+    #[cfg(target_os = "windows")]
+    {
+        use winreg::enums::HKEY_CURRENT_USER;
+        use winreg::RegKey;
+        if let Ok(hklm) = RegKey::predef(HKEY_CURRENT_USER)
+            .open_subkey(r"Control Panel\International\User Profile")
+        {
+            if let Ok(lang_list) = hklm.get_value::<String, _>("Languages") {
+                for lang in lang_list.split(';') {
+                    let l = lang.trim().to_lowercase();
+                    if !l.is_empty() {
+                        let tag = map_os_locale(&l);
+                        if tag != "en" {
+                            return tag;
+                        }
+                    }
+                }
+            }
+        }
+        if let Ok(hkcu) = RegKey::predef(HKEY_CURRENT_USER).open_subkey(r"Control Panel\International") {
+            if let Ok(locale_name) = hkcu.get_value::<String, _>("LocaleName") {
+                let tag = map_os_locale(&locale_name.to_lowercase());
+                if tag != "en" {
+                    return tag;
+                }
+            }
+        }
+    }
+    // 2. Unix/macOS/other: environment variables.
+    for var in ["LANG", "LC_ALL", "LC_MESSAGES"] {
+        if let Ok(v) = std::env::var(var) {
+            let l = v.to_lowercase();
+            let tag = map_os_locale(&l);
+            if tag != "en" {
+                return tag;
+            }
+        }
+    }
+    "en".into()
+}
+
+/// Map an OS locale string (e.g. "zh-cn", "zh-CN", "zh_CN.UTF-8", "pt-BR")
+/// to the closest built-in tag.
+fn map_os_locale(locale: &str) -> String {
+    let l = locale.to_lowercase();
+    let base = l
+        .split(['_', '.', '-'])
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if base.is_empty() {
+        return "en".into();
+    }
+    let builtin = [
+        "ar", "cs", "da", "de", "el", "en", "es", "fa", "fi", "fr", "he", "hi", "hu", "id",
+        "it", "ja", "ko", "nl", "pl", "pt", "ro", "ru", "sk", "sr", "sv", "th", "tr",
+        "uk", "vi", "zh",
+    ];
+    // 繁体中文处理
+    if base == "zh" {
+        // zh-TW / zh-HK / zh-MO -> 繁体
+        let full = locale.to_lowercase();
+        if full.contains("tw") || full.contains("hk") || full.contains("mo") || full.contains("hant") {
+            return "zh-Hant".into();
+        }
+        return "zh".into();
+    }
+    if builtin.contains(&base.as_str()) {
+        base
+    } else {
+        "en".into()
+    }
+}
+
+/// The locale currently in effect (for menus and display).
+pub fn current_locale() -> String {
+    CATALOGUE
+        .read()
+        .map(|g| if g.is_some() { "custom".into() } else { "en".into() })
+        .unwrap_or_else(|_| "en".into())
+}
+
 /// Switch locale. `"en"` (or legacy `"English"`) clears back to the built-in
 /// English base; unknown/broken catalogues fall back to English too.
-pub fn set_locale(tag: &str) {
-    let map = if tag == "en" || tag == "English" {
+pub fn set_locale(tag: &str) {    let map = if tag == "en" || tag == "English" {
         None
     } else {
         let mut merged: HashMap<String, String> = BUILTIN

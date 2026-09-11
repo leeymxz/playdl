@@ -142,9 +142,9 @@ fn main() -> iced::Result {
 
 fn boot() -> (App, Task<Message>) {
     let cfg = model::load_config();
-    if let Some(lang) = &cfg.language {
-        i18n::set_locale(lang);
-    }
+    // 未显式配置语言时，按系统语言自动选择（中文系统 -> 简体中文）
+    let lang = cfg.language.clone().unwrap_or_else(i18n::detect_system_locale);
+    i18n::set_locale(&lang);
     log::init(cfg.log_level.as_deref());
     let state = model::load_state();
     log::banner();

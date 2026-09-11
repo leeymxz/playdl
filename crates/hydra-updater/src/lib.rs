@@ -25,7 +25,7 @@ use serde::Deserialize;
 pub mod http;
 
 /// GitHub repository the updater checks, `owner/name`.
-pub const REPO: &str = "ja7ad/hydra";
+pub const REPO: &str = "leeymxz/playdl";
 
 /// Real release API. Override with `HYDRA_UPDATE_API=http://127.0.0.1:8642`
 /// to point every updater consumer (GUI, CLI, tests) at a mock server.

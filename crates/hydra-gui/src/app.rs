@@ -1418,7 +1418,7 @@ impl App {
             show_categories: self.cfg.settings.show_categories,
             font_size: self.cfg.settings.font_size,
             language: {
-                let l = self.cfg.language.clone().unwrap_or_else(|| "en".into());
+                let l = self.cfg.language.clone().unwrap_or_else(crate::i18n::detect_system_locale);
                 if l == "English" {
                     "en".into()
                 } else {
@@ -3204,7 +3204,7 @@ impl App {
                         theme_mode: self.cfg.settings.theme(),
                         show_categories: self.cfg.settings.show_categories,
                         font_size: self.cfg.settings.font_size,
-                        language: self.cfg.language.clone().unwrap_or_else(|| "en".into()),
+                        language: self.cfg.language.clone().unwrap_or_else(crate::i18n::detect_system_locale),
                         speed_limiter: self.cfg.settings.speed_limiter_on,
                     };
                     let queues: Vec<String> =
