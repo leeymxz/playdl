@@ -80,12 +80,19 @@ fn file_size(path: &std::path::Path) -> u64 {
 fn find_playdl() -> Option<std::path::PathBuf> {
     let exe = std::env::current_exe().ok()?;
     let dir = exe.parent()?;
-    for name in ["playdl.exe", "pdl.exe", "playdl", "pdl"] {
-        let p = dir.join(name);
+    // 安装布局：{app}\bin\playdl.exe 或 {app}\playdl.exe
+    let layouts = [
+        dir.join("bin").join("playdl.exe"),
+        dir.join("bin").join("pdl.exe"),
+        dir.join("playdl.exe"),
+        dir.join("pdl.exe"),
+    ];
+    for p in layouts {
         if p.exists() {
             return Some(p);
         }
     }
+    // PATH 查找
     for name in ["playdl.exe", "pdl.exe"] {
         if let Ok(cwd) = std::env::current_dir() {
             let p = cwd.join(name);
@@ -165,6 +172,8 @@ struct App {
     category: String,
     engine: bool,
     need_pump: bool,
+    selected: Option<u64>,
+    paused: Vec<u64>,
 }
 
 impl Default for App {
@@ -176,7 +185,56 @@ impl Default for App {
             category: "全部".into(),
             engine: engine_ok(),
             need_pump: false,
+            selected: None,
+            paused: Vec::new(),
         }
+    }
+}
+
+/// 统计某个分类的任务数量
+fn count_category(s: &State, cat: &str) -> usize {
+    s.jobs
+        .iter()
+        .filter(|j| match cat {
+            "全部" => true,
+            "未完成" => matches!(j.status, Status::Queued | Status::Running),
+            "已完成" => matches!(j.status, Status::Done),
+            "压缩包" => {
+                j.file.ends_with(".zip")
+                    || j.file.ends_with(".rar")
+                    || j.file.ends_with(".7z")
+                    || j.file.ends_with(".tar")
+            }
+            "文档" => {
+                j.file.ends_with(".pdf")
+                    || j.file.ends_with(".doc")
+                    || j.file.ends_with(".docx")
+                    || j.file.ends_with(".txt")
+            }
+            _ => true,
+        })
+        .count()
+}
+
+/// 任务是否匹配分类
+fn matches_category(j: &Job, cat: &str) -> bool {
+    match cat {
+        "全部" => true,
+        "未完成" => matches!(j.status, Status::Queued | Status::Running),
+        "已完成" => matches!(j.status, Status::Done),
+        "压缩包" => {
+            j.file.ends_with(".zip")
+                || j.file.ends_with(".rar")
+                || j.file.ends_with(".7z")
+                || j.file.ends_with(".tar")
+        }
+        "文档" => {
+            j.file.ends_with(".pdf")
+                || j.file.ends_with(".doc")
+                || j.file.ends_with(".docx")
+                || j.file.ends_with(".txt")
+        }
+        _ => true,
     }
 }
 
@@ -230,31 +288,63 @@ impl App {
         self.url_input.clear();
         self.need_pump = true;
     }
+
+    fn remove_selected(&mut self) {
+        if let Some(id) = self.selected {
+            let mut s = self.state.lock().unwrap();
+            // 尝试终止子进程
+            if let Some(j) = s.jobs.iter_mut().find(|j| j.id == id) {
+                if let Some(mut child) = j.child.take() {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                }
+            }
+            s.jobs.retain(|j| j.id != id);
+            drop(s);
+            self.paused.retain(|&x| x != id);
+            self.selected = None;
+        }
+    }
+
+    fn toggle_pause_selected(&mut self) {
+        if let Some(id) = self.selected {
+            let mut s = self.state.lock().unwrap();
+            if let Some(j) = s.jobs.iter_mut().find(|j| j.id == id) {
+                match &j.status {
+                    Status::Running => {
+                        // 暂停：终止子进程，标记状态（简单处理：停止并标记暂停）
+                        if let Some(mut child) = j.child.take() {
+                            let _ = child.kill();
+                            let _ = child.wait();
+                        }
+                        j.status = Status::Queued;
+                    }
+                    _ => {
+                        // 恢复：重新启动（简化为不处理，仅提示）
+                    }
+                }
+            }
+            drop(s);
+        }
+    }
 }
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // background progress updates
-        if self.need_pump {
-            pump(&self.state);
-        }
-        if ctx.input(|i| i.time - 0.0 > 0.0) {
-            // poll occasionally
-            pump(&self.state);
-        }
+        pump(&self.state);
 
-        // ---------- top bar ----------
-        egui::TopBottomPanel::top("top").show(ctx, |ui| {
+        // ---------- top bar: logo + engine status ----------
+        egui::TopBottomPanel::top("title").show(ctx, |ui| {
             ui.add_space(6.0);
             ui.horizontal(|ui| {
-                // fake logo chip
+                // logo chip
                 let logo_color = egui::Color32::from_rgb(0, 200, 255);
                 let (rect, _) = ui.allocate_exact_size(
                     egui::vec2(34.0, 34.0),
                     egui::Sense::hover(),
                 );
-                ui.painter()
-                    .rect_filled(rect, 8.0, logo_color);
+                ui.painter().rect_filled(rect, 8.0, logo_color);
                 ui.painter().text(
                     rect.center(),
                     egui::Align2::CENTER_CENTER,
@@ -262,7 +352,6 @@ impl eframe::App for App {
                     egui::FontId::proportional(16.0),
                     egui::Color32::WHITE,
                 );
-
                 ui.add_space(8.0);
                 ui.vertical(|ui| {
                     ui.label(
@@ -277,7 +366,6 @@ impl eframe::App for App {
                             .color(egui::Color32::from_gray(120)),
                     );
                 });
-
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     let (text, color) = if self.engine {
                         ("● 引擎就绪", egui::Color32::from_rgb(0, 255, 140))
@@ -285,19 +373,58 @@ impl eframe::App for App {
                         ("● 引擎离线", egui::Color32::from_rgb(255, 80, 80))
                     };
                     ui.label(
-                        egui::RichText::new(text)
-                            .size(12.0)
-                            .strong()
-                            .color(color),
+                        egui::RichText::new(text).size(12.0).strong().color(color),
                     );
                 });
             });
             ui.add_space(6.0);
+        });
+
+        // ---------- toolbar ----------
+        egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
+            ui.add_space(4.0);
+            ui.horizontal(|ui| {
+                // 新建任务
+                if ui
+                    .add(egui::Button::new(egui::RichText::new("➕ 新建任务").strong()))
+                    .clicked()
+                {
+                    // focus url input
+                }
+                ui.separator();
+                if ui
+                    .add_enabled(self.selected.is_some(), egui::Button::new("⏸ 暂停"))
+                    .clicked()
+                {
+                    self.toggle_pause_selected();
+                }
+                if ui
+                    .add_enabled(self.selected.is_some(), egui::Button::new("▶ 继续"))
+                    .clicked()
+                {
+                    self.toggle_pause_selected();
+                }
+                ui.separator();
+                if ui
+                    .add_enabled(self.selected.is_some(), egui::Button::new("🗑 删除"))
+                    .clicked()
+                {
+                    self.remove_selected();
+                }
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(
+                        egui::RichText::new("⚙ 设置")
+                            .size(12.0)
+                            .color(egui::Color32::from_gray(150)),
+                    );
+                });
+            });
+            ui.add_space(4.0);
 
             // input row
             ui.horizontal(|ui| {
                 ui.add_sized(
-                    [ui.available_width() - 260.0, 30.0],
+                    [ui.available_width() - 230.0, 28.0],
                     egui::TextEdit::singleline(&mut self.url_input)
                         .hint_text("粘贴下载链接 https://...")
                         .font(egui::FontId::monospace(13.0)),
@@ -305,7 +432,7 @@ impl eframe::App for App {
                 ui.label("连接");
                 egui::ComboBox::from_id_salt("conns")
                     .selected_text(if self.conns.trim().is_empty() { "自动" } else { &self.conns })
-                    .width(60.0)
+                    .width(55.0)
                     .show_ui(ui, |ui| {
                         ui.selectable_value(&mut self.conns, String::new(), "自动");
                         for n in ["4", "8", "16"] {
@@ -314,34 +441,40 @@ impl eframe::App for App {
                     });
                 if ui
                     .add_sized(
-                        [90.0, 30.0],
-                        egui::Button::new(
-                            egui::RichText::new("⬇ 下载").strong().size(13.0),
-                        ),
+                        [80.0, 28.0],
+                        egui::Button::new(egui::RichText::new("⬇ 下载").strong().size(13.0)),
                     )
                     .clicked()
                 {
                     self.add_download();
                 }
             });
-            ui.add_space(8.0);
+            ui.add_space(6.0);
         });
 
-        // ---------- left sidebar (categories) ----------
+        // ---------- left sidebar: categories with counts ----------
         egui::SidePanel::left("cats")
             .resizable(false)
-            .exact_width(150.0)
+            .exact_width(160.0)
             .show(ctx, |ui| {
-                ui.add_space(10.0);
+                ui.add_space(8.0);
+                let s = self.state.lock().unwrap();
                 let cats = ["全部", "未完成", "已完成", "压缩包", "文档"];
                 for c in cats {
+                    let count = count_category(&s, c);
+                    let label = if count > 0 {
+                        format!("{c}   ({count})")
+                    } else {
+                        c.to_string()
+                    };
                     if ui
-                        .selectable_label(self.category == c, c)
+                        .selectable_label(self.category == c, label)
                         .clicked()
                     {
                         self.category = c.to_string();
                     }
                 }
+                drop(s);
                 ui.add_space(20.0);
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                     ui.label(
@@ -352,40 +485,74 @@ impl eframe::App for App {
                 });
             });
 
-        // ---------- central task list ----------
+        // ---------- central: task table ----------
         egui::CentralPanel::default().show(ctx, |ui| {
-            let s = self.state.lock().unwrap();
+            // 先收集需要渲染的数据，释放锁
+            let snapshot: Vec<(u64, String, String, f64, u64, u64, f64, Status)> = {
+                let s = self.state.lock().unwrap();
+                s.jobs
+                    .iter()
+                    .filter(|j| matches_category(j, &self.category))
+                    .map(|j| {
+                        (
+                            j.id,
+                            j.file.clone(),
+                            match &j.status {
+                                Status::Queued => "排队中".to_string(),
+                                Status::Running => "下载中".to_string(),
+                                Status::Done => "已完成".to_string(),
+                                Status::Failed(e) => format!("失败 ({e})"),
+                            },
+                            j.progress,
+                            j.done_bytes,
+                            j.total_bytes,
+                            j.speed,
+                            j.status.clone(),
+                        )
+                    })
+                    .collect()
+            };
 
-            let filtered: Vec<usize> = s
-                .jobs
-                .iter()
-                .enumerate()
-                .filter(|(_, j)| match self.category.as_str() {
-                    "全部" => true,
-                    "未完成" => matches!(j.status, Status::Queued | Status::Running),
-                    "已完成" => matches!(j.status, Status::Done),
-                    "压缩包" => j.file.ends_with(".zip")
-                        || j.file.ends_with(".rar")
-                        || j.file.ends_with(".7z")
-                        || j.file.ends_with(".tar"),
-                    "文档" => j.file.ends_with(".pdf")
-                        || j.file.ends_with(".doc")
-                        || j.file.ends_with(".docx")
-                        || j.file.ends_with(".txt"),
-                    _ => true,
-                })
-                .map(|(i, _)| i)
-                .collect();
+            // column header
+            ui.horizontal(|ui| {
+                ui.add_space(6.0);
+                ui.label(
+                    egui::RichText::new("文件名")
+                        .size(11.0)
+                        .strong()
+                        .color(egui::Color32::from_gray(150)),
+                );
+                ui.with_layout(
+                    egui::Layout::right_to_left(egui::Align::Center),
+                    |ui| {
+                        ui.add_space(10.0);
+                        ui.label(
+                            egui::RichText::new("状态")
+                                .size(11.0)
+                                .strong()
+                                .color(egui::Color32::from_gray(150)),
+                        );
+                        ui.add_space(40.0);
+                        ui.label(
+                            egui::RichText::new("速度")
+                                .size(11.0)
+                                .strong()
+                                .color(egui::Color32::from_gray(150)),
+                        );
+                        ui.add_space(40.0);
+                        ui.label(
+                            egui::RichText::new("大小")
+                                .size(11.0)
+                                .strong()
+                                .color(egui::Color32::from_gray(150)),
+                        );
+                    },
+                );
+            });
+            ui.separator();
 
-            ui.label(
-                egui::RichText::new(format!("{} — {} 个任务", self.category, filtered.len()))
-                    .size(12.0)
-                    .color(egui::Color32::from_gray(140)),
-            );
-            ui.add_space(6.0);
-
-            if filtered.is_empty() {
-                ui.add_space(60.0);
+            if snapshot.is_empty() {
+                ui.add_space(80.0);
                 ui.vertical_centered(|ui| {
                     ui.label(egui::RichText::new("⚡").size(42.0));
                     ui.label("在上方输入链接，点击「下载」开始");
@@ -399,35 +566,34 @@ impl eframe::App for App {
             }
 
             egui::ScrollArea::vertical().show(ui, |ui| {
-                for idx in filtered {
-                    let job = &s.jobs[idx];
-                    let name = job.file.clone();
-                    let status_text = match &job.status {
-                        Status::Queued => "排队中".to_string(),
-                        Status::Running => "下载中".to_string(),
-                        Status::Done => "已完成".to_string(),
-                        Status::Failed(e) => format!("失败 ({e})"),
-                    };
-                    let status_color = match &job.status {
+                for (id, name, status_text, pct, done, total, speed, status) in &snapshot {
+                    let status_color = match status {
                         Status::Queued => egui::Color32::from_rgb(255, 200, 60),
                         Status::Running => egui::Color32::from_rgb(0, 200, 255),
                         Status::Done => egui::Color32::from_rgb(0, 255, 140),
                         Status::Failed(_) => egui::Color32::from_rgb(255, 90, 90),
                     };
-                    let pct = job.progress;
-                    let done = job.done_bytes;
-                    let total = job.total_bytes;
-                    let speed = job.speed;
 
-                    egui::Frame::group(ui.style())
-                        .fill(egui::Color32::from_rgb(20, 24, 40))
-                        .rounding(8.0)
-                        .inner_margin(10.0)
+                    let is_selected = self.selected == Some(*id);
+                    let resp = egui::Frame::group(ui.style())
+                        .fill(if is_selected {
+                            egui::Color32::from_rgb(24, 34, 56)
+                        } else {
+                            egui::Color32::from_rgb(18, 22, 38)
+                        })
+                        .stroke(if is_selected {
+                            egui::Stroke::new(1.0, egui::Color32::from_rgb(0, 200, 255))
+                        } else {
+                            egui::Stroke::NONE
+                        })
+                        .rounding(6.0)
+                        .inner_margin(8.0)
                         .show(ui, |ui| {
+                            // row 1: name + status
                             ui.horizontal(|ui| {
                                 ui.label(
                                     egui::RichText::new(format!("📄 {name}"))
-                                        .size(13.0)
+                                        .size(12.5)
                                         .strong(),
                                 );
                                 ui.with_layout(
@@ -442,39 +608,83 @@ impl eframe::App for App {
                                     },
                                 );
                             });
-                            ui.add_space(6.0);
-                            let bar = egui::ProgressBar::new(pct as f32 / 100.0)
+                            ui.add_space(5.0);
+                            // progress bar with % text
+                            let bar = egui::ProgressBar::new(*pct as f32 / 100.0)
                                 .desired_width(f32::INFINITY)
                                 .fill(egui::Color32::from_rgb(0, 200, 255))
                                 .text(format!("{pct:.1}%"));
                             ui.add(bar);
-                            ui.add_space(4.0);
+                            ui.add_space(3.0);
+                            // row 3: size / speed
                             ui.horizontal(|ui| {
                                 ui.label(
                                     egui::RichText::new(format!(
                                         "{} / {}",
-                                        fmt_size(done),
-                                        if total > 0 { fmt_size(total) } else { "--".into() }
+                                        fmt_size(*done),
+                                        if *total > 0 { fmt_size(*total) } else { "--".into() }
                                     ))
-                                    .size(11.0)
+                                    .size(10.5)
                                     .color(egui::Color32::from_gray(140)),
                                 );
                                 ui.with_layout(
                                     egui::Layout::right_to_left(egui::Align::Center),
                                     |ui| {
                                         ui.label(
-                                            egui::RichText::new(format!("速度 {}", fmt_speed(speed)))
-                                                .size(11.0)
+                                            egui::RichText::new(format!("速度 {}", fmt_speed(*speed)))
+                                                .size(10.5)
                                                 .color(egui::Color32::from_rgb(0, 200, 255)),
                                         );
                                     },
                                 );
                             });
                         });
-                    ui.add_space(6.0);
+                    if resp.response.clicked() {
+                        self.selected = Some(*id);
+                    }
+                    ui.add_space(5.0);
                 }
             });
+        });
+
+        // ---------- bottom status bar ----------
+        egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
+            ui.add_space(3.0);
+            let s = self.state.lock().unwrap();
+            let total = s.jobs.len();
+            let running = s
+                .jobs
+                .iter()
+                .filter(|j| matches!(j.status, Status::Running))
+                .count();
+            let done = s
+                .jobs
+                .iter()
+                .filter(|j| matches!(j.status, Status::Done))
+                .count();
+            let sum_speed: f64 = s
+                .jobs
+                .iter()
+                .filter(|j| matches!(j.status, Status::Running))
+                .map(|j| j.speed)
+                .sum();
             drop(s);
+            ui.horizontal(|ui| {
+                ui.label(
+                    egui::RichText::new(format!("任务 {total}  ·  下载中 {running}  ·  完成 {done}"))
+                        .size(11.0)
+                        .color(egui::Color32::from_gray(160)),
+                );
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(
+                        egui::RichText::new(format!("总速度 {}", fmt_speed(sum_speed)))
+                            .size(11.0)
+                            .strong()
+                            .color(egui::Color32::from_rgb(0, 200, 255)),
+                    );
+                });
+            });
+            ui.add_space(3.0);
         });
     }
 }
