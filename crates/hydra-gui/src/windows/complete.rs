@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Javad Rajabzadeh
+// Copyright (C) 2026 leeymxz
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! "Download complete" dialog: file, size, where it went; Open / Open folder.

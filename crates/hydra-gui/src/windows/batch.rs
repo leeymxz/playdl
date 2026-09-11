@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Javad Rajabzadeh
+// Copyright (C) 2026 leeymxz
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! "Add batch download" — paste a list of URLs, review them in an IDM-style

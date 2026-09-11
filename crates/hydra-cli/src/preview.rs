@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Javad Rajabzadeh
+// Copyright (C) 2026 leeymxz
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! `hydra --preview <url>`: what is inside a ZIP archive, without the archive.

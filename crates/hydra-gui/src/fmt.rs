@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Javad Rajabzadeh
+// Copyright (C) 2026 leeymxz
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Human formatting: `121.66 MB`, `1.027 MB/sec`,

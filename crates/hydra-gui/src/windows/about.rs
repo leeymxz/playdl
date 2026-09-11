@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Javad Rajabzadeh
+// Copyright (C) 2026 leeymxz
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! 鍏充簬 PlayDL.
@@ -28,10 +28,10 @@ pub fn view(app: &App) -> El<'_> {
             .spacing(14)
             .align_y(iced::Alignment::Center),
             text(tr("Multi-source download accelerator and file retriever")).size(theme::FONT_SIZE),
-            text("© 2026 Javad Rajabzadeh — GPL-3.0-or-later")
+            text("© 2026 leeymxz — GPL-3.0-or-later")
                 .size(theme::FONT_SIZE - 1.0)
                 .color(theme::dim_text(&iced::Theme::Light)),
-            text("https://github.com/ja7ad/playdl")
+            text("https://github.com/leeymxz/playdl")
                 .size(theme::FONT_SIZE - 1.0)
                 .color(iced::Color::from_rgb8(0x1F, 0x3F, 0xC4)),
             iced::widget::space::vertical(),

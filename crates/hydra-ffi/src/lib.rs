@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Javad Rajabzadeh
+// Copyright (C) 2026 leeymxz
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //
 // Permissive on purpose, and NOT GPL like the `hydra` CLI that ships beside it.

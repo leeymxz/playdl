@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Javad Rajabzadeh
+// Copyright (C) 2026 leeymxz
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Native-messaging host self-registration.
@@ -35,7 +35,7 @@ const CHROME_EXT_ID: &str = "jpnonmbbkjdpeebdhkjoliklfhkdcomj";
 
 /// Firefox allow-lists by add-on id, not by an extension origin. Mirrors
 /// `browser_specific_settings.gecko.id` in `extensions/firefox/manifest.json`.
-const FIREFOX_EXT_ID: &str = "playdl@ja7ad.github.io";
+const FIREFOX_EXT_ID: &str = "playdl@leeymxz.github.io";
 
 /// Where `playdl-host` lives: next to the running executable. Packaging puts
 /// both binaries in the same directory on every platform, and resolving it

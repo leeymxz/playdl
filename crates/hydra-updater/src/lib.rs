@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Javad Rajabzadeh
+// Copyright (C) 2026 leeymxz
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Hydra self-update: release check, asset download, archive extraction and
@@ -256,7 +256,7 @@ pub fn package_kind() -> Option<PackageKind> {
     } else if cfg!(target_os = "macos") {
         // `pkgutil` records an installer receipt per package identifier
         // (scripts/package-macos-pkg.sh); a dragged .dmg leaves none.
-        if Path::new("/var/db/receipts/io.github.ja7ad.hydra.plist").exists() {
+        if Path::new("/var/db/receipts/io.github.leeymxz.hydra.plist").exists() {
             Some(PackageKind::Pkg)
         } else {
             Some(PackageKind::Dmg)
@@ -493,7 +493,7 @@ fn package_managed(dir: &Path) -> bool {
         dir.starts_with("/usr") && !dir.starts_with("/usr/local")
     } else if cfg!(target_os = "macos") {
         dir.starts_with("/Applications")
-            && Path::new("/var/db/receipts/io.github.ja7ad.hydra.plist").exists()
+            && Path::new("/var/db/receipts/io.github.leeymxz.hydra.plist").exists()
     } else {
         // Windows: no elevation path here (a UAC re-launch of the finisher
         // would prompt with the app already gone), so an install this
@@ -1400,9 +1400,9 @@ mod tests {
         let once = "<!-- Release notes generated using configuration in \
             .github/release.yml at v0.3.10 -->\n\n## What's Changed\n\
             ### 🚀 Features\n* Add Firefox extension store link and update \
-            localization strings by @ja7ad in https://github.com/ja7ad/hydra/pull/27\
+            localization strings by @leeymxz in https://github.com/leeymxz/playdl/pull/27\
             \n\n\n**Full Changelog**: \
-            https://github.com/ja7ad/hydra/compare/v0.3.9...v0.3.10";
+            https://github.com/leeymxz/playdl/compare/v0.3.9...v0.3.10";
         let body = [once; 5].join("\n\n");
         let out = clean_notes(&body);
         assert_eq!(out, clean_notes(once));
@@ -1719,7 +1719,7 @@ mod tests {
             \"tag_name\": \"v0.2.4\",
             \"name\": \"hydra 0.2.4\",
             \"body\": \"## What's Changed\\n- faster\",
-            \"html_url\": \"https://github.com/ja7ad/hydra/releases/tag/v0.2.4\",
+            \"html_url\": \"https://github.com/leeymxz/playdl/releases/tag/v0.2.4\",
             \"published_at\": \"2026-08-01T00:00:00Z\",
             \"assets\": [
                 {\"name\": \"hydra-0.2.4-macos-arm64.tar.gz\",

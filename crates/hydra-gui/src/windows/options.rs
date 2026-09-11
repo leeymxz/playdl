@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Javad Rajabzadeh
+// Copyright (C) 2026 leeymxz
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The Configuration window: General, File types, Save to, Downloads,
@@ -735,7 +735,7 @@ const CHROME_STORE: &str =
 /// The setup guide behind the FFmpeg row. A wiki page rather than a
 /// paragraph in this dialog: what to install differs per platform, and it
 /// changes faster than the app ships.
-const FFMPEG_WIKI: &str = "https://github.com/ja7ad/playdl/wiki/PlayDL-ffmpeg-integration";
+const FFMPEG_WIKI: &str = "https://github.com/leeymxz/playdl/wiki/PlayDL-ffmpeg-integration";
 
 /// The "not present" counterpart to `theme::PROGRESS_GREEN`.
 const OFFLINE_RED: u32 = 0xB3462E;

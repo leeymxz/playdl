@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Javad Rajabzadeh
+// Copyright (C) 2026 leeymxz
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! MPEG-DASH: MPD parsing and segment-URL generation.

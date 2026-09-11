@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Javad Rajabzadeh
+// Copyright (C) 2026 leeymxz
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Embeds the Windows resources — playdl.ico and a VERSIONINFO block — into
@@ -50,8 +50,8 @@ BEGIN
       VALUE "FileDescription", "PlayDL Download Manager"
       VALUE "FileVersion", "{version}"
       VALUE "ProductVersion", "{version}"
-      VALUE "CompanyName", "Javad Rajabzadeh"
-      VALUE "LegalCopyright", "(C) 2026 Javad Rajabzadeh. GPL-3.0-or-later."
+      VALUE "CompanyName", "leeymxz"
+      VALUE "LegalCopyright", "(C) 2026 leeymxz. GPL-3.0-or-later."
       VALUE "OriginalFilename", "playdl-gui.exe"
       VALUE "InternalName", "playdl-gui"
     END

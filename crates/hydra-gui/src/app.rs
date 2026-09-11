@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Javad Rajabzadeh
+// Copyright (C) 2026 leeymxz
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Application state and update logic — every window shares this one `App`.
@@ -5904,11 +5904,11 @@ impl App {
                 Task::none()
             }
             MenuAction::Contribute => {
-                let _ = open::that_detached("https://github.com/ja7ad/playdl");
+                let _ = open::that_detached("https://github.com/leeymxz/playdl");
                 Task::none()
             }
             MenuAction::ReportIssue => {
-                let _ = open::that_detached("https://github.com/ja7ad/playdl/issues");
+                let _ = open::that_detached("https://github.com/leeymxz/playdl/issues");
                 Task::none()
             }
             MenuAction::About => self.open_window(WinKind::About),

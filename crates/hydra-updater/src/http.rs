@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Javad Rajabzadeh
+// Copyright (C) 2026 leeymxz
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Minimal HTTP GET on top of hya-net's connector: redirects, whole-body
@@ -302,14 +302,14 @@ mod tests {
 
     #[test]
     fn url_parsing() {
-        let u = Url::parse("https://api.github.com/repos/ja7ad/hydra/releases/latest").unwrap();
+        let u = Url::parse("https://api.github.com/repos/leeymxz/playdl/releases/latest").unwrap();
         assert_eq!(
             u,
             Url {
                 tls: true,
                 host: "api.github.com".into(),
                 port: 443,
-                path: "/repos/ja7ad/hydra/releases/latest".into()
+                path: "/repos/leeymxz/playdl/releases/latest".into()
             }
         );
         let u = Url::parse("http://127.0.0.1:8642/latest").unwrap();
@@ -324,7 +324,7 @@ mod tests {
     #[test]
     fn redirect_join() {
         let base =
-            Url::parse("https://github.com/ja7ad/hydra/releases/download/v1/x.tar.gz").unwrap();
+            Url::parse("https://github.com/leeymxz/playdl/releases/download/v1/x.tar.gz").unwrap();
         let abs = base
             .join("https://objects.githubusercontent.com/blob/1")
             .unwrap();

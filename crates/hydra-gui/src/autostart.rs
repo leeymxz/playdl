@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Javad Rajabzadeh
+// Copyright (C) 2026 leeymxz
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! "Launch PlayDL on startup": registers/unregisters the app as a login item.
@@ -75,7 +75,7 @@ fn stable_bundle_exe(cur: PathBuf) -> Option<PathBuf> {
 
 #[cfg(target_os = "macos")]
 fn entry_path() -> Option<PathBuf> {
-    Some(dirs::home_dir()?.join("Library/LaunchAgents/io.github.ja7ad.playdl.plist"))
+    Some(dirs::home_dir()?.join("Library/LaunchAgents/io.github.leeymxz.playdl.plist"))
 }
 
 #[cfg(all(unix, not(target_os = "macos")))]
@@ -196,7 +196,7 @@ fn apply_platform(enabled: bool, minimized: bool) {
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>io.github.ja7ad.playdl</string>
+    <string>io.github.leeymxz.playdl</string>
     <key>ProgramArguments</key>
     <array>
         <string>{exe}</string>

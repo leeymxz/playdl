@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Javad Rajabzadeh
+// Copyright (C) 2026 leeymxz
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! End-to-end update flow against a mock release server: check → pick asset
@@ -18,7 +18,7 @@ use tokio::net::TcpListener;
 /// Serve a canned mock release over plain HTTP on an ephemeral port.
 ///
 /// Routes:
-/// - `GET /repos/ja7ad/hydra/releases/latest` — release JSON pointing back
+/// - `GET /repos/leeymxz/playdl/releases/latest` — release JSON pointing back
 ///   at this server
 /// - `GET /assets/<name>` — 302 redirect to `/blob/<name>` (GitHub's asset
 ///   URLs redirect to a CDN; the client must follow)
@@ -85,7 +85,7 @@ async fn mock_server(
                 let head = String::from_utf8_lossy(&req);
                 let path = head.split_whitespace().nth(1).unwrap_or("/").to_string();
                 let (status, extra, body): (&str, String, Vec<u8>) =
-                    if path == "/repos/ja7ad/hydra/releases/latest" {
+                    if path == "/repos/leeymxz/playdl/releases/latest" {
                         ("200 OK", String::new(), release_json.into_bytes())
                     } else if path == format!("/assets/{archive_name}") {
                         (
@@ -159,7 +159,7 @@ async fn full_gui_update_flow_against_mock() {
     let (base, server) = mock_server(archive_name.clone(), archive).await;
 
     // 1. Check: the mock reports a newer release with notes and assets.
-    let rel = pdl_updater::check_latest_at(&base, "ja7ad/hydra", "hydra-test/0.0")
+    let rel = pdl_updater::check_latest_at(&base, "leeymxz/playdl", "hydra-test/0.0")
         .await
         .unwrap();
     assert_eq!(rel.version(), "9.9.9");
@@ -312,9 +312,9 @@ async fn mock_channel_server(
                 }
                 let head = String::from_utf8_lossy(&req);
                 let path = head.split_whitespace().nth(1).unwrap_or("/").to_string();
-                let (status, body) = if path == "/repos/ja7ad/hydra/releases/latest" {
+                let (status, body) = if path == "/repos/leeymxz/playdl/releases/latest" {
                     ("200 OK", latest_json)
-                } else if path.split('?').next() == Some("/repos/ja7ad/hydra/releases") {
+                } else if path.split('?').next() == Some("/repos/leeymxz/playdl/releases") {
                     ("200 OK", list_json)
                 } else {
                     ("404 Not Found", "not found".to_string())
@@ -338,11 +338,11 @@ async fn beta_channel_offers_the_rc_only_while_it_is_ahead() {
 
     // rc ahead of stable: stable channel stays put, beta gets the rc.
     let (base, server) = mock_channel_server("0.2.4", Some("0.3.0-rc1")).await;
-    let stable = pdl_updater::check_channel_at(&base, "ja7ad/hydra", ua, false)
+    let stable = pdl_updater::check_channel_at(&base, "leeymxz/playdl", ua, false)
         .await
         .unwrap();
     assert_eq!(stable.version(), "0.2.4");
-    let beta = pdl_updater::check_channel_at(&base, "ja7ad/hydra", ua, true)
+    let beta = pdl_updater::check_channel_at(&base, "leeymxz/playdl", ua, true)
         .await
         .unwrap();
     assert_eq!(beta.version(), "0.3.0-rc1");
@@ -350,7 +350,7 @@ async fn beta_channel_offers_the_rc_only_while_it_is_ahead() {
 
     // Stable caught up with the rc's core version: beta falls back to it.
     let (base, server) = mock_channel_server("0.3.0", Some("0.3.0-rc1")).await;
-    let beta = pdl_updater::check_channel_at(&base, "ja7ad/hydra", ua, true)
+    let beta = pdl_updater::check_channel_at(&base, "leeymxz/playdl", ua, true)
         .await
         .unwrap();
     assert_eq!(beta.version(), "0.3.0");
@@ -358,7 +358,7 @@ async fn beta_channel_offers_the_rc_only_while_it_is_ahead() {
 
     // No pre-release published: both channels serve the stable release.
     let (base, server) = mock_channel_server("0.2.4", None).await;
-    let beta = pdl_updater::check_channel_at(&base, "ja7ad/hydra", ua, true)
+    let beta = pdl_updater::check_channel_at(&base, "leeymxz/playdl", ua, true)
         .await
         .unwrap();
     assert_eq!(beta.version(), "0.2.4");
@@ -369,7 +369,7 @@ async fn beta_channel_offers_the_rc_only_while_it_is_ahead() {
 async fn up_to_date_release_is_not_an_upgrade() {
     let archive = make_tar_gz("hydra-9.9.9-x-y", &[("hydra", b"x")]);
     let (base, server) = mock_server("hydra-9.9.9-x-y.tar.gz".into(), archive).await;
-    let rel = pdl_updater::check_latest_at(&base, "ja7ad/hydra", "hydra-test/0.0")
+    let rel = pdl_updater::check_latest_at(&base, "leeymxz/playdl", "hydra-test/0.0")
         .await
         .unwrap();
     // A client already on (or past) the published version stays put.

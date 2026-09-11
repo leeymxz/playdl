@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Javad Rajabzadeh
+// Copyright (C) 2026 leeymxz
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The update dialog: "a new version is available", its release notes, and
@@ -302,7 +302,7 @@ fn link_button(_theme: &iced::Theme, status: button::Status) -> button::Style {
 }
 
 /// Collapse GitHub pull/issue URLs to `(#14)`, dropping the `in` that
-/// introduces them: `by @ja7ad in https://…/pull/14` -> `by @ja7ad (#14)`.
+/// introduces them: `by @leeymxz in https://…/pull/14` -> `by @leeymxz (#14)`.
 /// The notes are read in a 500 px dialog, and the URL is one click away on
 /// the release page anyway.
 fn shorten_refs(s: &str) -> String {
@@ -381,11 +381,11 @@ mod tests {
     #[test]
     fn pr_urls_become_numbers() {
         assert_eq!(
-            shorten_refs("Fix quota tracking by @ja7ad in https://github.com/ja7ad/playdl/pull/15"),
-            "Fix quota tracking by @ja7ad (#15)"
+            shorten_refs("Fix quota tracking by @leeymxz in https://github.com/leeymxz/playdl/pull/15"),
+            "Fix quota tracking by @leeymxz (#15)"
         );
         assert_eq!(
-            shorten_refs("closes https://github.com/ja7ad/playdl/issues/9."),
+            shorten_refs("closes https://github.com/leeymxz/playdl/issues/9."),
             "closes (#9)"
         );
         // Other URLs, and prose that merely contains "in", stay put.
@@ -395,7 +395,7 @@ mod tests {
 
     #[test]
     fn changelog_line_splits_into_label_and_link() {
-        let line = "Full Changelog: https://github.com/ja7ad/playdl/compare/v0.3.3-rc...v0.3.4-rc";
+        let line = "Full Changelog: https://github.com/leeymxz/playdl/compare/v0.3.3-rc...v0.3.4-rc";
         let (label, url) = trailing_link(line).expect("trailing url");
         assert_eq!(label, "Full Changelog:");
         assert_eq!(link_label(&url), "v0.3.3-rc...v0.3.4-rc");

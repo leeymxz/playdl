@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Javad Rajabzadeh
+// Copyright (C) 2026 leeymxz
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! playdl-gui: desktop front end for the playdl download engine.
@@ -126,7 +126,11 @@ fn main() -> iced::Result {
     // per-glyph fallback shaped some Arabic-script runs to nothing (blank
     // button labels), and a single bundled family renders identically on
     // every OS in every language — its Latin set is clean too.
-    iced::daemon(boot, App::update, view)
+    //
+    // For CJK locales (zh/ja/ko) we additionally register the system UI font
+    // (e.g. Microsoft YaHei on Windows) so Chinese text renders correctly
+    // instead of as tofu boxes; Vazirmatn has no CJK glyphs.
+    let mut builder = iced::daemon(boot, App::update, view)
         .title(title)
         .theme(theme_of)
         .style(style_of)
@@ -136,8 +140,44 @@ fn main() -> iced::Result {
         .scale_factor(scale_of)
         .subscription(subscription)
         .font(include_bytes!("../assets/fonts/Vazirmatn-Regular.ttf").as_slice())
-        .default_font(iced::Font::with_name("Vazirmatn"))
-        .run()
+        .default_font(iced::Font::with_name("Vazirmatn"));
+
+    // Register a CJK-capable system font as a fallback for the default family.
+    // `.font()` needs 'static bytes, so the one-shot Vec is leaked deliberately.
+    if let Some(cjk) = system_cjk_font_bytes() {
+        let cjk: &'static [u8] = Box::leak(cjk.into_boxed_slice());
+        builder = builder.font(cjk);
+    }
+
+    builder.run()
+}
+
+/// Read a CJK-capable font from the OS (Microsoft YaHei on Windows, Noto
+/// Sans CJK on Linux/macOS where present), used as a glyph fallback so
+/// Chinese/Japanese/Korean text renders instead of tofu boxes.
+fn system_cjk_font_bytes() -> Option<Vec<u8>> {
+    let candidates: &[&str] = if cfg!(target_os = "windows") {
+        &[
+            "C:\\Windows\\Fonts\\msyh.ttc",   // Microsoft YaHei
+            "C:\\Windows\\Fonts\\msyhbd.ttc",
+            "C:\\Windows\\Fonts\\simhei.ttf", // SimHei
+            "C:\\Windows\\Fonts\\simsun.ttc", // SimSun
+            "C:\\Windows\\Fonts\\Deng.ttf",   // DengXian
+        ]
+    } else {
+        &[
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc",
+            "/System/Library/Fonts/PingFang.ttc",
+            "/System/Library/Fonts/STHeiti Light.ttc",
+        ]
+    };
+    for p in candidates {
+        if let Ok(bytes) = std::fs::read(p) {
+            return Some(bytes);
+        }
+    }
+    None
 }
 
 fn boot() -> (App, Task<Message>) {

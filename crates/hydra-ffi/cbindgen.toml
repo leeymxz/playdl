@@ -15,7 +15,7 @@ style = "type"
 header = """/*
  * libhydra - a stable C ABI over the hydra download engine.
  *
- * Copyright (C) 2026 Javad Rajabzadeh
+ * Copyright (C) 2026 leeymxz
  * SPDX-License-Identifier: MIT OR Apache-2.0
  *
  * GENERATED FILE - do not edit. Regenerate with `make header`.
@@ -32,7 +32,7 @@ header = """/*
  * rules for credentials, rate limits, persistence and destinations. Read it
  * once before writing a binding.
  *
- * https://github.com/ja7ad/hydra/blob/main/docs/ffi/ABI.md
+ * https://github.com/leeymxz/playdl/blob/main/docs/ffi/ABI.md
  *
  * What follows is the short form, for the reader who is already here.
  *

@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Javad Rajabzadeh
+// Copyright (C) 2026 leeymxz
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! A pull parser for the XML subset Metalink documents are written in.

@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Javad Rajabzadeh
+// Copyright (C) 2026 leeymxz
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! A local mock release server for exercising the whole update flow by hand
@@ -178,8 +178,8 @@ fn main() {
                 "- Multi-source scheduler: smarter connection ramp\\n",
                 "- **GUI**: faster list rendering on very large queues\\n",
                 "- Fixed resume after a mid-transfer network change\\n\\n",
-                "**Full Changelog**: https://github.com/ja7ad/hydra/compare\",",
-                "\"html_url\":\"https://github.com/ja7ad/hydra/releases/tag/v{v}\",",
+                "**Full Changelog**: https://github.com/leeymxz/playdl/compare\",",
+                "\"html_url\":\"https://github.com/leeymxz/playdl/releases/tag/v{v}\",",
                 "\"published_at\":\"2026-08-19T00:00:00Z\",",
                 "\"assets\":[{assets},",
                 "{{\"name\":\"SHA256SUMS.txt\",\"browser_download_url\":\"{base}/assets/SHA256SUMS.txt\",\"size\":0}}",
@@ -291,12 +291,12 @@ fn serve_one(
     let path = head.split_whitespace().nth(1).unwrap_or("/").to_string();
     println!("  <- GET {path}");
     let (status, extra, body): (&str, String, &[u8]) =
-        if path == "/repos/ja7ad/hydra/releases/latest" {
+        if path == "/repos/leeymxz/playdl/releases/latest" {
             ("200 OK", String::new(), latest_json.as_bytes())
         } else if path
             .split('?')
             .next()
-            .is_some_and(|p| p == "/repos/ja7ad/hydra/releases")
+            .is_some_and(|p| p == "/repos/leeymxz/playdl/releases")
         {
             // The release list the beta channel scans; `?per_page=…` allowed.
             ("200 OK", String::new(), list_json.as_bytes())
