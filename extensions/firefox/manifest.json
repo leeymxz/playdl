@@ -5,7 +5,7 @@
   "description": "A browser integration for PlayDL: automatic download capture, right-click downloads, and media/HLS/DASH stream sniffing.",
   "browser_specific_settings": {
     "gecko": {
-      "id": "playdl@ja7ad.github.io",
+      "id": "playdl@leeymxz.github.io",
       "strict_min_version": "140.0",
       "data_collection_permissions": {
         "required": ["none"]
