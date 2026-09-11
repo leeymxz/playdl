@@ -50,9 +50,8 @@ Name: "addtopath"; Description: "添加到系统 PATH（可在任意终端使用
 Source: "..\..\target\release\playdl.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 Source: "..\..\target\release\pdl.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 
-; GUI 图形界面
-Source: "..\..\gui\PlayDL.ps1"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\..\gui\PlayDL.bat"; DestDir: "{app}"; Flags: ignoreversion
+; 真正的桌面 GUI 程序
+Source: "..\..\target\release\playdl-desktop.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 ; Logo 与图标
 Source: "..\..\docs\logo.png"; DestDir: "{app}"; Flags: ignoreversion
@@ -66,16 +65,15 @@ Source: "..\..\LICENSE-APACHE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\LICENSING.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\PlayDL 下载器"; Filename: "{app}\PlayDL.bat"; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"
+Name: "{group}\PlayDL 下载器"; Filename: "{app}\playdl-desktop.exe"; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"
 Name: "{group}\PlayDL CLI终端"; Filename: "{app}\bin\playdl.exe"; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"
-Name: "{group}\PlayDL 下载菜单"; Filename: "{app}\下载器菜单.bat"; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"; Comment: "菜单式下载工具"
 Name: "{group}\卸载 PlayDL"; Filename: "{uninstallexe}"; IconFilename: "{app}\playdl.ico"
-Name: "{commondesktop}\PlayDL 下载器"; Filename: "{app}\PlayDL.bat"; Tasks: desktopicon; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"
+Name: "{commondesktop}\PlayDL 下载器"; Filename: "{app}\playdl-desktop.exe"; Tasks: desktopicon; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"
 
 [Run]
 ; 安装完成后运行选项
-Filename: "{app}\PlayDL.bat"; Description: "启动 PlayDL 下载器"; Flags: postinstall nowait skipifsilent shellexec unchecked
-Filename: "{app}\打开终端.bat"; Description: "打开命令行终端"; Flags: postinstall nowait skipifsilent shellexec unchecked
+Filename: "{app}\playdl-desktop.exe"; Description: "启动 PlayDL 下载器"; Flags: postinstall nowait skipifsilent unchecked
+Filename: "{app}\bin\playdl.exe"; Parameters: "--help"; Description: "查看命令行帮助"; Flags: postinstall nowait skipifsilent unchecked
 
 ; 添加到系统 PATH（需要管理员权限）
 Filename: "cmd.exe"; Parameters: "/C setx PATH ""%PATH%;{app}\bin"" /M"; Flags: runhidden; Tasks: addtopath

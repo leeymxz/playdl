@@ -7,7 +7,7 @@ license = "GPL-3.0-or-later"
 publish = false
 
 [[bin]]
-name = "playdl-gui"
+name = "playdl-desktop"
 path = "src/main.rs"
 
 [dependencies]
