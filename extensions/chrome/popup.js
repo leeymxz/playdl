@@ -4,7 +4,7 @@
 // Why a protected stream cannot be fetched. The legal boundary, not a gap
 // in the feature set — see the same text in content.js and the Rust side.
 const DRM_WHY =
-  "This stream is protected by DRM. Hydra does not bypass the technical measures that protect audio and video content, so it cannot be downloaded.";
+  "This stream is protected by DRM. PlayDL does not bypass the technical measures that protect audio and video content, so it cannot be downloaded.";
 
 const $ = (id) => document.getElementById(id);
 
@@ -177,7 +177,7 @@ function renderStreams(streams) {
         });
         btn.textContent = r && r.ok ? "Sent" : "Failed";
         if (!(r && r.ok)) {
-          $("hint").textContent = r?.error ? `Stream: ${r.error}.` : "Hydra is not reachable.";
+          $("hint").textContent = r?.error ? `Stream: ${r.error}.` : "PlayDL is not reachable.";
           btn.disabled = false;
           setTimeout(() => (btn.textContent = "Download"), 1500);
         }
@@ -205,18 +205,18 @@ async function refresh() {
   const st = $("status");
   if (ping && ping.ok) {
     st.className = "status on";
-    st.title = "Hydra is running";
+    st.title = "PlayDL is running";
   } else {
     st.className = "status off";
-    st.title = state.hydraSeen
-      ? "Hydra is not running (it starts automatically on capture)"
-      : "Hydra native host not reachable — run the install script";
+    st.title = state.playdlSeen
+      ? "PlayDL is not running (it starts automatically on capture)"
+      : "PlayDL native host not reachable — run the install script";
   }
 
   const hint = $("hint");
   if (!state.guiCapture) {
-    hint.textContent = "Capture is off in Hydra's Options (Google Chrome unchecked).";
-  } else if (!(ping && ping.ok) && !state.hydraSeen) {
+    hint.textContent = "Capture is off in PlayDL's Options (Google Chrome unchecked).";
+  } else if (!(ping && ping.ok) && !state.playdlSeen) {
     hint.textContent = "Install the native host: scripts/install-native-host.sh";
   } else {
     hint.textContent = "Alt+click a link to bypass capture once.";
@@ -256,8 +256,8 @@ $("video-panel").addEventListener("change", async (e) => {
   await chrome.runtime.sendMessage({ type: "set-video-panel", on: e.target.checked });
 });
 
-$("open-hydra").addEventListener("click", async () => {
-  await chrome.runtime.sendMessage({ type: "open-hydra" });
+$("open-playdl").addEventListener("click", async () => {
+  await chrome.runtime.sendMessage({ type: "open-playdl" });
   window.close();
 });
 

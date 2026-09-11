@@ -44,6 +44,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "快捷方式:"; Flags: checkedonce
 Name: "addtopath"; Description: "添加到系统 PATH（可在任意终端使用 playdl / pdl）"; GroupDescription: "系统设置:"; Flags: checkedonce
+Name: "nathost"; Description: "注册浏览器扩展连接（Chrome/Edge/Firefox）"; GroupDescription: "浏览器集成:"; Flags: checkedonce
 
 [Files]
 ; 主程序
@@ -52,6 +53,16 @@ Source: "..\..\target\release\pdl.exe"; DestDir: "{app}\bin"; Flags: ignoreversi
 
 ; 真正的桌面 GUI 程序（完整 IDM 风格）
 Source: "..\..\target\release\playdl-gui.exe"; DestDir: "{app}"; Flags: ignoreversion
+
+; 浏览器扩展桥接程序
+Source: "..\..\target\release\playdl-host.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
+
+; 浏览器扩展源码（Chrome + Firefox）
+Source: "..\..\extensions\chrome\*"; DestDir: "{app}\extensions\chrome"; Flags: ignoreversion recursesubdirs
+Source: "..\..\extensions\firefox\*"; DestDir: "{app}\extensions\firefox"; Flags: ignoreversion recursesubdirs
+
+; 浏览器扩展一键安装脚本
+Source: "..\..\dist\安装浏览器扩展.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
 ; Logo 与图标
 Source: "..\..\docs\logo.png"; DestDir: "{app}"; Flags: ignoreversion
@@ -67,6 +78,7 @@ Source: "..\..\LICENSING.md"; DestDir: "{app}"; Flags: ignoreversion
 [Icons]
 Name: "{group}\PlayDL 下载器"; Filename: "{app}\playdl-gui.exe"; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"
 Name: "{group}\PlayDL CLI终端"; Filename: "{app}\bin\playdl.exe"; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"
+Name: "{group}\安装浏览器扩展"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\安装浏览器扩展.ps1"""; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"; Comment: "一键注册 Chrome/Edge/Firefox 扩展连接"
 Name: "{group}\卸载 PlayDL"; Filename: "{uninstallexe}"; IconFilename: "{app}\playdl.ico"
 Name: "{commondesktop}\PlayDL 下载器"; Filename: "{app}\playdl-gui.exe"; Tasks: desktopicon; WorkingDir: "{app}"; IconFilename: "{app}\playdl.ico"
 
@@ -74,6 +86,9 @@ Name: "{commondesktop}\PlayDL 下载器"; Filename: "{app}\playdl-gui.exe"; Task
 ; 安装完成后运行选项
 Filename: "{app}\playdl-gui.exe"; Description: "启动 PlayDL 下载器"; Flags: postinstall nowait skipifsilent unchecked
 Filename: "{app}\bin\playdl.exe"; Parameters: "--help"; Description: "查看命令行帮助"; Flags: postinstall nowait skipifsilent unchecked
+
+; 注册浏览器扩展连接（native host）
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\安装浏览器扩展.ps1"""; Flags: runhidden; Tasks: nathost
 
 ; 添加到系统 PATH（需要管理员权限）
 Filename: "cmd.exe"; Parameters: "/C setx PATH ""%PATH%;{app}\bin"" /M"; Flags: runhidden; Tasks: addtopath

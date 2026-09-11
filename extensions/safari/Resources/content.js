@@ -68,7 +68,7 @@ let pillUrls = [];
 // supported" reads as "not supported YET" and leaves people waiting for a
 // release that is never coming.
 const DRM_WHY =
-  "This stream is protected by DRM. Hydra does not bypass the technical measures that protect audio and video content, so it cannot be downloaded.";
+  "This stream is protected by DRM. PlayDL does not bypass the technical measures that protect audio and video content, so it cannot be downloaded.";
 
 // The brand mark, for both the selection pill and the video panel.
 //
@@ -173,7 +173,7 @@ function buildPill() {
       chrome.runtime.sendMessage(
         { type: "selection-links", urls: pillUrls, referer: location.href },
         (r) => {
-          pillLabel.textContent = r && r.ok ? "Sent to Hydra ✓" : "Hydra not reachable";
+          pillLabel.textContent = r && r.ok ? "Sent to PlayDL ✓" : "PlayDL not reachable";
           setTimeout(hidePill, 1200);
         }
       );
@@ -886,7 +886,7 @@ document.addEventListener(
 // The sniffer says when this tab's list changed — a manifest usually lands
 // while the pointer is already resting on the player.
 chrome.runtime.onMessage.addListener((msg) => {
-  if (msg?.type === "hydra-media-changed") {
+  if (msg?.type === "playdl-media-changed") {
     refreshPageItems().then(() => {
       // An autoplaying player starts BEFORE its manifest is sniffed, so the
       // `play` handler above runs while there is still nothing to offer and

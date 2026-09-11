@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Hydra Download Manager Integration",
+  "name": "PlayDL Download Manager Integration",
   "version": "0.3.2",
-  "description": "A browser integration for Hydra: right-click downloads, link selection, and media/HLS/DASH stream sniffing.",
+  "description": "A browser integration for PlayDL: right-click downloads, link selection, and media/HLS/DASH stream sniffing.",
   "browser_specific_settings": {
     "safari": {
       "strict_min_version": "16.4"

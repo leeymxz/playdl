@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Hydra Download Manager Integration",
+  "name": "PlayDL Download Manager Integration",
   "version": "0.3.2",
-  "description": "A browser integration for Hydra: automatic download capture, right-click downloads, and media/HLS/DASH stream sniffing.",
+  "description": "A browser integration for PlayDL: automatic download capture, right-click downloads, and media/HLS/DASH stream sniffing.",
   "browser_specific_settings": {
     "gecko": {
-      "id": "hydra@ja7ad.github.io",
+      "id": "playdl@ja7ad.github.io",
       "strict_min_version": "140.0",
       "data_collection_permissions": {
         "required": ["none"]

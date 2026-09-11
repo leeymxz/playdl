@@ -1,4 +1,4 @@
-# Hydra Safari Extension
+# PlayDL Safari Extension
 
 Same code, same transport, same experience as the
 [Chrome extension](../chrome/README.md) — with one platform limit that
@@ -17,7 +17,7 @@ to Safari's own manifest into `Resources/`.
 latter is regenerated on every sync.
 
 The transport is the reason this works so cleanly: since the extension talks
-to Hydra over a WebSocket on a fixed loopback port (6799), Safari needs no
+to PlayDL over a WebSocket on a fixed loopback port (6799), Safari needs no
 special IPC at all. The app accepts `safari-web-extension://…` origins
 exactly as it accepts `chrome-extension://…`.
 
@@ -25,7 +25,7 @@ exactly as it accepts `chrome-extension://…`.
 
 | Feature | Chrome | Safari |
 |---|---|---|
-| Right-click → Download with Hydra | ✅ | ✅ |
+| Right-click → Download with PlayDL | ✅ | ✅ |
 | Selection pill over highlighted links | ✅ | ✅ |
 | Download all links | ✅ | ✅ |
 | Popup, capture toggle, status badge | ✅ | ✅ |
@@ -54,7 +54,7 @@ scripts/build-safari-extension.sh
 
 The script syncs the resources, generates the wrapper app, installs
 [SafariWebExtensionHandler.swift](SafariWebExtensionHandler.swift), disables
-the app sandbox (the handler must read `~/.config/hydra/ipc.json` and launch
+the app sandbox (the handler must read `~/.config/playdl/ipc.json` and launch
 the app), allows cleartext loopback via ATS, and builds.
 
 Afterwards: open the built app once, then Safari → Settings → Extensions →
@@ -64,7 +64,7 @@ Unsigned Extensions (Safari clears this on restart).
 ## Native handler
 
 [SafariWebExtensionHandler.swift](SafariWebExtensionHandler.swift) is the
-fallback path, mirroring `hydra-host`: it forwards a request to the app's
+fallback path, mirroring `playdl-host`: it forwards a request to the app's
 line-protocol socket using the token from `ipc.json`, and launches
-"Hydra Download Manager" when nothing answers. Day to day the WebSocket
+"PlayDL Download Manager" when nothing answers. Day to day the WebSocket
 carries the traffic; the handler exists so the first click can start the app.

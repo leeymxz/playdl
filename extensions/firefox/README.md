@@ -1,4 +1,4 @@
-# Hydra Firefox Extension
+# PlayDL Firefox Extension
 
 Same code, same transport, same behaviour as the
 [Chrome extension](../chrome/README.md) — including **automatic download
@@ -30,17 +30,17 @@ latter is regenerated on every sync.
   on the create event itself, so the extension parks and decides in one
   sequential step. Splitting them across two listeners would race, because
   listeners on the same event run concurrently.
-- **Stable add-on id** (`hydra@ja7ad.github.io`, in
+- **Stable add-on id** (`playdl@ja7ad.github.io`, in
   `browser_specific_settings.gecko`) — native messaging allow-lists Firefox
   add-ons by id (`allowed_extensions`), not by an extension-origin URL the
   way Chromium does.
 - **Host permissions may need granting.** Firefox MV3 treats
   `host_permissions` as optional; if cookies are not being attached, grant
-  site access from `about:addons` → Hydra → Permissions.
+  site access from `about:addons` → PlayDL → Permissions.
 
 ## Install
 
-1. Register the native host. **The Hydra app does this itself** on every
+1. Register the native host. **The PlayDL app does this itself** on every
    start — it writes Firefox's manifest into
    `~/Library/Application Support/Mozilla/NativeMessagingHosts` on macOS,
    `~/.mozilla/native-messaging-hosts` on Linux, and points
@@ -68,7 +68,7 @@ scripts/build-firefox-xpi.sh      # Firefox only
 scripts/build-extensions.sh       # Firefox .xpi + Chromium .zip + INSTALL.txt
 ```
 
-Both write `target/extensions/hydra-firefox-<version>.xpi` (and verify that
+Both write `target/extensions/playdl-firefox-<version>.xpi` (and verify that
 `manifest.json` sits at the archive root, which Firefox requires) alongside
 `target/extensions/firefox/`, the unpacked copy the archive was made from.
 Load either — **Load Temporary Add-on** accepts an `.xpi` directly, or the

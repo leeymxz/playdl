@@ -5,7 +5,7 @@
 // need three different answers from the reader:
 //
 //   app  — the WebSocket (or the host) reached a running Hydra: nothing to do.
-//   host — the native messaging host answered but Hydra is closed: also
+//   host — the native messaging host answered but PlayDL is closed: also
 //          nothing to do, the first capture starts it.
 //   none — the browser cannot find the host at all: the install step was
 //          skipped or the browser has not restarted since, so the page shows
@@ -52,17 +52,17 @@ async function probe() {
   if (status?.host) {
     setChip(
       "warn",
-      "Hydra is not running",
+      "PlayDL is not running",
       "The browser can reach Hydra; it starts on the first capture."
     );
     return;
   }
 
-  setChip("bad", "Native host not found", "The browser cannot reach the Hydra app.");
+  setChip("bad", "Native host not found", "The browser cannot reach the PlayDL app.");
   $("fix-cmd").textContent = isWindows() ? CMD.windows : CMD.unix;
   // A snap or Flatpak browser keeps its profile in its own private tree, so
-  // "start Hydra once" is the fix rather than anything the user types — but
-  // only if the running Hydra is new enough to know those paths.
+  // "start PlayDL once" is the fix rather than anything the user types — but
+  // only if the running PlayDL is new enough to know those paths.
   const note = $("fix-sandboxed");
   if (note) {
     note.hidden = !/Linux/i.test(navigator.userAgent);

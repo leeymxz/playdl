@@ -1,19 +1,19 @@
 // Copyright (C) 2026 Javad Rajabzadeh
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Hydra browser integration, service worker.
+// PlayDL browser integration, service worker.
 //
 // Architecture:
 //  - Primary transport: a persistent WebSocket to the app's fixed loopback
-//    port (hydra: 6799/16799), reconnecting with backoff forever. The open
+//    port (playdl: 6799/16799), reconnecting with backoff forever. The open
 //    socket doubles as the "app is running" indicator (toolbar shows a gray
 //    X when it is down).
-//  - Fallback transport: native messaging through `hydra-host`, which can
+//  - Fallback transport: native messaging through `playdl-host`, which can
 //    LAUNCH the app when it is not running, after which the WebSocket
 //    takes over again.
 //  - Capture: pause the browser download the moment it is created (pausing
 //    is reversible where cancelling is not), decide when the filename is
-//    known, then either hand it to Hydra and erase, or resume the browser
+//    known, then either hand it to PlayDL and erase, or resume the browser
 //    download untouched.
 
 // One source of truth for Chrome/Edge/Brave AND Safari. Safari exposes the
@@ -23,10 +23,10 @@
 // transport below is identical everywhere.
 globalThis.chrome ??= globalThis.browser;
 
-const HOST = "com.hydra.host";
+const HOST = "com.playdl.host";
 const WS_PORTS = [6799, 16799];
 
-/// Which browser this copy is running in, spelled the way Hydra's
+/// Which browser this copy is running in, spelled the way PlayDL's
 /// Options > General list spells it. Every request carries it so the app can
 /// answer with THAT browser's capture checkbox — without it, one flag stood
 /// for all of them and the Firefox/Safari rows did nothing.
@@ -44,7 +44,7 @@ const BROWSER = (() => {
   return "Google Chrome";
 })();
 
-// Mirrors hydra-gui's Options > File Types default; overwritten by the GUI's
+// Mirrors playdl-gui's Options > File Types default; overwritten by the GUI's
 // list on every round-trip.
 const DEFAULT_TYPES =
   "3GP 7Z AAC ACE AIF APK ARJ ASF AVI BIN BZ2 DMG EXE GZ GZIP IMG ISO LZH " +
@@ -127,17 +127,17 @@ const MEDIA_PER_TAB = 25;
 async function getState() {
   return chrome.storage.local.get({
     enabled: true, // extension-side master switch (popup toggle)
-    guiCapture: true, // "Google Chrome" checkbox in hydra's Options
+    guiCapture: true, // "Google Chrome" checkbox in playdl's Options
     autoTypes: DEFAULT_TYPES,
     skipSites: DEFAULT_SKIP,
     videoPanel: true, // the floating Download button over <video> elements
-    hydraSeen: false, // ever completed a round-trip
+    playdlSeen: false, // ever completed a round-trip
   });
 }
 
 function absorbReply(reply) {
   if (!reply || typeof reply !== "object" || reply.unreachable) return;
-  const patch = { hydraSeen: true };
+  const patch = { playdlSeen: true };
   if (typeof reply.capture === "boolean") patch.guiCapture = reply.capture;
   if (typeof reply.auto_types === "string" && reply.auto_types) patch.autoTypes = reply.auto_types;
   if (typeof reply.dont_start_sites === "string") patch.skipSites = reply.dont_start_sites;
@@ -159,7 +159,7 @@ function setConnected(on) {
   chrome.action.setBadgeBackgroundColor({ color: "#606060" }).catch(() => {});
   chrome.action.setBadgeText({ text: on ? "" : "X" }).catch(() => {});
   chrome.action
-    .setTitle({ title: on ? "Hydra Download Manager" : "Hydra is not running" })
+    .setTitle({ title: on ? "PlayDL Download Manager" : "PlayDL is not running" })
     .catch(() => {});
 }
 
@@ -410,7 +410,7 @@ async function decideCapture(item) {
   });
 
   if (reply && reply.ok) {
-    // Hydra owns it now; drop the browser's paused copy.
+    // PlayDL owns it now; drop the browser's paused copy.
     try {
       await chrome.downloads.cancel(item.id);
     } catch {}
@@ -418,7 +418,7 @@ async function decideCapture(item) {
       await chrome.downloads.erase({ id: item.id });
     } catch {}
   } else {
-    // Hydra unreachable: the browser download continues untouched.
+    // PlayDL unreachable: the browser download continues untouched.
     await giveBack();
   }
 }
@@ -461,9 +461,9 @@ async function installMenus() {
     await menus.removeAll();
   } catch {}
   for (const [id, title, contexts] of [
-    ["hydra-link", "Download with Hydra", ["link"]],
-    ["hydra-media", "Download with Hydra", ["image", "video", "audio"]],
-    ["hydra-all-links", "Download all links with Hydra", ["page"]],
+    ["playdl-link", "Download with Hydra", ["link"]],
+    ["playdl-media", "Download with Hydra", ["image", "video", "audio"]],
+    ["playdl-all-links", "Download all links with Hydra", ["page"]],
   ]) {
     try {
       menus.create({ id, title, contexts });
@@ -486,10 +486,10 @@ chrome.runtime.onStartup.addListener(() => {
 wsConnect();
 
 (chrome.contextMenus ?? chrome.menus)?.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId === "hydra-link" || info.menuItemId === "hydra-media") {
-    const url = info.menuItemId === "hydra-link" ? info.linkUrl : info.srcUrl;
+  if (info.menuItemId === "playdl-link" || info.menuItemId === "playdl-media") {
+    const url = info.menuItemId === "playdl-link" ? info.linkUrl : info.srcUrl;
     if (url) await sendToHydra(url, { referer: tab?.url || null, tab_url: tab?.url || null });
-  } else if (info.menuItemId === "hydra-all-links" && tab?.id != null) {
+  } else if (info.menuItemId === "playdl-all-links" && tab?.id != null) {
     try {
       const resp = await chrome.tabs.sendMessage(tab.id, { type: "collect-links" });
       const urls = [...new Set((resp?.urls || []).filter((u) => /^https?:/i.test(u)))];
@@ -895,7 +895,7 @@ async function noteStream(tabId, url, mime, tabUrl) {
 
   let info;
   if (!text) {
-    // Unreadable manifest: still worth listing, Hydra will fetch it itself.
+    // Unreadable manifest: still worth listing, PlayDL will fetch it itself.
     info = {
       protocol,
       kind: protocol === "hls" ? "media" : "mpd",
@@ -946,7 +946,7 @@ async function noteStream(tabId, url, mime, tabUrl) {
   });
 }
 
-/// Ask Hydra for a stream download. `stream` is a distinct request type:
+/// Ask PlayDL for a stream download. `stream` is a distinct request type:
 /// a manifest is not a file, and handing it to the ordinary download path
 /// would save a few kilobytes of playlist text.
 async function sendStreamToHydra(entry, variant, opts = {}) {
@@ -995,7 +995,7 @@ async function sendStreamToHydra(entry, variant, opts = {}) {
   // Builds without a stream-aware path answer "unknown type"; say so rather
   // than quietly downloading the playlist as a text file.
   if (reply && !reply.ok && /unknown type/i.test(reply.error || "")) {
-    return { ok: false, error: "this Hydra version cannot download streams — update Hydra" };
+    return { ok: false, error: "this PlayDL version cannot download streams — update Hydra" };
   }
   return reply;
 }
@@ -1020,7 +1020,7 @@ async function refreshBadge(tabId) {
   // Nudge the in-page panel: a manifest usually lands while the pointer is
   // already resting on the player.
   try {
-    Promise.resolve(chrome.tabs.sendMessage(tabId, { type: "hydra-media-changed" })).catch(
+    Promise.resolve(chrome.tabs.sendMessage(tabId, { type: "playdl-media-changed" })).catch(
       () => {}
     );
   } catch {
@@ -1172,9 +1172,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         break;
       case "status": {
         // For the welcome page. Probe only: `wsRequest` cannot start
-        // anything, and `hydra-host` answers a "ping" WITHOUT launching the
+        // anything, and `playdl-host` answers a "ping" WITHOUT launching the
         // app — which is exactly what separates "host is not installed"
-        // (unreachable) from "host is fine, Hydra is simply closed".
+        // (unreachable) from "host is fine, PlayDL is simply closed".
         const viaWs = wsReady || !!(await wsRequest({ type: "ping" }, 2500));
         if (viaWs) {
           sendResponse({ app: true, host: true });
@@ -1184,7 +1184,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ app: !!host?.ok, host: !host?.unreachable });
         break;
       }
-      case "open-hydra":
+      case "open-playdl":
         sendResponse(await request({ type: "open" }));
         break;
       case "download-url": {

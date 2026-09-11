@@ -1,4 +1,4 @@
-# Hydra Extension for Chromium Browsers
+# PlayDL Extension for Chromium Browsers
 
 **Edge, Brave, Vivaldi, Opera, Arc and Chromium all load this same
 directory** — they are Chromium, they use the `chrome-extension://` origin
@@ -22,29 +22,29 @@ page on first install.
 
 ```
                     ┌── WebSocket 127.0.0.1:6799 ─────────────┐   (primary)
-extension ──────────┤                                          ├──> hydra-gui
- (this dir)         └── native messaging ──> hydra-host ───────┘   (extbus)
+extension ──────────┤                                          ├──> playdl-gui
+ (this dir)         └── native messaging ──> playdl-host ───────┘   (extbus)
                          (stdio frames)      launches the app     (fallback)
 ```
 
 - The extension watches `chrome.downloads`. When a download's file type
   matches the capture list, it pauses it, collects the cookies for that URL,
-  hands it to Hydra, and only then cancels the browser's copy — if Hydra is
+  hands it to Hydra, and only then cancels the browser's copy — if PlayDL is
   unreachable the paused download simply resumes in the browser.
 - The **WebSocket is the primary transport**: no process spawn per request,
   and the open socket is itself the "app is running" signal.
-- `hydra-host` is the fallback, spawned by the browser per request. It
+- `playdl-host` is the fallback, spawned by the browser per request. It
   forwards JSON to the running GUI (authenticated with the token from
   `ipc.json`) and **launches the GUI minimized** when it is not running —
   the only path that can start the app.
 - Every GUI reply carries the current capture settings, so the file-type
-  list, excluded sites, and **this browser's** checkbox under Hydra's
+  list, excluded sites, and **this browser's** checkbox under PlayDL's
   Options > General propagate to the extension automatically. Each request
   names the browser it came from, so the rows in that list govern their own
   browser rather than sharing one flag.
 - **The in-page bar** (`content.js`) mirrors: hovering a player shows
   "Download this video", and hovering that drops a numbered list of every
-  variant in every container Hydra can actually produce — TS *and* MP4 for
+  variant in every container PlayDL can actually produce — TS *and* MP4 for
   MPEG-TS segments, MP4 only for fragmented MP4 and DASH — named after the
   page title, cheapest quality first, with "Download all" at the top. It
   lists only what the background already sniffed; it never probes the page
@@ -55,12 +55,12 @@ extension ──────────┤                                     
   the popup. Variant playlists a master already covers are folded into it,
   and segments are kept out of the direct-media list. A manifest that
   declares Widevine, PlayReady, FairPlay or common encryption is shown as
-  unsupported and is never sent — Hydra does not circumvent DRM.
+  unsupported and is never sent — PlayDL does not circumvent DRM.
 - Hold **Alt** while clicking a link to bypass capture once.
 
 ## Install
 
-1. Register the native host. **The Hydra app does this itself** on every
+1. Register the native host. **The PlayDL app does this itself** on every
    start, for every browser installed for your user, so normally there is
    nothing to do here. From a source checkout, where the app may not have
    been launched yet, the script does the same thing:
@@ -85,12 +85,12 @@ script re-derives the ID from `manifest.json`, so the two can never drift.
 scripts/build-extensions.sh
 ```
 
-writes `target/extensions/hydra-chrome-<version>.zip` — the same files as
+writes `target/extensions/playdl-chrome-<version>.zip` — the same files as
 this directory, minus the repository-only ones, with `manifest.json` at the
 archive root — plus `target/extensions/chrome/`, the unpacked copy it was
 made from, the Firefox `.xpi`, and an `INSTALL.txt`.
 
-With a signing key it also writes `hydra-chrome-<version>.crx` (CRX3: the
+With a signing key it also writes `playdl-chrome-<version>.crx` (CRX3: the
 zip behind an RSA-SHA256-signed header):
 
 ```bash
@@ -109,7 +109,7 @@ the signer's public key, so signing with anything other than the key behind
 the pinned one moves the extension off `jpnonmbbkjdpeebdhkjoliklfhkdcomj`.
 The script rewrites the manifest key to match (a mismatched pair is rejected
 outright by the browser) and warns with the id it produced. Such a build
-still reaches Hydra over the WebSocket — `extbus` accepts any extension
+still reaches PlayDL over the WebSocket — `extbus` accepts any extension
 origin — but not over native messaging, which is allow-listed by id and is
 the only path that can launch the app.
 
@@ -123,10 +123,10 @@ Two front doors to the same handler:
 | Transport | Port | Auth | Used by |
 |---|---|---|---|
 | WebSocket | `6799`, fallback `16799` (fixed) | `Origin: chrome-extension://…` | the extension, directly |
-| Line protocol | ephemeral, published in `ipc.json` | random token from `ipc.json` | `hydra-host` |
+| Line protocol | ephemeral, published in `ipc.json` | random token from `ipc.json` | `playdl-host` |
 
 The WebSocket is the primary path: no process spawn per request, and the
-live socket *is* the "Hydra is running" indicator (the toolbar shows a gray
+live socket *is* the "PlayDL is running" indicator (the toolbar shows a gray
 **X** while it is down). The native host remains the fallback and
 is the only path that can **launch** the app.
 
@@ -141,11 +141,11 @@ id?, error?}`.
 - **Capture order**:
   the browser download is **paused** the instant it is created, the decision
   is made once `onDeterminingFilename` resolves the real filename, and only
-  then is it cancelled and erased — or resumed untouched if Hydra did not
+  then is it cancelled and erased — or resumed untouched if PlayDL did not
   take it. Pausing is reversible where cancelling is not: small files cannot
   finish before the round-trip, and signed one-shot URLs never need
   re-requesting.
-- **Single instance**: launching hydra-gui while another instance runs now
+- **Single instance**: launching playdl-gui while another instance runs now
   just surfaces the running instance's window and exits — the extension
   always talks to the instance that owns `ipc.json`.
 - After changing the extension files, reload it on `chrome://extensions`;
@@ -186,11 +186,11 @@ Extensions.
   does not circumvent DRM. Live HLS/DASH under any encryption is refused by
   the engine for the same reason keys make it impossible to record honestly.
 
-## Do I need `hydra-host` on every OS?
+## Do I need `playdl-host` on every OS?
 
-Only for one job: **starting Hydra when it is not already running.** Every
+Only for one job: **starting PlayDL when it is not already running.** Every
 other request goes over the WebSocket, which behaves identically on macOS,
-Linux and Windows and needs no registration at all. So if Hydra is already
+Linux and Windows and needs no registration at all. So if PlayDL is already
 running (it installs a login item by default), the extension never invokes
 the host.
 
