@@ -352,7 +352,7 @@ async function cookieHeader(url) {
 
 // ----------------------------------------------------------------- capture
 
-async function sendToHydra(url, extras = {}) {
+async function sendToPlayDL(url, extras = {}) {
   return request({
     type: "download",
     url,
@@ -402,7 +402,7 @@ async function decideCapture(item) {
   if (!typeMatches(state.autoTypes, item.filename, url, item.mime)) return giveBack();
 
   const size = item.totalBytes > 0 ? item.totalBytes : item.fileSize > 0 ? item.fileSize : null;
-  const reply = await sendToHydra(url, {
+  const reply = await sendToPlayDL(url, {
     filename: item.filename ? item.filename.split(/[/\\]/).pop() : null,
     referer: item.referrer || null,
     size,
@@ -461,9 +461,9 @@ async function installMenus() {
     await menus.removeAll();
   } catch {}
   for (const [id, title, contexts] of [
-    ["playdl-link", "Download with Hydra", ["link"]],
-    ["playdl-media", "Download with Hydra", ["image", "video", "audio"]],
-    ["playdl-all-links", "Download all links with Hydra", ["page"]],
+    ["playdl-link", "Download with PlayDL", ["link"]],
+    ["playdl-media", "Download with PlayDL", ["image", "video", "audio"]],
+    ["playdl-all-links", "Download all links with PlayDL", ["page"]],
   ]) {
     try {
       menus.create({ id, title, contexts });
@@ -488,7 +488,7 @@ wsConnect();
 (chrome.contextMenus ?? chrome.menus)?.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "playdl-link" || info.menuItemId === "playdl-media") {
     const url = info.menuItemId === "playdl-link" ? info.linkUrl : info.srcUrl;
-    if (url) await sendToHydra(url, { referer: tab?.url || null, tab_url: tab?.url || null });
+    if (url) await sendToPlayDL(url, { referer: tab?.url || null, tab_url: tab?.url || null });
   } else if (info.menuItemId === "playdl-all-links" && tab?.id != null) {
     try {
       const resp = await chrome.tabs.sendMessage(tab.id, { type: "collect-links" });
@@ -509,7 +509,7 @@ wsConnect();
 //
 // Everything here is read-only reconnaissance: manifests are parsed for
 // their variant table, and a stream whose manifest declares a DRM system is
-// listed as unsupported rather than handed to Hydra.
+// listed as unsupported rather than handed to PlayDL.
 
 const HLS_MIME =
   /^(?:application\/(?:vnd\.apple\.mpegurl|x-mpegurl|mpegurl|octet-stream-m3u8)|(?:audio|video)\/(?:x-)?mpegurl)$/i;
@@ -588,7 +588,7 @@ function titleName(title) {
 
 /// What to call a captured media file.
 ///
-/// Normally nothing: the URL's own basename is the better name, and Hydra
+/// Normally nothing: the URL's own basename is the better name, and PlayDL
 /// reads it off the URL by itself — `big_buck_bunny_1080p.mp4` beats any page
 /// title, and on a page of samples every row would otherwise take the same
 /// one. But an object stored as `fc1eced1-6d50-4375-a125-ef65c887d7d5.mp4` was
@@ -949,7 +949,7 @@ async function noteStream(tabId, url, mime, tabUrl) {
 /// Ask PlayDL for a stream download. `stream` is a distinct request type:
 /// a manifest is not a file, and handing it to the ordinary download path
 /// would save a few kilobytes of playlist text.
-async function sendStreamToHydra(entry, variant, opts = {}) {
+async function sendStreamToPlayDL(entry, variant, opts = {}) {
   // Defence in depth: the panel lists a protected stream as an unclickable
   // note, so this should be unreachable from the UI.
   if (entry.drm) {
@@ -995,7 +995,7 @@ async function sendStreamToHydra(entry, variant, opts = {}) {
   // Builds without a stream-aware path answer "unknown type"; say so rather
   // than quietly downloading the playlist as a text file.
   if (reply && !reply.ok && /unknown type/i.test(reply.error || "")) {
-    return { ok: false, error: "this PlayDL version cannot download streams — update Hydra" };
+    return { ok: false, error: "this PlayDL version cannot download streams — update PlayDL" };
   }
   return reply;
 }
@@ -1198,7 +1198,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         );
         const tab = id != null ? await chrome.tabs.get(id).catch(() => null) : null;
         sendResponse(
-          await sendToHydra(msg.url, {
+          await sendToPlayDL(msg.url, {
             referer: msg.referer || null,
             filename: hit ? mediaName(msg.url, tab?.title, hit.kind) : null,
           })
@@ -1216,7 +1216,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // The popup sends no name; the page title is the best one there is.
         const tab = await chrome.tabs.get(id).catch(() => null);
         sendResponse(
-          await sendStreamToHydra(entry, variant, {
+          await sendStreamToPlayDL(entry, variant, {
             container: msg.container,
             filename: msg.filename || titleName(tab?.title),
           })
@@ -1229,7 +1229,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const urls = [...new Set((msg.urls || []).filter((u) => /^https?:/i.test(u)))];
         if (!urls.length) return sendResponse({ ok: false, error: "no links" });
         if (urls.length === 1) {
-          sendResponse(await sendToHydra(urls[0], { referer: msg.referer || null }));
+          sendResponse(await sendToPlayDL(urls[0], { referer: msg.referer || null }));
         } else {
           sendResponse(await request({ type: "links", urls }));
         }

@@ -4,9 +4,9 @@
 // Content script, three jobs:
 //  1. Stamp Alt+clicks so the background honors the "hold Alt to let the
 //     browser download normally" convention.
-//  2. Collect page links for "Download all links with Hydra".
+//  2. Collect page links for "Download all links with PlayDL".
 //  3. The selection pill: highlight one or more links and a floating
-//     "Download with Hydra" button appears next to the selection.
+//     "Download with PlayDL" button appears next to the selection.
 
 window.addEventListener(
   "mousedown",
@@ -201,7 +201,7 @@ function showPill() {
   if (!pillEl) pillEl = buildPill();
   pillUrls = urls;
   pillLabel.textContent =
-    urls.length === 1 ? "Download with Hydra" : `Download ${urls.length} links with Hydra`;
+    urls.length === 1 ? "Download with PlayDL" : `Download ${urls.length} links with PlayDL`;
   pillEl.style.display = "flex";
   // Below the selection's end, clamped to the viewport; above when there is
   // no room underneath.
@@ -823,7 +823,7 @@ function sendSingle() {
   clearTimeout(panelTimer);
   sendRow(r, (rep) => {
     if (rep && rep.ok) {
-      panelTitle.textContent = "Sent to Hydra";
+      panelTitle.textContent = "Sent to PlayDL";
       schedulePanelHide();
     } else {
       panelTitle.textContent = (rep && rep.error) || was;

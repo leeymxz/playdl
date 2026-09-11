@@ -10,9 +10,9 @@ already register Edge, Brave, Vivaldi and Chromium alongside Chrome.
 
 
 
-Browser integration for [Hydra](../../README.md): automatic
-download capture, right-click "Download with Hydra", "Download all links",
-a floating "Download with Hydra" button when you highlight links on a page
+Browser integration for [PlayDL](../../README.md): automatic
+download capture, right-click "Download with PlayDL", "Download all links",
+a floating "Download with PlayDL" button when you highlight links on a page
 (single link downloads directly, several open the batch box), per-tab media
 sniffing with a badge counter, HLS/DASH stream detection with quality
 selection, a floating "Download this video" bar over players, and a welcome
@@ -29,7 +29,7 @@ extension ──────────┤                                     
 
 - The extension watches `chrome.downloads`. When a download's file type
   matches the capture list, it pauses it, collects the cookies for that URL,
-  hands it to Hydra, and only then cancels the browser's copy — if PlayDL is
+  hands it to PlayDL, and only then cancels the browser's copy — if PlayDL is
   unreachable the paused download simply resumes in the browser.
 - The **WebSocket is the primary transport**: no process spawn per request,
   and the open socket is itself the "app is running" signal.
@@ -182,7 +182,7 @@ Extensions.
   the engine does not yet send them (StartSpec has no header support);
   cookies **are** applied.
 - Streams whose manifest declares DRM (Widevine, PlayReady, FairPlay,
-  common encryption) are listed as protected and are never sent — Hydra
+  common encryption) are listed as protected and are never sent — PlayDL
   does not circumvent DRM. Live HLS/DASH under any encryption is refused by
   the engine for the same reason keys make it impossible to record honestly.
 
@@ -199,7 +199,7 @@ Ship it per-OS anyway, since the cold-start click is the common case:
 | OS | Install | Registration |
 |---|---|---|
 | macOS / Linux | `scripts/install-native-host.sh` | JSON manifest in each browser's `NativeMessagingHosts` directory |
-| Windows | `powershell -ExecutionPolicy Bypass -File scripts\install-native-host.ps1` | `HKCU` registry key per browser pointing at a manifest in `%LOCALAPPDATA%\Hydra` |
+| Windows | `powershell -ExecutionPolicy Bypass -File scripts\install-native-host.ps1` | `HKCU` registry key per browser pointing at a manifest in `%LOCALAPPDATA%\PlayDL` |
 
 Both installers derive the Chromium extension id from the pinned manifest
 key and the Firefox id from `browser_specific_settings.gecko.id`, so the

@@ -58,7 +58,7 @@ the app sandbox (the handler must read `~/.config/playdl/ipc.json` and launch
 the app), allows cleartext loopback via ATS, and builds.
 
 Afterwards: open the built app once, then Safari → Settings → Extensions →
-enable **Hydra**. For an unsigned dev build also tick Develop → Allow
+enable **PlayDL**. For an unsigned dev build also tick Develop → Allow
 Unsigned Extensions (Safari clears this on restart).
 
 ## Native handler

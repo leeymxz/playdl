@@ -263,7 +263,7 @@ $("open-playdl").addEventListener("click", async () => {
 
 $("all-links").addEventListener("click", async () => {
   const r = await chrome.runtime.sendMessage({ type: "download-all-links" });
-  $("hint").textContent = r && r.ok ? "Links sent to Hydra." : `Could not send links${r?.error ? `: ${r.error}` : ""}.`;
+  $("hint").textContent = r && r.ok ? "Links sent to PlayDL." : `Could not send links${r?.error ? `: ${r.error}` : ""}.`;
 });
 
 refresh();

@@ -4,7 +4,7 @@
 // The welcome page's live connection check. Three outcomes, because they
 // need three different answers from the reader:
 //
-//   app  — the WebSocket (or the host) reached a running Hydra: nothing to do.
+//   app  — the WebSocket (or the host) reached a running PlayDL: nothing to do.
 //   host — the native messaging host answered but PlayDL is closed: also
 //          nothing to do, the first capture starts it.
 //   none — the browser cannot find the host at all: the install step was
@@ -34,7 +34,7 @@ function setChip(cls, text, title) {
 }
 
 async function probe() {
-  setChip("pending", "Checking Hydra…");
+  setChip("pending", "Checking PlayDL…");
   $("trouble").hidden = true;
 
   let status;
@@ -45,7 +45,7 @@ async function probe() {
   }
 
   if (status?.app) {
-    setChip("ok", "Connected to Hydra", "The extension is talking to the running app.");
+    setChip("ok", "Connected to PlayDL", "The extension is talking to the running app.");
     return;
   }
 
@@ -53,7 +53,7 @@ async function probe() {
     setChip(
       "warn",
       "PlayDL is not running",
-      "The browser can reach Hydra; it starts on the first capture."
+      "The browser can reach PlayDL; it starts on the first capture."
     );
     return;
   }
