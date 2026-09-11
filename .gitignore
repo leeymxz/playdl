@@ -37,3 +37,5 @@ fix_author.ps1\nfix_locale.ps1\npe.txt\npo.txt
 upload-ext.ps1\nmake_icon.py\nmake_ext_icons.py
 
 update-release-body.ps1\nupload-ext.ps1
+
+check_manifest.py\ngen_ext_icons.py
