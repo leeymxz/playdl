@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/hydra-core", "crates/hydra-net", "crates/hydra-stream", "crates/hydra-ffi", "crates/hydra-cli", "crates/hydra-gui", "crates/hydra-host", "crates/hydra-updater"]
+members = ["crates/hydra-core", "crates/hydra-net", "crates/hydra-stream", "crates/hydra-ffi", "crates/hydra-cli", "crates/hydra-gui", "crates/hydra-host", "crates/hydra-updater", "crates/playdl-desktop"]
 resolver = "2"
 
 [workspace.package]

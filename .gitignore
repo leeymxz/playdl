@@ -18,3 +18,11 @@ git_*.txt
 dist/
 generated-images/
 
+# local helper scripts (never push these)
+make_icon.py
+make_transparent.py
+reupload.ps1
+fix_*.ps1
+rename_crates.ps1
+git_*.txt
+
