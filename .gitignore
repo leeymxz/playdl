@@ -26,3 +26,5 @@ fix_*.ps1
 rename_crates.ps1
 git_*.txt
 
+test-gui.ps1
+
