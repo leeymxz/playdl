@@ -229,14 +229,14 @@ pub fn entries(kind: MenuBarKind, app: &App) -> Vec<Entry> {
             ),
         ],
         MenuBarKind::Help => vec![
-            Entry::item(tr("PlayDL 涓婚〉"), MenuAction::HomePage),
+            Entry::item(tr("PlayDL 主页"), MenuAction::HomePage),
             Entry::item(tr("Contribute on GitHub"), MenuAction::Contribute),
             Entry::item(tr("Keyboard Shortcuts"), MenuAction::Shortcuts),
             Entry::item(tr("Permissions"), MenuAction::Permissions),
             Entry::item(tr("Logs"), MenuAction::Logs),
             Entry::item(tr("Report an Issue"), MenuAction::ReportIssue),
             Entry::item(tr("Check for updates"), MenuAction::CheckUpdates).sep(),
-            Entry::item(tr("鍏充簬 PlayDL"), MenuAction::About).sep(),
+            Entry::item(tr("关于 PlayDL"), MenuAction::About).sep(),
         ],
     }
 }

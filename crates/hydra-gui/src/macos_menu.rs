@@ -77,7 +77,7 @@ pub fn reinstall(state: &MenuState, queues: &[String], languages: &[String]) {
 
     let app_m = Submenu::new("PlayDL", true);
     let _ = app_m.append_items(&[
-        &item("鍏充簬 PlayDL", MenuAction::About),
+        &item("关于 PlayDL", MenuAction::About),
         &PredefinedMenuItem::separator(),
         &PredefinedMenuItem::hide(None),
         &PredefinedMenuItem::hide_others(None),
@@ -200,14 +200,14 @@ pub fn reinstall(state: &MenuState, queues: &[String], languages: &[String]) {
 
     let help = Submenu::new(tr("Help"), true);
     let _ = help.append_items(&[
-        &item("PlayDL 涓婚〉", MenuAction::HomePage),
+        &item("PlayDL 主页", MenuAction::HomePage),
         &item("Contribute on GitHub", MenuAction::Contribute),
         &item("Keyboard Shortcuts", MenuAction::Shortcuts),
         &item("Permissions", MenuAction::Permissions),
         &item("Logs", MenuAction::Logs),
         &item("Report an Issue", MenuAction::ReportIssue),
         &item("Check for updates", MenuAction::CheckUpdates),
-        &item("鍏充簬 PlayDL", MenuAction::About),
+        &item("关于 PlayDL", MenuAction::About),
     ]);
     let _ = menu.append(&help);
 

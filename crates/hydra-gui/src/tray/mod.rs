@@ -105,7 +105,7 @@ fn model(queues: &[String], power_save: bool) -> Vec<Entry> {
             checked: power_save,
         },
         item("Options", MenuAction::Options),
-        item("鍏充簬 PlayDL", MenuAction::About),
+        item("关于 PlayDL", MenuAction::About),
         Entry::Separator,
         item("Exit", MenuAction::Exit),
     ]

@@ -383,7 +383,7 @@ fn title(app: &App, id: window::Id) -> String {
         Some(WinKind::Options) => tr("PlayDL 璁剧疆"),
         Some(WinKind::Scheduler) => tr("Scheduler"),
         Some(WinKind::Batch) => tr("Add batch download"),
-        Some(WinKind::About) => tr("鍏充簬 PlayDL"),
+        Some(WinKind::About) => tr("关于 PlayDL"),
         Some(WinKind::Shortcuts) => tr("Keyboard Shortcuts"),
         Some(WinKind::Confirm) => tr("PlayDL"),
         Some(WinKind::Permissions) => tr("Permissions"),

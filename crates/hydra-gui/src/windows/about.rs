@@ -1,7 +1,7 @@
 // Copyright (C) 2026 leeymxz
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! 鍏充簬 PlayDL.
+//! 关于 PlayDL.
 
 use crate::app::{App, El, Message, WinKind};
 use crate::windows::dlg_btn_primary;
