@@ -54,6 +54,11 @@ pub struct ReleaseAsset {
 }
 
 /// The subset of the GitHub release object the updater needs.
+///
+/// `Option<String>` (rather than plain `String`) for fields GitHub can
+/// legitimately return as JSON `null` (e.g. a release created without an
+/// explicit title has `"name": null`); `#[serde(default)]` alone only covers
+/// a *missing* field, not an explicit null.
 #[derive(Clone, Debug, Deserialize)]
 pub struct Release {
     /// `v0.2.4` — the leading `v` is the tag convention, not the version.
@@ -61,17 +66,17 @@ pub struct Release {
     /// GitHub's pre-release flag; `-rc` tags are published with it set.
     #[serde(default)]
     pub prerelease: bool,
-    /// Human release title (`hydra 0.2.4`).
+    /// Human release title (`PlayDL 0.1.0`); may be null when unset.
     #[serde(default)]
-    pub name: String,
+    pub name: Option<String>,
     /// Release notes, GitHub-flavoured markdown.
     #[serde(default)]
-    pub body: String,
+    pub body: Option<String>,
     /// Web page of the release, for "open in browser" links.
     #[serde(default)]
     pub html_url: String,
     #[serde(default)]
-    pub published_at: String,
+    pub published_at: Option<String>,
     #[serde(default)]
     pub assets: Vec<ReleaseAsset>,
 }

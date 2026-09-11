@@ -135,7 +135,11 @@ pub async fn check(beta: bool) -> Result<Option<UpdateInfo>, String> {
         .map(|a| (a.name.clone(), a.browser_download_url.clone(), a.size));
     Ok(Some(UpdateInfo {
         version: rel.version().to_string(),
-        notes: pdl_updater::clean_notes(&rel.body),
+        notes: rel
+            .body
+            .as_deref()
+            .map(pdl_updater::clean_notes)
+            .unwrap_or_else(|| "本次更新没有说明文字。".into()),
         html_url: rel.html_url.clone(),
         asset_name: asset.name.clone(),
         asset_url: asset.browser_download_url.clone(),
