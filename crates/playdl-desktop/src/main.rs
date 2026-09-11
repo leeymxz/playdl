@@ -492,6 +492,49 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "PlayDL 下载管理器",
         options,
-        Box::new(|_cc| Ok(Box::new(App::default()))),
+        Box::new(|cc| {
+            // 加载中文字体（微软雅黑 / 宋体等），否则中文会显示为方块乱码
+            install_cjk_font(&cc.egui_ctx);
+            Ok(Box::new(App::default()))
+        }),
     )
+}
+
+/// 注册 Windows 系统中文字体到 egui，解决中文乱码/方块问题。
+fn install_cjk_font(ctx: &egui::Context) {
+    use egui::{FontData, FontDefinitions, FontFamily};
+
+    let mut fonts = FontDefinitions::default();
+
+    // 候选中文字体路径（按优先级）
+    let font_candidates = [
+        "C:\\Windows\\Fonts\\msyh.ttc",   // 微软雅黑
+        "C:\\Windows\\Fonts\\msyhbd.ttc", // 微软雅黑粗体
+        "C:\\Windows\\Fonts\\simhei.ttf", // 黑体
+        "C:\\Windows\\Fonts\\simsun.ttc", // 宋体
+        "C:\\Windows\\Fonts\\Deng.ttf",   // 等线
+        "C:\\Windows\\Fonts\\msyh.ttf",
+    ];
+
+    let mut loaded = false;
+    for path in font_candidates {
+        if let Ok(bytes) = std::fs::read(path) {
+            fonts
+                .font_data
+                .insert("cjk".to_owned(), std::sync::Arc::new(FontData::from_owned(bytes)));
+            for family in [FontFamily::Proportional, FontFamily::Monospace] {
+                fonts
+                    .families
+                    .entry(family)
+                    .or_default()
+                    .push("cjk".to_owned());
+            }
+            loaded = true;
+            break;
+        }
+    }
+
+    if loaded {
+        ctx.set_fonts(fonts);
+    }
 }
