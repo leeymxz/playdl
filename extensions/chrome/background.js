@@ -21,7 +21,7 @@
 // whichever exists and feature-detect the rest: Safari has no `downloads`
 // API at all, which is why auto-capture is Chromium-only. The WebSocket
 // transport below is identical everywhere.
-globalThis.chrome ??= globalThis.browser;
+if (typeof globalThis.chrome === 'undefined') globalThis.chrome = globalThis.browser;
 
 const HOST = "com.playdl.host";
 const WS_PORTS = [6799, 16799];

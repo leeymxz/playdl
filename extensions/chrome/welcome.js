@@ -12,7 +12,7 @@
 //          how to fix it.
 //
 // Safari exposes `browser`; Chromium and Firefox expose `chrome`.
-globalThis.chrome ??= globalThis.browser;
+if (typeof globalThis.chrome === 'undefined') globalThis.chrome = globalThis.browser;
 
 const $ = (id) => document.getElementById(id);
 
