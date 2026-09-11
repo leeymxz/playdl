@@ -2,7 +2,7 @@
 name = "playdl-desktop"
 version = "0.1.0"
 edition = "2021"
-description = "PlayDL desktop GUI - double-click download manager"
+description = "PlayDL desktop GUI - native IDM-style download manager window"
 license = "GPL-3.0-or-later"
 publish = false
 
@@ -11,13 +11,11 @@ name = "playdl-desktop"
 path = "src/main.rs"
 
 [dependencies]
-# 轻量本地 HTTP 服务器
-tiny_http = "0.12"
-# JSON 序列化
+# 原生 GUI 框架（真窗口，不用浏览器）
+eframe = "0.31"
+egui = "0.31"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# 打开默认浏览器
-webbrowser = "1"
 
 [build-dependencies]
 embed-resource = "3"
