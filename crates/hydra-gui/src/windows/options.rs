@@ -729,7 +729,7 @@ fn sites(app: &App) -> El<'_> {
 /// The Chrome Web Store listing. Edge has a store of its own (below); the
 /// remaining Chromium browsers install the same item from here.
 const CHROME_STORE: &str =
-    "https://chromewebstore.google.com/detail/playdl-download-manager-in/oieelfilllghmbnhofajpgpmmilfihmo";
+    "https://github.com/leeymxz/playdl/tree/main/docs/extensions#chrome-and-chromium";
 
 /// The Firefox Add-ons listing.
 /// The setup guide behind the FFmpeg row. A wiki page rather than a
@@ -740,11 +740,12 @@ const FFMPEG_WIKI: &str = "https://github.com/leeymxz/playdl/wiki/PlayDL-ffmpeg-
 /// The "not present" counterpart to `theme::PROGRESS_GREEN`.
 const OFFLINE_RED: u32 = 0xB3462E;
 
-const FIREFOX_STORE: &str = "https://addons.mozilla.org/en-US/firefox/addon/hdm-integration/";
+const FIREFOX_STORE: &str =
+    "https://github.com/leeymxz/playdl/tree/main/docs/extensions#firefox";
 
 /// The Microsoft Edge Add-ons listing: same extension, Edge's own store.
 const EDGE_STORE: &str =
-    "https://microsoftedge.microsoft.com/addons/detail/playdl-download-manager-in/obemipfpeenmhkdpkobdkeedhdakaoai";
+    "https://github.com/leeymxz/playdl/tree/main/docs/extensions#edge";
 
 /// One extension row: brand mark on the left, what the extension does in the
 /// middle, the link button on the right. `link` is `None` for a browser with
