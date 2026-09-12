@@ -174,7 +174,7 @@ mod version_tests {
         );
     }
 
-    /// A pre-release suffix (`0.2.0-rc1`) is not part of the numeric triple,
+    /// A pre-release suffix (`0.3.0-rc1`) is not part of the numeric triple,
     /// so the string and the components agree only on the leading `x.y.z`.
     #[test]
     fn the_numeric_components_recompose_the_version_string() {

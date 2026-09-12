@@ -3,11 +3,11 @@
 ;   1. 安装 Inno Setup: https://jrsoftware.org/isdl.php
 ;   2. 编译 PlayDL: cargo build --release --bin playdl --bin pdl
 ;   3. 右键 PlayDL.iss → Compile
-;   输出: packaging\dist\PlayDL-Setup-0.2.0.exe
+;   输出: packaging\dist\PlayDL-Setup-0.3.0.exe
 
 #define MyAppName "PlayDL"
 #define MyAppShortName "PlayDL"
-#define MyAppVersion "0.2.0"
+#define MyAppVersion "0.3.0"
 #define MyAppPublisher "leeymxz"
 #define MyAppURL "https://github.com/leeymxz/playdl"
 #define MyAppExeName "playdl.exe"

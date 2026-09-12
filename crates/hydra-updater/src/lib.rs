@@ -66,7 +66,7 @@ pub struct Release {
     /// GitHub's pre-release flag; `-rc` tags are published with it set.
     #[serde(default)]
     pub prerelease: bool,
-    /// Human release title (`PlayDL 0.2.0`); may be null when unset.
+    /// Human release title (`PlayDL 0.3.0`); may be null when unset.
     #[serde(default)]
     pub name: Option<String>,
     /// Release notes, GitHub-flavoured markdown.

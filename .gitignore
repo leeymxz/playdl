@@ -44,3 +44,4 @@ check_manifest.py\ngen_ext_icons.py
 \nbump_version.py
 
 analyze_ext.py
+\nbump030.py\nupload-v030.ps1
