@@ -337,28 +337,28 @@ pub enum UrlMode {
                   split cannot avoid.\n\n\
                   That mechanism is not specific to HTTP or to downloading. Anything \
                   addressable by byte range, from any number of interchangeable replicas, \
-                  is the same problem: mirrors, CDN edges, object stores, local caches. \
-                  hydra is the retriever for that shape of problem, and the scheduler core \
-                  is a library you can point at your own transport.",
+                   is the same problem: mirrors, CDN edges, object stores, local caches. \
+                   PlayDL is the retriever for that shape of problem, and the scheduler core \
+                   is a library you can point at your own transport.",
     after_help = "EXAMPLES:\n  \
-      hydra http://example.com/big.iso                       retrieve, measuring the useful concurrency\n  \
-      hydra -O out.iso -x 4 http://a.example/f http://b.example/f    two replicas of one object\n  \
-      hydra -c --limit-rate 2M http://example.com/big.iso    resume, capped at 2 MB/s\n  \
-      hydra --checksum sha256:abc... http://example.com/f    verify what arrived\n  \
-      hydra --json http://example.com/f                      machine-readable result\n  \
-      hydra interactive                                      queue manager\n  \
-      hydra bench --real                                     measure against a real network\n\n\
+      playdl http://example.com/big.iso                       retrieve, measuring the useful concurrency\n  \
+      playdl -O out.iso -x 4 http://a.example/f http://b.example/f    two replicas of one object\n  \
+      playdl -c --limit-rate 2M http://example.com/big.iso    resume, capped at 2 MB/s\n  \
+      playdl --checksum sha256:abc... http://example.com/f    verify what arrived\n  \
+      playdl --json http://example.com/f                      machine-readable result\n  \
+      playdl interactive                                      queue manager\n  \
+      playdl bench --real                                     measure against a real network\n\n\
     COMPATIBILITY:\n  \
       wget and curl disagree on 15 of 19 common short flags (-O, -o, -c, -q, -H, -U,\n  \
       -t, -T, -r, -A, -L, -i, -N, -P, -x), so one namespace cannot serve both.\n  \
       Pick a dialect with --compat=wget|curl, or install named entry points:\n    \
-        hydra compat-link --dry-run    show where the wget/curl links would go\n    \
-        hydra compat-link              create them next to this binary\n  \
+        playdl compat-link --dry-run    show where the wget/curl links would go\n    \
+        playdl compat-link              create them next to this binary\n  \
       The dialect comes from the name the binary is invoked as, so a link works\n  \
       only from a directory on $PATH that comes BEFORE the real curl/wget --\n  \
-      compat-link checks that and says so. `ln -s hydra curl` does the same\n  \
-      thing by hand, but only reaches hydra as ./curl unless that holds.\n  \
-      Flags hydra cannot honour are REFUSED with a reason, never ignored."
+      compat-link checks that and says so. `ln -s playdl curl` does the same\n  \
+      thing by hand, but only reaches playdl as ./curl unless that holds.\n  \
+      Flags playdl cannot honour are REFUSED with a reason, never ignored."
 )]
 pub struct Cli {
     /// URLs to download.
@@ -1072,7 +1072,7 @@ pub enum Command {
         bin_name: Option<String>,
     },
 
-    /// Check whether a newer hydra release is available.
+    /// Check whether a newer PlayDL release is available.
     ///
     /// Asks the release API for the latest version and, when it is newer than
     /// this binary, prints the release notes, the release page, and the direct
