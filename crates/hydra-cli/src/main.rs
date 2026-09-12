@@ -46,6 +46,7 @@ mod stream;
 mod tui;
 mod update;
 mod url;
+mod video;
 mod xval;
 
 use pdl_core::{Scheduler, Source};
@@ -516,6 +517,28 @@ async fn async_main() -> std::process::ExitCode {
         }
         Some(cli::Command::Update { json, beta }) => {
             return update::run(*json, *beta).await;
+        }
+        Some(cli::Command::Video {
+            url,
+            output,
+            list_formats,
+            format,
+            playlist,
+            get_url,
+            ytdlp,
+        }) => {
+            let code = video::run(
+                url,
+                video::VideoOpts {
+                    output: output.clone(),
+                    list_formats: *list_formats,
+                    format: format.clone(),
+                    playlist: *playlist,
+                    get_url: *get_url,
+                    ytdlp: ytdlp.clone(),
+                },
+            );
+            return std::process::ExitCode::from(code as u8);
         }
         Some(cli::Command::Completions { shell, bin_name }) => {
             let bin = bin_name.as_deref().unwrap_or(completions::DEFAULT_BIN);

@@ -51,6 +51,9 @@ Name: "nathost"; Description: "注册浏览器扩展连接（Chrome/Edge/Firefox
 Source: "..\..\target\release\playdl.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 Source: "..\..\target\release\pdl.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 
+; yt-dlp（playdl video 视频下载依赖）
+Source: "..\..\target\release\yt-dlp.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
+
 ; 真正的桌面 GUI 程序（完整 IDM 风格）
 Source: "..\..\target\release\playdl-gui.exe"; DestDir: "{app}"; Flags: ignoreversion
 

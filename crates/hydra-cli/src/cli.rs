@@ -1091,6 +1091,45 @@ pub enum Command {
         beta: bool,
     },
 
+    /// Download a video from YouTube / Bilibili / Douyin / TikTok / etc.
+    ///
+    /// Video sites sign their media URLs and need per-site logic, which this
+    /// binary does not try to reimplement: `video` shells out to the
+    /// `yt-dlp` downloader (installed separately, or bundled next to the
+    /// binary as `yt-dlp.exe` / `yt-dlp`) and streams its progress through.
+    /// The resulting file is written to the current directory.
+    Video {
+        /// The video page URL (YouTube, Bilibili, Douyin, TikTok, ...).
+        #[arg(value_name = "URL")]
+        url: String,
+
+        /// Output file name (default: the video's own title + extension).
+        #[arg(short = 'o', long, value_name = "FILE")]
+        output: Option<String>,
+
+        /// Only list available formats, then exit.
+        #[arg(long)]
+        list_formats: bool,
+
+        /// Pick a specific format id (e.g. `137+140`), overriding the default
+        /// "best video + best audio" choice.
+        #[arg(long, value_name = "ID")]
+        format: Option<String>,
+
+        /// Playlist / multi-part support: download every entry in the URL.
+        #[arg(long)]
+        playlist: bool,
+
+        /// Print the resolved media URL(s) instead of downloading.
+        #[arg(long)]
+        get_url: bool,
+
+        /// Path to the `yt-dlp` executable. Defaults to `yt-dlp` on PATH,
+        /// then `yt-dlp.exe` / `yt-dlp` next to this binary.
+        #[arg(long, value_name = "PATH")]
+        ytdlp: Option<PathBuf>,
+    },
+
     /// Install the `wget` / `curl` dialect entry points as links to this binary.
     ///
     /// The dialect is chosen from `argv[0]`, so a link named `wget` or `curl`
