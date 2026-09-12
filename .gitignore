@@ -41,3 +41,4 @@ update-release-body.ps1\nupload-ext.ps1
 check_manifest.py\ngen_ext_icons.py
 \ncompat_convert.py\nfind_gzip_bug.py\nlocate_gzip.py\ncheck_manifest.py\ngen_ext_icons.py
 \nfind_savedialog.py
+\nbump_version.py

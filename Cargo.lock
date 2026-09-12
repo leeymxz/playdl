@@ -4188,7 +4188,7 @@ checksum = "2ee67f1008b1ba2321834326597b8e186293b049a023cdef258527550b9935b4"
 
 [[package]]
 name = "pdl-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "blake3",
@@ -4211,7 +4211,7 @@ dependencies = [
 
 [[package]]
 name = "pdl-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "proptest",
@@ -4219,7 +4219,7 @@ dependencies = [
 
 [[package]]
 name = "pdl-ffi"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "blake3",
  "md-5",
@@ -4234,7 +4234,7 @@ dependencies = [
 
 [[package]]
 name = "pdl-gui"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "aes",
  "blake3",
@@ -4274,14 +4274,14 @@ dependencies = [
 
 [[package]]
 name = "pdl-host"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde_json",
 ]
 
 [[package]]
 name = "pdl-net"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "blake3",
  "criterion",
@@ -4302,7 +4302,7 @@ dependencies = [
 
 [[package]]
 name = "pdl-stream"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "aes",
  "cbc",
@@ -4312,7 +4312,7 @@ dependencies = [
 
 [[package]]
 name = "pdl-updater"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "blake3",
  "clap",
@@ -4395,7 +4395,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "playdl-desktop"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "eframe",
  "egui",

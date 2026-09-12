@@ -133,7 +133,7 @@ $header.Controls.Add($logoLabel)
 
 # 版本号
 $verLabel = New-Object System.Windows.Forms.Label
-$verLabel.Text = "v0.1.0"
+$verLabel.Text = "v0.2.0"
 $verLabel.ForeColor = [System.Drawing.Color]::FromArgb(255,136,136,153)
 $verLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 $verLabel.Size = New-Object System.Drawing.Size(60, 20)

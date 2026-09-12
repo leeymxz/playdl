@@ -29,7 +29,11 @@ pub async fn run(json: bool, beta: bool) -> ExitCode {
     let latest = rel.version().to_string();
     // GitHub's generated notes open with an HTML comment naming the config
     // that produced them; it is not release content.
-    let notes = pdl_updater::clean_notes(&rel.body);
+    let notes = rel
+        .body
+        .as_deref()
+        .map(pdl_updater::clean_notes)
+        .unwrap_or_default();
     let newer = pdl_updater::is_newer(&latest, current);
     // Inside an AppImage the standalone CLI tarball is the wrong answer:
     // this binary lives in the image, and the image is what gets replaced.
@@ -77,9 +81,9 @@ pub async fn run(json: bool, beta: bool) -> ExitCode {
         "A new version of hydra is available"
     };
     println!("{kind}: {latest} (you have {current})");
-    if !rel.published_at.is_empty() {
+    if let Some(published) = rel.published_at.as_deref() {
         // `2026-08-19T00:00:00Z` — the date part reads fine on its own.
-        let date = rel.published_at.split('T').next().unwrap_or("");
+        let date = published.split('T').next().unwrap_or("");
         println!("Published: {date}");
     }
     if !notes.is_empty() {

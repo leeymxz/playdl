@@ -361,7 +361,7 @@ impl eframe::App for App {
                             .color(egui::Color32::from_rgb(0, 200, 255)),
                     );
                     ui.label(
-                        egui::RichText::new("v0.1.0 · Multi-Source Download Accelerator")
+                        egui::RichText::new("v0.2.0 · Multi-Source Download Accelerator")
                             .size(10.0)
                             .color(egui::Color32::from_gray(120)),
                     );
