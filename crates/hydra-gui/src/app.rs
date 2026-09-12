@@ -3138,7 +3138,11 @@ impl App {
                     let start_dir = self.item(id).map(|d| d.save_dir.clone());
                     let mut dlg = rfd::FileDialog::new();
                     if let Some(dir) = &start_dir {
-                        dlg = dlg.set_directory(dir);
+                        // Guard against a dead/missing start path hanging the
+                        // native picker (same issue as the save-as dialog).
+                        if std::path::Path::new(dir).is_dir() {
+                            dlg = dlg.set_directory(dir);
+                        }
                     }
                     if let Some(picked) = dlg.pick_folder() {
                         let picked = picked.to_string_lossy().into_owned();
@@ -4327,9 +4331,31 @@ impl App {
                 Task::none()
             }
             Message::FiBrowse => {
+                // rfd's Windows dialog can hang for a long time when the
+                // requested start directory does not exist or is on an
+                // unreachable drive. Fall back to an existing directory
+                // (system Downloads, then CWD) instead of letting the native
+                // dialog spin on a dead path.
+                let mut start_dir = self.file_info.save_dir.clone();
+                if start_dir.is_empty() {
+                    start_dir = self.cat_dir(Some(&self.file_info.category)).unwrap_or_default();
+                }
+                if !start_dir.is_empty() && !std::path::Path::new(&start_dir).is_dir() {
+                    crate::log::debug(&format!(
+                        "save-as start dir missing, falling back: {start_dir}"
+                    ));
+                    start_dir.clear();
+                }
+                if start_dir.is_empty() {
+                    start_dir = std::env::var_os("USERPROFILE")
+                        .or_else(|| std::env::var_os("HOME"))
+                        .map(|p| std::path::PathBuf::from(p).join("Downloads").to_string_lossy().into_owned())
+                        .unwrap_or_default();
+                }
+
                 let mut dlg = rfd::FileDialog::new().set_file_name(&self.file_info.file_name);
-                if !self.file_info.save_dir.is_empty() {
-                    dlg = dlg.set_directory(&self.file_info.save_dir);
+                if !start_dir.is_empty() {
+                    dlg = dlg.set_directory(&start_dir);
                 }
                 let path = dlg.save_file().map(|p| p.to_string_lossy().into_owned());
                 self.update(Message::FiPathPicked(path))
