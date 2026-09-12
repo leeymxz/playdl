@@ -46,3 +46,4 @@ check_manifest.py\ngen_ext_icons.py
 analyze_ext.py
 \nbump030.py\nupload-v030.ps1
 \nupload-030.ps1\nupload-v030.ps1
+\nverify_assets.py

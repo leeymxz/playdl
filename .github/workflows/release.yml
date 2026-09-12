@@ -17,18 +17,26 @@ jobs:
         include:
           - target: x86_64-pc-windows-msvc
             os: windows-latest
+            os_tag: windows
+            arch_tag: amd64
             suffix: .exe
             archive: zip
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
+            os_tag: linux
+            arch_tag: amd64
             suffix: ''
             archive: tar.gz
           - target: x86_64-apple-darwin
             os: macos-latest
+            os_tag: macos
+            arch_tag: amd64
             suffix: ''
             archive: tar.gz
           - target: aarch64-apple-darwin
             os: macos-latest
+            os_tag: macos
+            arch_tag: arm64
             suffix: ''
             archive: tar.gz
 
@@ -52,7 +60,7 @@ jobs:
         shell: bash
         run: |
           TAG="${GITHUB_REF_NAME#v}"
-          DIR="playdl-${TAG}-${{ matrix.target }}"
+          DIR="playdl-${TAG}-${{ matrix.os_tag }}-${{ matrix.arch_tag }}"
           mkdir -p "$DIR"
 
           cp "target/${{ matrix.target }}/release/playdl${{ matrix.suffix }}" "$DIR/"

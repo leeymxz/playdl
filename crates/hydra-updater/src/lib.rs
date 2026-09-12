@@ -5,11 +5,11 @@
 //! the swap-in-place step.
 //!
 //! One library serves three callers:
-//! - **hydra-gui** — startup check, the update dialog's download-with-progress,
+//! - **playdl-gui** — startup check, the update dialog's download-with-progress,
 //!   extraction, and launching the finisher binary.
 //! - **hydra** (CLI) — `hydra update`, which only reports the newer version
 //!   and the download link.
-//! - **hydra-updater** (this crate's own bin) — the finisher that runs after
+//! - **playdl-updater** (this crate's own bin) — the finisher that runs after
 //!   the app exits and copies the new files into place.
 //!
 //! The release endpoint defaults to the real GitHub API but is overridable via
@@ -117,7 +117,7 @@ impl Release {
     /// than by an exact name: the file carries the workspace version, which
     /// a pre-release tag does not have to agree with.
     pub fn appimage_asset(&self) -> Option<&ReleaseAsset> {
-        self.package_asset_for("Hydra-", ".AppImage", appimage_arch())
+        self.package_asset_for("PlayDL-", ".AppImage", appimage_arch())
     }
 
     fn package_asset_for(&self, prefix: &str, ext: &str, arch: &str) -> Option<&ReleaseAsset> {
@@ -131,7 +131,7 @@ impl Release {
     /// names assets from the workspace manifest version, which may stay on
     /// the plain version while a candidate is cut from a `v0.3.2-rc` tag
     /// (.github/workflows/release.yml accepts either spelling) — that
-    /// release ships `hydra-0.3.2-…` assets, which the tag version alone
+    /// release ships `playdl-0.3.2-…` assets, which the tag version alone
     /// never matches.
     fn asset_for(&self, name_of: fn(&str) -> String) -> Option<&ReleaseAsset> {
         let v = self.version();
@@ -213,7 +213,7 @@ pub fn archive_ext() -> &'static str {
 
 /// The Linux packages' name — not `hydra`, which is the THC login cracker
 /// in distro repos (scripts/package-linux.sh).
-const PACKAGE_NAME: &str = "hydra-download-manager";
+const PACKAGE_NAME: &str = "playdl-download-manager";
 
 /// The installable this machine's packaging uses, offered when Hydra cannot
 /// replace its own files.
@@ -236,9 +236,9 @@ impl PackageKind {
         match self {
             PackageKind::Deb => (PACKAGE_NAME, ".deb", arch_tag()),
             PackageKind::Rpm => (PACKAGE_NAME, ".rpm", rpm_arch()),
-            PackageKind::Dmg => ("Hydra-", ".dmg", macos_arch()),
-            PackageKind::Pkg => ("Hydra-", ".pkg", macos_arch()),
-            PackageKind::Exe => ("hydra-", "-setup.exe", windows_arch()),
+            PackageKind::Dmg => ("PlayDL-", ".dmg", macos_arch()),
+            PackageKind::Pkg => ("PlayDL-", ".pkg", macos_arch()),
+            PackageKind::Exe => ("PlayDL-", "-setup.exe", windows_arch()),
         }
     }
 }
@@ -336,7 +336,7 @@ pub fn appimage_path() -> Option<PathBuf> {
 /// Release asset holding the AppImage for this machine:
 /// `Hydra-0.3.4-x86_64.AppImage`.
 pub fn appimage_asset_name(version: &str) -> String {
-    format!("Hydra-{version}-{}.AppImage", appimage_arch())
+    format!("PlayDL-{version}-{}.AppImage", appimage_arch())
 }
 
 /// Whether replacing this AppImage will need an authorisation prompt: the
@@ -399,7 +399,7 @@ pub fn replace_appimage(src: &Path, dest: &Path) -> io::Result<ApplyReport> {
 ///
 /// A bundle is not a flat install directory. Its GUI executable is named
 /// after the product (`Contents/MacOS/Hydra Download Manager`) while the
-/// release archive ships `hydra-gui`, and `Contents/Info.plist` carries the
+/// release archive ships `playdl-gui`, and `Contents/Info.plist` carries the
 /// version macOS shows — so an update has to be told about the layout
 /// ([`apply_with`]) instead of copying names on top of names.
 pub fn app_bundle_root(dir: &Path) -> Option<PathBuf> {
@@ -626,7 +626,7 @@ pub fn version_core(version: &str) -> &str {
 /// `hydra-0.2.4-macos-arm64.tar.gz`.
 pub fn gui_asset_name(version: &str) -> String {
     format!(
-        "hydra-{version}-{}-{}.{}",
+        "playdl-{version}-{}-{}.{}",
         os_tag(),
         arch_tag(),
         archive_ext()
@@ -931,7 +931,7 @@ pub fn apply(src_root: &Path, install_dir: &Path) -> io::Result<ApplyReport> {
 /// reported in `skipped`.
 ///
 /// A macOS `.app` install is written through [`bundle_dest`], which maps the
-/// archive's `hydra-gui` onto the bundle's product-named executable; the
+/// archive's `playdl-gui` onto the bundle's product-named executable; the
 /// bundle then has its `Info.plist` version rewritten and is re-signed, so
 /// what macOS reports about the app matches what is inside it.
 ///
@@ -1027,7 +1027,7 @@ fn refresh_cli_alias(cli: &Path) -> io::Result<bool> {
 /// Where a release file lands inside a macOS application bundle, or `None`
 /// when the bundle has no place for it.
 ///
-/// The GUI is the one rename: the archive ships `hydra-gui`, the bundle runs
+/// The GUI is the one rename: the archive ships `playdl-gui`, the bundle runs
 /// it as its `CFBundleExecutable`. The CLI, the native-messaging host and
 /// the finisher keep their names in `Contents/MacOS/`; everything else
 /// (`logo.png`, licences, the extension tree) belongs to the archive layout,
@@ -1035,8 +1035,8 @@ fn refresh_cli_alias(cli: &Path) -> io::Result<bool> {
 pub fn bundle_dest(bundle: &Path, exec_name: &str, file: &str) -> Option<PathBuf> {
     let bin = bundle_bin_dir(bundle);
     match file {
-        "hydra-gui" => Some(bin.join(exec_name)),
-        "hydra" | "hydra-host" | "hydra-updater" => Some(bin.join(file)),
+        "playdl-gui" => Some(bin.join(exec_name)),
+        "hydra" | "hydra-host" | "playdl-updater" => Some(bin.join(file)),
         _ => None,
     }
 }
@@ -1427,10 +1427,10 @@ mod tests {
         // architecture its own way, which is why the match is by shape.
         let mut r = rel("v0.3.4-rc", true);
         for name in [
-            "hydra-download-manager_0.3.4_arm64.deb",
-            "hydra-download-manager_0.3.4_amd64.deb",
-            "hydra-download-manager-0.3.4-1.aarch64.rpm",
-            "hydra-download-manager-0.3.4-1.x86_64.rpm",
+            "playdl-download-manager_0.3.4_arm64.deb",
+            "playdl-download-manager_0.3.4_amd64.deb",
+            "playdl-download-manager-0.3.4-1.aarch64.rpm",
+            "playdl-download-manager-0.3.4-1.x86_64.rpm",
             "Hydra-0.3.4-arm64.dmg",
             "Hydra-0.3.4-arm64.pkg",
             "Hydra-0.3.4-x86_64.dmg",
@@ -1448,12 +1448,12 @@ mod tests {
             (
                 PackageKind::Deb,
                 "arm64",
-                "hydra-download-manager_0.3.4_arm64.deb",
+                "playdl-download-manager_0.3.4_arm64.deb",
             ),
             (
                 PackageKind::Rpm,
                 "aarch64",
-                "hydra-download-manager-0.3.4-1.aarch64.rpm",
+                "playdl-download-manager-0.3.4-1.aarch64.rpm",
             ),
             (PackageKind::Dmg, "arm64", "Hydra-0.3.4-arm64.dmg"),
             (PackageKind::Pkg, "arm64", "Hydra-0.3.4-arm64.pkg"),
@@ -1477,7 +1477,7 @@ mod tests {
     #[test]
     fn app_bundles_are_recognised_and_mapped() {
         // The bundle's GUI is `Contents/MacOS/Hydra Download Manager`, not
-        // the archive's `hydra-gui`: without the rename a per-file swap
+        // the archive's `playdl-gui`: without the rename a per-file swap
         // replaces the CLI and relaunches the same old app.
         let app = Path::new("/Applications/Hydra Download Manager.app/Contents/MacOS");
         assert!(in_app_bundle(app));
@@ -1489,10 +1489,10 @@ mod tests {
         assert_eq!(bundle_bin_dir(&bundle), app);
         let exec = "Hydra Download Manager";
         assert_eq!(
-            bundle_dest(&bundle, exec, "hydra-gui"),
+            bundle_dest(&bundle, exec, "playdl-gui"),
             Some(app.join(exec))
         );
-        for name in ["hydra", "hydra-host", "hydra-updater"] {
+        for name in ["hydra", "hydra-host", "playdl-updater"] {
             assert_eq!(bundle_dest(&bundle, exec, name), Some(app.join(name)));
         }
         // Archive-layout files have no place in a bundle.
@@ -1532,7 +1532,7 @@ mod tests {
         let src = tmp.join("hydra-0.4.0-macos-arm64");
         std::fs::create_dir_all(&src).unwrap();
         for (name, body) in [
-            ("hydra-gui", "new gui"),
+            ("playdl-gui", "new gui"),
             ("hydra", "new cli"),
             // Not in the bundle: skipped, never added.
             ("hydra-host", "new host"),
@@ -1559,7 +1559,7 @@ mod tests {
             "new cli"
         );
         assert!(!bin.join("hydra-host").exists());
-        assert!(report.replaced.contains(&"hydra-gui".to_string()));
+        assert!(report.replaced.contains(&"playdl-gui".to_string()));
         assert!(report.skipped.contains(&"logo.png".to_string()));
 
         // Both version keys are restamped, and the pre-release suffix is
@@ -1578,10 +1578,10 @@ mod tests {
         // A plain (non-bundle) install still copies name over name.
         let plain = tmp.join("bin");
         std::fs::create_dir_all(&plain).unwrap();
-        std::fs::write(plain.join("hydra-gui"), b"old").unwrap();
+        std::fs::write(plain.join("playdl-gui"), b"old").unwrap();
         apply(&src, &plain).unwrap();
         assert_eq!(
-            std::fs::read_to_string(plain.join("hydra-gui")).unwrap(),
+            std::fs::read_to_string(plain.join("playdl-gui")).unwrap(),
             "new gui"
         );
         assert!(!plain.join("hydra").exists());
@@ -1677,14 +1677,14 @@ mod tests {
         // missed quote there runs the wrong argv as root.
         let os = std::ffi::OsStr::new;
         let argv = [
-            os("/tmp/hydra-updater"),
+            os("/tmp/playdl-updater"),
             os("--install-dir"),
             os("/Applications/Hydra Download Manager.app/Contents/MacOS"),
         ];
         let cmd = shell_command(&argv);
         assert_eq!(
             cmd,
-            "'/tmp/hydra-updater' '--install-dir' \
+            "'/tmp/playdl-updater' '--install-dir' \
              '/Applications/Hydra Download Manager.app/Contents/MacOS'"
                 .replace("\n             ", " ")
         );
