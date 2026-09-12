@@ -18,11 +18,11 @@ use std::process::ExitCode;
 
 pub async fn run(json: bool, beta: bool) -> ExitCode {
     let current = env!("CARGO_PKG_VERSION");
-    let ua = format!("hydra-cli/{current}");
+    let ua = format!("playdl-cli/{current}");
     let rel = match pdl_updater::check_channel(&ua, beta).await {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("hydra: update check failed: {e}");
+            eprintln!("playdl: update check failed: {e}");
             return ExitCode::FAILURE;
         }
     };
@@ -76,9 +76,9 @@ pub async fn run(json: bool, beta: bool) -> ExitCode {
     }
 
     let kind = if rel.prerelease {
-        "A new release candidate of hydra is available"
+        "A new release candidate of PlayDL is available"
     } else {
-        "A new version of hydra is available"
+        "A new version of PlayDL is available"
     };
     println!("{kind}: {latest} (you have {current})");
     if let Some(published) = rel.published_at.as_deref() {
