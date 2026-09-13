@@ -526,6 +526,7 @@ async fn async_main() -> std::process::ExitCode {
             playlist,
             get_url,
             ytdlp,
+            cookies,
         }) => {
             let code = video::run(
                 url,
@@ -536,6 +537,7 @@ async fn async_main() -> std::process::ExitCode {
                     playlist: *playlist,
                     get_url: *get_url,
                     ytdlp: ytdlp.clone(),
+                    cookies: cookies.clone(),
                 },
             );
             return std::process::ExitCode::from(code as u8);

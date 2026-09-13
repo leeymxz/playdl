@@ -1128,6 +1128,12 @@ pub enum Command {
         /// then `yt-dlp.exe` / `yt-dlp` next to this binary.
         #[arg(long, value_name = "PATH")]
         ytdlp: Option<PathBuf>,
+
+        /// Netscape-format cookies file (for sites needing login, e.g.
+        /// Bilibili members-only / high resolution). Export from a browser
+        /// extension (EditThisCookie / Get cookies.txt) to use.
+        #[arg(long, value_name = "FILE")]
+        cookies: Option<PathBuf>,
     },
 
     /// Install the `wget` / `curl` dialect entry points as links to this binary.

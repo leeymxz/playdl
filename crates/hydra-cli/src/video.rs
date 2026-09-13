@@ -29,36 +29,6 @@ fn is_direct_media_url(url: &str) -> bool {
 /// Pick a browser whose cookie DB exists on this machine for
 /// `--cookies-from-browser`. yt-dlp reads them itself; we only name the
 /// browser with the best chance of having logged-in sessions.
-fn browser_cookies_arg() -> Option<String> {
-    // Order: Edge first on Windows (default, most likely logged in),
-    // then Chrome, then Firefox.
-    let base = std::env::var_os("LOCALAPPDATA")?;
-    let candidates = [
-        (
-            "edge",
-            std::path::PathBuf::from(&base)
-                .join("Microsoft/Edge/User Data/Default/Network/Cookies"),
-        ),
-        (
-            "chrome",
-            std::path::PathBuf::from(&base).join("Google/Chrome/User Data/Default/Network/Cookies"),
-        ),
-        (
-            "firefox",
-            {
-                let appdata = std::env::var_os("APPDATA")?;
-                std::path::PathBuf::from(appdata).join("Mozilla/Firefox/Profiles")
-            },
-        ),
-    ];
-    for (name, path) in candidates {
-        if path.exists() {
-            return Some(name.to_string());
-        }
-    }
-    None
-}
-
 /// Locate the yt-dlp executable: explicit flag, same-dir, then PATH,
 /// then the `python -m yt_dlp` fallback.
 fn find_ytdlp(explicit: Option<&PathBuf>) -> Option<YtDlp> {
@@ -174,11 +144,11 @@ pub fn run(url: &str, opts: VideoOpts) -> i32 {
             // Sites like Bilibili/Douyin reject plain Python clients with
             // HTTP 412/403; present a real Chrome UA so extraction works.
             c.arg("--user-agent").arg(BROWSER_UA);
-            // Logged-in sites (Bilibili high-res, members-only) need the
-            // browser's cookies; try the common Chromium profiles.
-            if let Some(cookie_arg) = browser_cookies_arg() {
-                c.arg("--cookies-from-browser").arg(cookie_arg);
-            }
+            // NOTE: no automatic `--cookies-from-browser` here. Modern
+            // Chrome/Edge encrypt the cookie DB (DPAPI + app-bound keys) and
+            // yt-dlp's decryption fails while the browser is running, which
+            // aborts the whole download with "Failed to decrypt with DPAPI".
+            // Users who need logged-in content pass --cookies <file> instead.
             c
         }
         YtDlp::PythonModule(py) => {
@@ -186,9 +156,6 @@ pub fn run(url: &str, opts: VideoOpts) -> i32 {
             c.arg("-m").arg("yt_dlp");
             c.arg("--no-warnings").arg("--progress").arg("--newline");
             c.arg("--user-agent").arg(BROWSER_UA);
-            if let Some(cookie_arg) = browser_cookies_arg() {
-                c.arg("--cookies-from-browser").arg(cookie_arg);
-            }
             c
         }
     };
@@ -197,6 +164,19 @@ pub fn run(url: &str, opts: VideoOpts) -> i32 {
         cmd.arg("--list-formats");
     } else if opts.get_url {
         cmd.arg("--get-url");
+    }
+
+    // Optional cookies file (e.g. `--cookies cookies.txt`) for sites that
+    // gate content behind a login — Bilibili members-only, YouTube age
+    // checks, etc. No automatic browser-cookie probing: decrypting a live
+    // Chrome/Edge cookie DB fails with DPAPI errors and aborts the run.
+    if let Some(cf) = &opts.cookies {
+        if cf.exists() {
+            cmd.arg("--cookies").arg(cf);
+        } else {
+            eprintln!("playdl video: cookies file not found: {}", cf.display());
+            return 1;
+        }
     }
 
     if let Some(fmt) = &opts.format {
@@ -263,4 +243,6 @@ pub struct VideoOpts {
     pub playlist: bool,
     pub get_url: bool,
     pub ytdlp: Option<PathBuf>,
+    /// Optional Netscape-format cookies file for logged-in content.
+    pub cookies: Option<PathBuf>,
 }
