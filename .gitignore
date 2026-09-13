@@ -53,3 +53,4 @@ analyze_ext.py
 \nfull_pack.py\nupload-all.ps1\n全量打包.bat
 \nbuild/
 \nfind_extbus.py\nfind_ext2.py
+\ncheck_msgs.py

@@ -1189,6 +1189,23 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         await chrome.storage.local.set({ videoPanel: !!msg.on });
         sendResponse({ ok: true });
         break;
+      case "video": {
+        // Video-site link from the popup (YouTube/Bilibili/Douyin/...):
+        // hand the URL to PlayDL's `video` mode (yt-dlp), which resolves
+        // signed streams and merges audio+video.
+        const url = typeof msg?.url === "string" ? msg.url.trim() : "";
+        if (!url) {
+          sendResponse({ ok: false, error: "empty url" });
+          break;
+        }
+        try {
+          const reply = await request({ type: "video", url });
+          sendResponse(reply || { ok: false, error: "PlayDL 未响应" });
+        } catch (e) {
+          sendResponse({ ok: false, error: String(e) });
+        }
+        break;
+      }
       case "page-media": {
         // What the in-page panel may offer, for the asking tab only.
         const id = await whichTab();

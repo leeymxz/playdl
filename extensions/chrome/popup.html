@@ -21,6 +21,12 @@
       <span>Download button on videos</span>
     </label>
 
+    <!-- 视频链接解析（借鉴解析站模式，走 yt-dlp） -->
+    <section id="video-dl" class="video-dl">
+      <input type="text" id="video-url" placeholder="粘贴视频链接 (YouTube/B站/抖音/TikTok...)" spellcheck="false" />
+      <button id="video-go">解析下载</button>
+    </section>
+
     <div class="actions">
       <button id="open-playdl">Open PlayDL</button>
       <button id="all-links">Download all links</button>

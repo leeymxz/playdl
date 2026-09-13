@@ -200,3 +200,41 @@ button[disabled] {
 button[disabled]:hover {
   border-color: var(--line);
 }
+
+/* 视频链接解析区 */
+.video-dl {
+  display: flex;
+  gap: 6px;
+  margin: 8px 10px;
+}
+.video-dl input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 8px;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  outline: none;
+}
+.video-dl input:focus {
+  border-color: var(--accent);
+}
+.video-dl button {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.video-dl button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
