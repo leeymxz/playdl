@@ -2074,6 +2074,30 @@ impl App {
             .map(|p| std::path::PathBuf::from(p).join("Downloads"))
             .filter(|d| d.is_dir())
             .unwrap_or_else(|| std::path::PathBuf::from("."));
+        // Keep the console visible and stream yt-dlp progress lines: the
+        // child inherits our handles, so the user sees the % bar instead of
+        // a frozen black window. (Windows only — elsewhere inherit() is fine.)
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NEW_CONSOLE: u32 = 0x0000_0010;
+            match Command::new(&exe)
+                .arg("video")
+                .arg(&url)
+                .current_dir(&download_dir)
+                .creation_flags(CREATE_NEW_CONSOLE)
+                .spawn()
+            {
+                Ok(_) => crate::log::info(&format!(
+                    "video download started: {} {}",
+                    exe.display(),
+                    url
+                )),
+                Err(e) => crate::log::error(&format!("video download spawn failed: {e}")),
+            }
+            return;
+        }
+        #[cfg(not(target_os = "windows"))]
         match Command::new(&exe)
             .arg("video")
             .arg(&url)

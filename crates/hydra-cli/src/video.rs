@@ -86,13 +86,15 @@ pub fn run(url: &str, opts: VideoOpts) -> i32 {
                 return 1;
             }
             let mut c = Command::new(p);
-            c.arg("--no-warnings").arg("--progress");
+            // --newline: emit progress on its own line so a console/pipe can
+            // follow it in real time instead of the carriage-return dance.
+            c.arg("--no-warnings").arg("--progress").arg("--newline");
             c
         }
         YtDlp::PythonModule(py) => {
             let mut c = Command::new(py);
             c.arg("-m").arg("yt_dlp");
-            c.arg("--no-warnings").arg("--progress");
+            c.arg("--no-warnings").arg("--progress").arg("--newline");
             c
         }
     };
@@ -106,9 +108,19 @@ pub fn run(url: &str, opts: VideoOpts) -> i32 {
     if let Some(fmt) = &opts.format {
         cmd.arg("-f").arg(fmt);
     } else if !opts.list_formats && !opts.get_url {
-        // best video + best audio, merged to mp4 by ffmpeg
-        cmd.args(["-f", "bv*+ba/b"]);
+        // Prefer widely-compatible H.264 video + m4a audio (plays everywhere,
+        // including Windows' built-in players). AV1/Opus is the fallback:
+        // YouTube's best bitrate is AV1 these days, but many players cannot
+        // decode it (audio-only playback or black frames), so only use it
+        // when no H.264 option exists.
+        cmd.args([
+            "-f",
+            "bv*[vcodec^=avc1]+ba[acodec^=mp4a]/bv*[vcodec^=avc1]+ba/b",
+        ]);
         cmd.arg("--merge-output-format").arg("mp4");
+        // Force the final container to .mp4 even when the best audio is Opus
+        // (remux after merge so every player can open the file).
+        cmd.arg("--remux-video").arg("mp4");
     }
 
     if opts.playlist {
