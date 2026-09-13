@@ -56,3 +56,4 @@ analyze_ext.py
 \ncheck_msgs.py
 \nfind_media.py
 \nfind_label.py
+\nmake_std_icon.py

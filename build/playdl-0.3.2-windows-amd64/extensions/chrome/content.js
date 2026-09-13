@@ -341,9 +341,19 @@ function buildRows(playing) {
     const hit = pageItems.media.find((m) => bare(m.url) === bare(playing));
     const ext = (bare(playing).split(".").pop() || "").toUpperCase();
     const what = hit?.kind || (/^[A-Z0-9]{2,5}$/.test(ext) ? ext : "MP4");
-    // The file's own name, not the page title: on a page of samples the
-    // page title is the same for all of them and names none of them.
-    const named = decodeURIComponent(bare(playing).split("/").pop() || "").trim();
+    // Prefer the page title for a human-friendly filename (like IDM), and
+    // fall back to the URL's own name only when the title is generic/absent
+    // (e.g. a samples page whose title is the same for every clip).
+    const urlName = decodeURIComponent(bare(playing).split("/").pop() || "").trim();
+    const named = (() => {
+      const t = (document.title || "").trim();
+      const cleaned = t.replace(/[\\/:*?"<>|]/g, "_").slice(0, 120);
+      if (!t || /^(index|download|video|player|watch|play)(\.\w+)?$/i.test(urlName)) {
+        return cleaned || urlName;
+      }
+      // URL ends with a proper filename; use it but keep it short.
+      return urlName;
+    })();
     return [
       {
         kind: "media",

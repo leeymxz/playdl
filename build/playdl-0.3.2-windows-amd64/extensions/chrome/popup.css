@@ -238,3 +238,12 @@ button[disabled]:hover {
   opacity: 0.55;
   cursor: default;
 }
+
+/* Best-quality-only toggle: compact, sits beside the section heading */
+.row.toggle.small {
+  font-size: 11px;
+  padding: 2px 0;
+}
+.row.toggle.small input {
+  width: auto;
+}

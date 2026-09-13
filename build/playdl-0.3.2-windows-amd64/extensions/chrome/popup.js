@@ -227,7 +227,14 @@ async function refresh() {
   const list = $("media-list");
   list.textContent = "";
   $("media-section").hidden = !media.length;
-  for (const m of media) {
+  $("media-best").checked = !!state.bestOnly;
+  // "Best quality only": when enabled, keep just the largest entry (the
+  // highest-resolution rendition of the same video the page serves).
+  let shown = media;
+  if (state.bestOnly && media.length > 1) {
+    shown = [media.reduce((a, b) => (sizeOf(a) >= sizeOf(b) ? a : b))];
+  }
+  for (const m of shown) {
     const li = document.createElement("li");
     const name = document.createElement("span");
     name.className = "name";
@@ -247,6 +254,16 @@ async function refresh() {
     list.append(li);
   }
 }
+
+/// Numeric size of a media entry, 0 when unknown.
+function sizeOf(m) {
+  return typeof m?.size === "number" ? m.size : 0;
+}
+
+$("media-best").addEventListener("change", async (e) => {
+  await chrome.storage.local.set({ bestOnly: !!e.target.checked });
+  refresh();
+});
 
 $("enabled").addEventListener("change", async (e) => {
   await chrome.runtime.sendMessage({ type: "set-enabled", enabled: e.target.checked });
