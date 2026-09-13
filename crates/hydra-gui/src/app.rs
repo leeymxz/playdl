@@ -2067,9 +2067,17 @@ impl App {
             crate::log::error("video download: playdl.exe not found");
             return;
         };
+        // Write into the user's Downloads folder: the GUI may live under
+        // Program Files where yt-dlp cannot create files.
+        let download_dir: std::path::PathBuf = std::env::var_os("USERPROFILE")
+            .or_else(|| std::env::var_os("HOME"))
+            .map(|p| std::path::PathBuf::from(p).join("Downloads"))
+            .filter(|d| d.is_dir())
+            .unwrap_or_else(|| std::path::PathBuf::from("."));
         match Command::new(&exe)
             .arg("video")
             .arg(&url)
+            .current_dir(&download_dir)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .stdin(Stdio::null())

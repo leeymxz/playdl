@@ -266,4 +266,45 @@ $("all-links").addEventListener("click", async () => {
   $("hint").textContent = r && r.ok ? "Links sent to PlayDL." : `Could not send links${r?.error ? `: ${r.error}` : ""}.`;
 });
 
+// ---- 视频链接解析（走 yt-dlp，支持 YouTube/B站/抖音/TikTok...）----
+// 打开弹窗时预填当前标签页 URL，方便直接点下载
+(async () => {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab && tab.url && /^https?:/i.test(tab.url)) {
+      $("video-url").value = tab.url;
+    }
+  } catch {
+    // 无 tabs 权限或非页面页；留空让用户粘贴
+  }
+})();
+
+$("video-go").addEventListener("click", async () => {
+  const url = $("video-url").value.trim();
+  if (!url) {
+    $("hint").textContent = "请先粘贴视频链接。";
+    return;
+  }
+  if (!/^https?:/i.test(url)) {
+    $("hint").textContent = "链接需要 http:// 或 https:// 开头。";
+    return;
+  }
+  $("video-go").disabled = true;
+  $("hint").textContent = "正在交给 PlayDL 解析下载（yt-dlp）…";
+  try {
+    const r = await chrome.runtime.sendMessage({ type: "video", url });
+    $("hint").textContent =
+      r && r.ok
+        ? "已交给 PlayDL 下载，请到下载目录查看 MP4。"
+        : `发送失败${r?.error ? `: ${r.error}` : ""}，请确认 PlayDL 已打开。`;
+  } catch {
+    $("hint").textContent = "无法连接 PlayDL，请确认桌面端已启动。";
+  }
+  $("video-go").disabled = false;
+});
+
+$("video-url").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") $("video-go").click();
+});
+
 refresh();
