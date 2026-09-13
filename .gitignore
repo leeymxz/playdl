@@ -54,3 +54,4 @@ analyze_ext.py
 \nbuild/
 \nfind_extbus.py\nfind_ext2.py
 \ncheck_msgs.py
+\nfind_media.py
