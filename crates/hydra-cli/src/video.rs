@@ -6,6 +6,7 @@
 //! Video sites sign their media URLs, so this shells out to `yt-dlp` (the
 //! same tool everyone else relies on) and streams its progress through.
 
+use std::io::Read;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -234,13 +235,24 @@ pub fn run(url: &str, opts: VideoOpts) -> i32 {
         YtDlp::Exe(p) => eprintln!("playdl video: {} {}", p.display(), url),
         YtDlp::PythonModule(py) => eprintln!("playdl video: {} -m yt_dlp {}", py.display(), url),
     }
-    match cmd.status() {
+    let code = match cmd.status() {
         Ok(st) => st.code().unwrap_or(1),
         Err(e) => {
             eprintln!("playdl video: failed to run yt-dlp: {e}");
             1
         }
+    };
+    // When launched from the GUI into its own console (CREATE_NEW_CONSOLE)
+    // the window closes on exit and the error scrolls out of sight. On
+    // failure, hold the window open with a hint so the reason stays visible.
+    if code != 0 {
+        eprintln!();
+        eprintln!("playdl video: 下载失败（退出码 {code}）。请检查上面的错误信息。");
+        eprintln!("常见原因：网络不通、需要登录/会员、站点风控（B站 412）等。");
+        eprintln!("按回车键关闭此窗口…");
+        let _ = std::io::stdin().read_line(&mut String::new());
     }
+    code
 }
 
 /// Options for [`run`].
