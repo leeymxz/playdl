@@ -445,8 +445,26 @@ async function decideCapture(item) {
   if (!typeMatches(state.autoTypes, item.filename, url, item.mime)) return giveBack();
 
   const size = item.totalBytes > 0 ? item.totalBytes : item.fileSize > 0 ? item.fileSize : null;
+  // Prefer a human name when the browser's own is generic (Douyin serves
+  // videos as "index.html"): the page title is the only useful name.
+  let fname = item.filename ? item.filename.split(/[/\\]/).pop() : null;
+  if (fname) {
+    const stem = fname.replace(/\.[^.]+$/, "");
+    if (/^(index|default|download|video|play|watch|player|stream|main|media)(\.\w+)?$/i.test(stem)) {
+      // Generic name — ask the active tab for its title (Douyin videos are
+      // served as "index.html"; the page title is the only useful name).
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+        const t = titleName(tab?.title);
+        if (t) {
+          const extMatch = /\.(\w+)$/.exec(fname);
+          fname = t + (extMatch ? `.${extMatch[1]}` : ".mp4");
+        }
+      } catch {}
+    }
+  }
   const reply = await sendToPlayDL(url, {
-    filename: item.filename ? item.filename.split(/[/\\]/).pop() : null,
+    filename: fname,
     referer: item.referrer || null,
     size,
     mime: item.mime || null,
@@ -643,9 +661,15 @@ function mediaName(url, title, kind) {
   const stem = base.replace(/\.[^.]+$/, "");
   const opaque =
     !stem ||
+    // CDN-uuid-style names: fc1eced1-6d50-4375-a125-ef65c887d7d5.mp4
     /^[0-9a-f]{8,}$/i.test(stem) ||
     /^[0-9a-f][0-9a-f-]{15,}$/i.test(stem) ||
-    /^\d{6,}$/.test(stem);
+    /^\d{6,}$/.test(stem) ||
+    // Generic placeholders that say nothing about the content. Douyin
+    // serves its videos as `index.html?x-cos-*`, video sites often use
+    // `index`, `video`, `play`, `watch`, `download` — the page title is
+    // the only usable name in those cases.
+    /^(index|default|download|video|play|watch|player|stream|main|media)(\.\w+)?$/i.test(stem);
   if (!opaque) return null;
   const named = titleName(title);
   if (!named) return null;

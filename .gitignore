@@ -57,3 +57,4 @@ analyze_ext.py
 \nfind_media.py
 \nfind_label.py
 \nmake_std_icon.py
+\nfind_capture.py\nfind_addurl.py\nfind_launch.py\nfind_native.py
