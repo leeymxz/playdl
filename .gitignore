@@ -50,3 +50,5 @@ analyze_ext.py
 \nupload-032.ps1\npo2.txt
 \nfinal_check.py\nfinal_check2.py
 \nfind_startup.py\nupload-032b.ps1
+\nfull_pack.py\nupload-all.ps1\n全量打包.bat
+\nbuild/

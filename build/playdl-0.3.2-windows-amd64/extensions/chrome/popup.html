@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <img src="icons/icon32.png" alt="" width="20" height="20" />
+      <span class="title">PlayDL</span>
+      <span id="status" class="status" title="">●</span>
+    </header>
+
+    <label class="row toggle">
+      <input type="checkbox" id="enabled" />
+      <span>Capture downloads</span>
+    </label>
+
+    <label class="row toggle">
+      <input type="checkbox" id="video-panel" />
+      <span>Download button on videos</span>
+    </label>
+
+    <div class="actions">
+      <button id="open-playdl">Open PlayDL</button>
+      <button id="all-links">Download all links</button>
+    </div>
+
+    <section id="stream-section" hidden>
+      <h2>Streams on this page</h2>
+      <ul id="stream-list"></ul>
+    </section>
+
+    <section id="media-section" hidden>
+      <h2>Media on this page</h2>
+      <ul id="media-list"></ul>
+    </section>
+
+    <footer id="hint"></footer>
+    <script src="popup.js"></script>
+  </body>
+</html>
