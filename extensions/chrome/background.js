@@ -23,6 +23,14 @@
 // transport below is identical everywhere.
 if (typeof globalThis.chrome === 'undefined') globalThis.chrome = globalThis.browser;
 
+// MV2/older-Chromium shim: `chrome.action` only exists in MV3 (Chromium 88+).
+// Maxthon and other MV2-era forks expose `chrome.browserAction` instead, and
+// calling an undefined `chrome.action.setBadgeText` throws. Map one to the
+// other so badge/title updates work on every engine.
+if (!globalThis.chrome.action && globalThis.chrome.browserAction) {
+  globalThis.chrome.action = globalThis.chrome.browserAction;
+}
+
 const HOST = "com.playdl.host";
 const WS_PORTS = [6799, 16799];
 

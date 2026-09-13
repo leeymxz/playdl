@@ -1,2 +1,2 @@
 To https://github.com/leeymxz/playdl.git
-   ec54cd1..b597d26  main -> main
+ - [deleted]         v0.3.2
