@@ -272,6 +272,9 @@ pub struct AddUrlState {
     /// Filename the browser had already resolved (Content-Disposition et
     /// al.) — better than what the URL path implies.
     pub capture_name: Option<String>,
+    /// Page title from the browser, a fallback name when the CDN filename
+    /// is a meaningless placeholder (Douyin's `index.html`).
+    pub capture_title: Option<String>,
     /// Page the browser was on when it captured this file. A CDN with
     /// hotlink protection answers `403` without it.
     pub capture_referer: Option<String>,
@@ -4133,6 +4136,7 @@ impl App {
                     .take()
                     .filter(|s| !s.is_empty());
                 let cap_name = self.add_url.capture_name.take().filter(|s| !s.is_empty());
+                let cap_title = self.add_url.capture_title.take().filter(|s| !s.is_empty());
                 let cap_referer = self
                     .add_url
                     .capture_referer
@@ -4175,9 +4179,38 @@ impl App {
                         };
                         format!("{}.{ext}", stream_base_name(&url))
                     }
-                    None => cap_name
-                        .clone()
-                        .unwrap_or_else(|| engine::file_name_from_url(&url)),
+                    None => {
+                        // A captured "name" that is actually a generic CDN
+                        // placeholder (Douyin serves videos as `index.html`)
+                        // says nothing about the content; prefer whatever the
+                        // URL can tell us instead of saving anonymous
+                        // "index" files.
+                        let is_generic = cap_name.as_deref().map_or(false, |n| {
+                            let base = match n.rfind('.') {
+                                Some(i) => n[..i].to_string(),
+                                None => n.to_string(),
+                            };
+                            matches!(
+                                base.trim().to_ascii_lowercase().as_str(),
+                                "index" | "download" | "video" | "play" | "watch"
+                                    | "player" | "stream" | "main" | "media" | "default"
+                            )
+                        });
+                        if is_generic {
+                            let from_url = engine::file_name_from_url(&url);
+                            if from_url.eq_ignore_ascii_case("index.html")
+                                || from_url.eq_ignore_ascii_case("index")
+                            {
+                                // Page title is the real name (Douyin/Bilibili
+                                // video pages); fall back to the CDN name.
+                                cap_title.clone().unwrap_or_else(|| from_url)
+                            } else {
+                                from_url
+                            }
+                        } else {
+                            cap_name.clone().unwrap_or_else(|| engine::file_name_from_url(&url))
+                        }
+                    }
                 };
                 let cat = crate::model::categorize(&name, &self.cfg.categories);
                 let dir = self
@@ -4280,6 +4313,7 @@ impl App {
                         address: dl.url,
                         capture_cookies: dl.cookies,
                         capture_name: dl.filename,
+                        capture_title: dl.title,
                         capture_referer: dl.referer,
                         ..AddUrlState::default()
                     };

@@ -445,26 +445,27 @@ async function decideCapture(item) {
   if (!typeMatches(state.autoTypes, item.filename, url, item.mime)) return giveBack();
 
   const size = item.totalBytes > 0 ? item.totalBytes : item.fileSize > 0 ? item.fileSize : null;
+  // Page title as a fallback filename (Douyin serves videos as "index.html").
+  let tabTitle = null;
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    tabTitle = titleName(tab?.title);
+  } catch {}
   // Prefer a human name when the browser's own is generic (Douyin serves
   // videos as "index.html"): the page title is the only useful name.
   let fname = item.filename ? item.filename.split(/[/\\]/).pop() : null;
   if (fname) {
     const stem = fname.replace(/\.[^.]+$/, "");
     if (/^(index|default|download|video|play|watch|player|stream|main|media)(\.\w+)?$/i.test(stem)) {
-      // Generic name — ask the active tab for its title (Douyin videos are
-      // served as "index.html"; the page title is the only useful name).
-      try {
-        const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-        const t = titleName(tab?.title);
-        if (t) {
-          const extMatch = /\.(\w+)$/.exec(fname);
-          fname = t + (extMatch ? `.${extMatch[1]}` : ".mp4");
-        }
-      } catch {}
+      if (tabTitle) {
+        const extMatch = /\.(\w+)$/.exec(fname);
+        fname = tabTitle + (extMatch ? `.${extMatch[1]}` : ".mp4");
+      }
     }
   }
   const reply = await sendToPlayDL(url, {
     filename: fname,
+    title: tabTitle,
     referer: item.referrer || null,
     size,
     mime: item.mime || null,

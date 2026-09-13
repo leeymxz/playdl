@@ -38,6 +38,10 @@ pub struct ExtDownload {
     pub url: String,
     #[serde(default)]
     pub filename: Option<String>,
+    /// Page title from the browser tab, used when the CDN filename is a
+    /// meaningless placeholder (e.g. Douyin's `index.html`).
+    #[serde(default)]
+    pub title: Option<String>,
     /// Verbatim `Cookie:` header assembled by the extension for this URL.
     #[serde(default)]
     pub cookies: Option<String>,
