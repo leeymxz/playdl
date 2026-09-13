@@ -147,6 +147,8 @@ pub enum ExtEvent {
     Links(Vec<String>),
     /// Popup's "Open PlayDL": surface the main window.
     Open,
+    /// A video-site link (YouTube/Bilibili/...) -> the yt-dlp video path.
+    VideoUrl(String),
     /// A newer build launched and asked this instance to step aside so the
     /// surviving process is the new version (see `signal_existing`).
     Shutdown,
@@ -477,6 +479,22 @@ fn dispatch(req: &serde_json::Value, trusted: bool) -> serde_json::Value {
         Some("shutdown") if trusted => {
             let _ = sender().send(ExtEvent::Shutdown);
             (true, None)
+        }
+        // Video-site links (YouTube/Bilibili/Douyin/...) need yt-dlp style
+        // extraction; forward them to the app's video downloader.
+        Some("video") => {
+            let url = req
+                .get("url")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+                .unwrap_or_default();
+            if url.is_empty() {
+                (false, Some("bad video request"))
+            } else {
+                crate::log::info(&format!("extbus: video {url}"));
+                let _ = sender().send(ExtEvent::VideoUrl(url));
+                (true, None)
+            }
         }
         Some("download") => match serde_json::from_value::<ExtDownload>(req.clone()) {
             Ok(dl) if !dl.url.is_empty() => {

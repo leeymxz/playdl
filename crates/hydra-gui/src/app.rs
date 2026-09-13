@@ -2047,6 +2047,43 @@ impl App {
         Task::batch(tasks)
     }
 
+    /// Launch the `playdl video` command (yt-dlp) for a video-site URL from
+    /// the browser extension. Detached: the download runs on its own, so the
+    /// GUI stays responsive and the transfer survives window closure.
+    fn launch_video_download(&mut self, url: String) {
+        use std::process::{Command, Stdio};
+        // Prefer the CLI beside this binary; fall back to PATH.
+        let exe = std::env::current_exe()
+            .ok()
+            .and_then(|e| e.parent().map(|p| p.join("bin").join("playdl.exe")))
+            .filter(|p| p.exists())
+            .or_else(|| {
+                std::env::current_exe()
+                    .ok()
+                    .and_then(|e| e.parent().map(|p| p.join("playdl.exe")))
+                    .filter(|p| p.exists())
+            });
+        let Some(exe) = exe else {
+            crate::log::error("video download: playdl.exe not found");
+            return;
+        };
+        match Command::new(&exe)
+            .arg("video")
+            .arg(&url)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .stdin(Stdio::null())
+            .spawn()
+        {
+            Ok(_) => crate::log::info(&format!(
+                "video download started: {} {}",
+                exe.display(),
+                url
+            )),
+            Err(e) => crate::log::error(&format!("video download spawn failed: {e}")),
+        }
+    }
+
     pub fn start_download(&mut self, id: DlId, open_progress: bool) -> Task<Message> {
         // Over the window's cap nothing new goes on the wire. The item is
         // marked as the limiter's, so the tick that reopens the window picks
@@ -4286,6 +4323,14 @@ impl App {
                     Task::batch([open, self.update(Message::BatchLoaded(Some(text)))])
                 }
                 crate::extbus::ExtEvent::Open => self.open_window(WinKind::Main),
+                crate::extbus::ExtEvent::VideoUrl(url) => {
+                    // A video-site link from the extension: hand it to the
+                    // bundled `playdl video` command (yt-dlp) in the
+                    // background; the download runs independently of the UI.
+                    crate::log::info(&format!("ext: video download requested: {url}"));
+                    self.launch_video_download(url);
+                    Task::none()
+                }
                 crate::extbus::ExtEvent::Shutdown => {
                     // A newer build is taking over the single-instance slot
                     // (extbus::signal_existing): leave the way tray Exit does.

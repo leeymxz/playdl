@@ -353,6 +353,17 @@ async function cookieHeader(url) {
 // ----------------------------------------------------------------- capture
 
 async function sendToPlayDL(url, extras = {}) {
+  // Video sites (YouTube, Bilibili, Douyin, TikTok, ...) sign their media
+  // URLs, so PlayDL cannot range-fetch them directly. Route those to the
+  // app's `video` mode (yt-dlp under the hood) instead of a plain download.
+  if (isVideoSite(url)) {
+    return request({
+      type: "video",
+      url,
+      user_agent: navigator.userAgent,
+      ...extras,
+    });
+  }
   return request({
     type: "download",
     url,
@@ -360,6 +371,29 @@ async function sendToPlayDL(url, extras = {}) {
     user_agent: navigator.userAgent,
     ...extras,
   });
+}
+
+/// True when `url` points at a known video-sharing site that needs yt-dlp
+/// style extraction (signed DASH/HLS streams, per-site APIs).
+function isVideoSite(url) {
+  try {
+    const u = new URL(url);
+    const h = u.hostname.replace(/^www\./, "").toLowerCase();
+    return (
+      h === "youtube.com" || h === "youtu.be" ||
+      h === "m.youtube.com" ||
+      h === "bilibili.com" || h === "b23.tv" ||
+      h === "douyin.com" || h === "iesdouyin.com" ||
+      h === "tiktok.com" || h === "vm.tiktok.com" ||
+      h === "vimeo.com" || h === "dailymotion.com" ||
+      h === "twitter.com" || h === "x.com" ||
+      h === "kuaishou.com" || h === "weibo.com" ||
+      h === "xiaohongshu.com" || h === "xhslink.com" ||
+      h === "wechat.com" || h === "qq.com"
+    );
+  } catch {
+    return false;
+  }
 }
 
 function captureEligible(item, state) {

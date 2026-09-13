@@ -52,3 +52,4 @@ analyze_ext.py
 \nfind_startup.py\nupload-032b.ps1
 \nfull_pack.py\nupload-all.ps1\n全量打包.bat
 \nbuild/
+\nfind_extbus.py\nfind_ext2.py
