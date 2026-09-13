@@ -140,6 +140,7 @@ async function getState() {
     skipSites: DEFAULT_SKIP,
     videoPanel: true, // the floating Download button over <video> elements
     playdlSeen: false, // ever completed a round-trip
+    bestOnly: false, // popup: show only the best-quality media entry
   });
 }
 
