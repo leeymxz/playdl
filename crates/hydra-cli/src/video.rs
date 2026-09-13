@@ -9,6 +9,55 @@
 use std::path::PathBuf;
 use std::process::Command;
 
+/// A real Chrome UA so video sites (Bilibili, Douyin, Kuaishou, ...) do not
+/// 412/403 the Python-based yt-dlp client.
+const BROWSER_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+
+/// True when `url` is a signed direct media link that yt-dlp cannot parse
+/// but the PlayDL engine can download as-is. WeChat Channels (视频号) share
+/// links live on `finder.video.qq.com`; other sites' direct CDN links with
+/// signature query params also fit.
+fn is_direct_media_url(url: &str) -> bool {
+    let lower = url.to_ascii_lowercase();
+    lower.contains("finder.video.qq.com")
+        || (lower.contains("encfilekey=") && lower.contains("finder"))
+        || lower.contains("/stodownload?")
+        || lower.contains("video.qq.com")
+}
+
+/// Pick a browser whose cookie DB exists on this machine for
+/// `--cookies-from-browser`. yt-dlp reads them itself; we only name the
+/// browser with the best chance of having logged-in sessions.
+fn browser_cookies_arg() -> Option<String> {
+    // Order: Edge first on Windows (default, most likely logged in),
+    // then Chrome, then Firefox.
+    let base = std::env::var_os("LOCALAPPDATA")?;
+    let candidates = [
+        (
+            "edge",
+            std::path::PathBuf::from(&base)
+                .join("Microsoft/Edge/User Data/Default/Network/Cookies"),
+        ),
+        (
+            "chrome",
+            std::path::PathBuf::from(&base).join("Google/Chrome/User Data/Default/Network/Cookies"),
+        ),
+        (
+            "firefox",
+            {
+                let appdata = std::env::var_os("APPDATA")?;
+                std::path::PathBuf::from(appdata).join("Mozilla/Firefox/Profiles")
+            },
+        ),
+    ];
+    for (name, path) in candidates {
+        if path.exists() {
+            return Some(name.to_string());
+        }
+    }
+    None
+}
+
 /// Locate the yt-dlp executable: explicit flag, same-dir, then PATH,
 /// then the `python -m yt_dlp` fallback.
 fn find_ytdlp(explicit: Option<&PathBuf>) -> Option<YtDlp> {
@@ -67,6 +116,38 @@ fn which(name: &str) -> std::io::Result<Option<PathBuf>> {
 
 /// The `playdl video` entry point. Returns a process exit code.
 pub fn run(url: &str, opts: VideoOpts) -> i32 {
+    // Direct WeChat Channels (视频号) media URLs carry their own signature
+    // (encfilekey/token/sign) and yt-dlp has no extractor for them, but the
+    // signed URL is a plain HTTP(S) object PlayDL can range-fetch directly.
+    // Forward those straight to the engine instead of yt-dlp.
+    if is_direct_media_url(url) {
+        eprintln!("playdl video: direct media URL detected — downloading with the PlayDL engine (multi-connection)");
+        if opts.get_url {
+            println!("{url}");
+            return 0;
+        }
+        if opts.list_formats {
+            eprintln!("playdl video: a direct media URL has a single format");
+            return 0;
+        }
+        // Re-exec as a normal download so the full engine (parallel ranges,
+        // resume, progress) does the work.
+        let exe = std::env::current_exe().unwrap_or_else(|_| "playdl".into());
+        let mut cmd = Command::new(&exe);
+        cmd.arg("-x").arg("8");
+        if let Some(out) = &opts.output {
+            cmd.arg("-o").arg(out);
+        }
+        cmd.arg(url);
+        return match cmd.status() {
+            Ok(st) => st.code().unwrap_or(1),
+            Err(e) => {
+                eprintln!("playdl video: failed to start downloader: {e}");
+                1
+            }
+        };
+    }
+
     let yt = match find_ytdlp(opts.ytdlp.as_ref()) {
         Some(y) => y,
         None => {
@@ -89,12 +170,24 @@ pub fn run(url: &str, opts: VideoOpts) -> i32 {
             // --newline: emit progress on its own line so a console/pipe can
             // follow it in real time instead of the carriage-return dance.
             c.arg("--no-warnings").arg("--progress").arg("--newline");
+            // Sites like Bilibili/Douyin reject plain Python clients with
+            // HTTP 412/403; present a real Chrome UA so extraction works.
+            c.arg("--user-agent").arg(BROWSER_UA);
+            // Logged-in sites (Bilibili high-res, members-only) need the
+            // browser's cookies; try the common Chromium profiles.
+            if let Some(cookie_arg) = browser_cookies_arg() {
+                c.arg("--cookies-from-browser").arg(cookie_arg);
+            }
             c
         }
         YtDlp::PythonModule(py) => {
             let mut c = Command::new(py);
             c.arg("-m").arg("yt_dlp");
             c.arg("--no-warnings").arg("--progress").arg("--newline");
+            c.arg("--user-agent").arg(BROWSER_UA);
+            if let Some(cookie_arg) = browser_cookies_arg() {
+                c.arg("--cookies-from-browser").arg(cookie_arg);
+            }
             c
         }
     };
