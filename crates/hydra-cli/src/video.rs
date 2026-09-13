@@ -26,6 +26,61 @@ fn is_direct_media_url(url: &str) -> bool {
         || lower.contains("video.qq.com")
 }
 
+/// Rewrite share URLs into the canonical form the extractors accept.
+/// Returns an owned String; the input is returned as-is when no rewrite
+/// applies (or when parsing fails).
+fn normalize_share_url(url: &str) -> String {
+    // Douyin share cards: douyin.com/jingxuan?modal_id=123456... (and the
+    // `v.douyin.com/xxx` short links) resolve to a video page yt-dlp knows.
+    // Handle the direct "精选" form here; short links are followed by the
+    // extractor itself.
+    let lower = url.to_ascii_lowercase();
+    if lower.contains("douyin.com/jingxuan") || lower.contains("douyin.com/video") {
+        if let Some(modal) = extract_query_param(url, "modal_id") {
+            let base = if lower.contains("douyin.com/jingxuan") {
+                "https://www.douyin.com/video/"
+            } else {
+                "https://www.douyin.com/video/"
+            };
+            return format!("{base}{modal}");
+        }
+    }
+    url.to_string()
+}
+
+/// Extract a single query parameter value (URL-decoded) from a URL string.
+fn extract_query_param(url: &str, name: &str) -> Option<String> {
+    let q = url.split('?').nth(1)?;
+    for pair in q.split('&') {
+        let mut it = pair.splitn(2, '=');
+        let k = it.next()?;
+        if k == name {
+            let v = it.next().unwrap_or("");
+            return Some(percent_decode(v));
+        }
+    }
+    None
+}
+
+/// Minimal percent-decoding (utf-8 aware) for query values.
+fn percent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let Ok(b) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
+                out.push(b);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
 /// Pick a browser whose cookie DB exists on this machine for
 /// `--cookies-from-browser`. yt-dlp reads them itself; we only name the
 /// browser with the best chance of having logged-in sessions.
@@ -86,7 +141,12 @@ fn which(name: &str) -> std::io::Result<Option<PathBuf>> {
 }
 
 /// The `playdl video` entry point. Returns a process exit code.
-pub fn run(url: &str, opts: VideoOpts) -> i32 {
+pub fn run(url_in: &str, opts: VideoOpts) -> i32 {
+    // Normalise share links that yt-dlp's extractors do not recognise:
+    //   - Douyin "精选" pages  douyin.com/jingxuan?modal_id=<id>
+    //     -> canonical       douyin.com/video/<id>
+    let url = normalize_share_url(url_in);
+    let url = url.as_str();
     // Direct WeChat Channels (视频号) media URLs carry their own signature
     // (encfilekey/token/sign) and yt-dlp has no extractor for them, but the
     // signed URL is a plain HTTP(S) object PlayDL can range-fetch directly.
