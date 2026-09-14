@@ -1,0 +1,249 @@
+/* Copyright (C) 2026 Javad Rajabzadeh
+   SPDX-License-Identifier: GPL-3.0-or-later */
+
+:root {
+  color-scheme: light dark;
+  --fg: #1c1c1c;
+  --muted: #6a6a6a;
+  --line: #d9d9d9;
+  --accent: #2c6e31;
+  --bg: #fbfbfb;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: #ececec;
+    --muted: #9a9a9a;
+    --line: #3a3a3a;
+    --accent: #7dc383;
+    --bg: #222;
+  }
+}
+
+body {
+  margin: 0;
+  width: 300px;
+  font: 13px/1.45 system-ui, sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.title {
+  font-weight: 600;
+  flex: 1;
+}
+.status {
+  font-size: 11px;
+  color: var(--muted);
+}
+.status.on {
+  color: var(--accent);
+}
+.status.off {
+  color: #b3462e;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+.row.toggle + .row.toggle {
+  padding-top: 0;
+}
+.row.toggle:first-of-type {
+  padding-top: 10px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  padding: 0 12px 10px;
+}
+button {
+  flex: 1;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+}
+button:hover {
+  border-color: var(--accent);
+}
+
+section {
+  border-top: 1px solid var(--line);
+  padding: 8px 12px 10px;
+}
+h2 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+li .name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+li .size {
+  color: var(--muted);
+  font-size: 11px;
+}
+li button {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+}
+
+footer {
+  padding: 8px 12px;
+  color: var(--muted);
+  font-size: 11px;
+  border-top: 1px solid var(--line);
+  min-height: 14px;
+}
+
+/* ------------------------------------------------------------- streams */
+
+#stream-list {
+  /* Stream rows are three lines tall; the media list's cap shows barely two. */
+  max-height: 260px;
+}
+#stream-list li {
+  display: block;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+#stream-list li:last-child {
+  border-bottom: 0;
+}
+.s-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tag {
+  flex: 0 0 auto;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  opacity: 0.85;
+}
+.tag.live {
+  color: #b3462e;
+  border-color: #b3462e;
+}
+.s-meta {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 2px 0 4px;
+}
+.s-meta.drm {
+  color: #b3462e;
+}
+.s-pick {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end; /* keeps Download in place when there is no picker */
+  gap: 6px;
+}
+.s-pick select {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 4px;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+.s-pick button {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+}
+button[disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+button[disabled]:hover {
+  border-color: var(--line);
+}
+
+/* 视频链接解析区 */
+.video-dl {
+  display: flex;
+  gap: 6px;
+  margin: 8px 10px;
+}
+.video-dl input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 8px;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  outline: none;
+}
+.video-dl input:focus {
+  border-color: var(--accent);
+}
+.video-dl button {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.video-dl button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Best-quality-only toggle: compact, sits beside the section heading */
+.row.toggle.small {
+  font-size: 11px;
+  padding: 2px 0;
+}
+.row.toggle.small input {
+  width: auto;
+}
