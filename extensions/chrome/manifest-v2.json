@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "PlayDL Download Manager Integration",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "A browser integration for PlayDL: automatic download capture, right-click downloads, and media/HLS/DASH stream sniffing. (MV2 compatibility build for Maxthon / older Chromium)",
   "permissions": [
     "downloads",

@@ -30,7 +30,7 @@ foreach ($a in $arts.artifacts) {
         if ($inner) {
             # 上传到 release（用 playdl-{ver}-{os}-{arch}.ext 命名）
             $ext = $inner.Extension
-            $upName = "playdl-0.3.5-$os-$arch$ext"
+            $upName = "playdl-0.3.6-$os-$arch$ext"
             $url = "https://uploads.github.com/repos/leeymxz/playdl/releases/$relId/assets?name=$upName"
             $h = @{ Authorization = "token $token"; "Content-Type" = "application/octet-stream" }
             $up = Invoke-RestMethod -Uri $url -Method POST -Headers $h -InFile $inner.FullName

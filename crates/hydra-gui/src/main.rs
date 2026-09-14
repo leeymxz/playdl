@@ -329,19 +329,21 @@ fn boot() -> (App, Task<Message>) {
     // apps get no menu bar, and on macOS every PlayDL menu lives there.
     #[cfg(target_os = "macos")]
     macos_dock::sync(app.cfg.settings.hide_from_taskbar, !start_hidden);
+    // Startup update check (Options > General). Runs in BOTH launch modes —
+    // a tray-only start (start_in_tray) must still notice new releases.
+    // A modal only ever opens on a positive answer; failures are silent
+    // because offline startups are normal.
+    let check = if app.cfg.settings.check_updates_on_startup {
+        let beta = app.cfg.settings.beta_channel;
+        Task::perform(update::check(beta), Message::UpdateChecked)
+    } else {
+        Task::none()
+    };
     if start_hidden {
-        (app, Task::none())
+        (app, check)
     } else {
         let open_main = app.open_window(WinKind::Main);
         let perm = app.check_folder_access();
-        // Startup update check (Options > General). A modal only ever opens
-        // on a positive answer; failures are silent — offline is normal.
-        let check = if app.cfg.settings.check_updates_on_startup {
-            let beta = app.cfg.settings.beta_channel;
-            Task::perform(update::check(beta), Message::UpdateChecked)
-        } else {
-            Task::none()
-        };
         (app, Task::batch([open_main, perm, check]))
     }
 }
@@ -477,6 +479,15 @@ fn subscription(app: &App) -> Subscription<Message> {
             _ => None,
         }),
     ];
+    // Periodic update check (every 6 hours): a long-running instance still
+    // notices a new release without needing a restart. The handler is silent
+    // unless an update is actually available.
+    if app.cfg.settings.check_updates_on_startup {
+        subs.push(
+            iced::time::every(std::time::Duration::from_secs(6 * 3600))
+                .map(|_| Message::PeriodicUpdateCheck),
+        );
+    }
     // The power-action countdown shows a number of seconds, so it ticks at
     // one second even in power save — where the main tick is three apart.
     if app.power.is_some() {

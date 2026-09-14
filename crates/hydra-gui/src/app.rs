@@ -1005,6 +1005,9 @@ pub enum Message {
     // update dialog
     /// Startup (or manual) check finished: newer release / up to date / error.
     UpdateChecked(Result<Option<crate::update::UpdateInfo>, String>),
+    /// Periodic (every few hours) silent update check, so a long-running
+    /// instance still notices a new release without a restart.
+    PeriodicUpdateCheck,
     UpdateNow,
     UpdateCancel,
     UpdateOpenPage,
@@ -4947,6 +4950,20 @@ impl App {
                         crate::log::warn(&format!("update check failed: {e}"));
                         Task::none()
                     }
+                }
+            }
+            Message::PeriodicUpdateCheck => {
+                // A long-running instance should still notice a new release:
+                // re-check every few hours (silent — a failed check is only a
+                // log line, and an available update opens the dialog). Skip
+                // when the user disabled auto-checks or an offer is already up.
+                if self.cfg.settings.check_updates_on_startup && self.updater.info.is_none() {
+                    Task::perform(
+                        crate::update::check(self.cfg.settings.beta_channel),
+                        Message::UpdateChecked,
+                    )
+                } else {
+                    Task::none()
                 }
             }
             Message::UpdateNow => {
