@@ -6,8 +6,8 @@ $dir = "C:\Users\Administrator\Documents\Loomy Workspace\my-downloader"
 $relId = 387643480
 
 $uploads = @(
-    @{ File = "$dir\packaging\dist\PlayDL-0.3.2-windows-x64-setup.exe"; Name = "PlayDL-0.3.2-windows-x64-setup.exe" },
-    @{ File = "$dir\dist\playdl-0.3.2-windows-amd64.zip"; Name = "playdl-0.3.2-windows-amd64.zip" },
+    @{ File = "$dir\packaging\dist\PlayDL-0.3.3-windows-x64-setup.exe"; Name = "PlayDL-0.3.3-windows-x64-setup.exe" },
+    @{ File = "$dir\dist\playdl-0.3.3-windows-amd64.zip"; Name = "playdl-0.3.3-windows-amd64.zip" },
     @{ File = "$dir\dist\playdl-extension-chrome.zip"; Name = "playdl-extension-chrome.zip" },
     @{ File = "$dir\dist\playdl-extension-firefox.zip"; Name = "playdl-extension-firefox.zip" }
 )

@@ -1018,7 +1018,33 @@ pub fn url_file_name(url: &str) -> Option<String> {
 }
 
 pub fn file_name_from_url(url: &str) -> String {
-    url_file_name(url).unwrap_or_else(|| "index.html".into())
+    // A URL ending in a generic CDN placeholder (Douyin serves videos as
+    // `index.html`) names nothing; signal that with "" so callers fall back
+    // to the page title instead of saving anonymous "index" files.
+    match url_file_name(url) {
+        Some(n) => {
+            if is_generic_name(&n) {
+                String::new()
+            } else {
+                n
+            }
+        }
+        None => String::new(),
+    }
+}
+
+/// True when a filename is a meaningless CDN placeholder (index.html,
+/// download.mp4, video.mp4, ...) that says nothing about the content.
+pub fn is_generic_name(name: &str) -> bool {
+    let stem = match name.rfind('.') {
+        Some(i) => &name[..i],
+        None => name,
+    };
+    matches!(
+        stem.trim().to_ascii_lowercase().as_str(),
+        "index" | "download" | "video" | "play" | "watch" | "player" | "stream"
+            | "main" | "media" | "default"
+    )
 }
 
 fn percent_decode(s: &str) -> String {

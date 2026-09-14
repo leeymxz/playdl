@@ -4180,35 +4180,22 @@ impl App {
                         format!("{}.{ext}", stream_base_name(&url))
                     }
                     None => {
-                        // A captured "name" that is actually a generic CDN
-                        // placeholder (Douyin serves videos as `index.html`)
-                        // says nothing about the content; prefer whatever the
-                        // URL can tell us instead of saving anonymous
-                        // "index" files.
-                        let is_generic = cap_name.as_deref().map_or(false, |n| {
-                            let base = match n.rfind('.') {
-                                Some(i) => n[..i].to_string(),
-                                None => n.to_string(),
-                            };
-                            matches!(
-                                base.trim().to_ascii_lowercase().as_str(),
-                                "index" | "download" | "video" | "play" | "watch"
-                                    | "player" | "stream" | "main" | "media" | "default"
-                            )
-                        });
-                        if is_generic {
-                            let from_url = engine::file_name_from_url(&url);
-                            if from_url.eq_ignore_ascii_case("index.html")
-                                || from_url.eq_ignore_ascii_case("index")
-                            {
-                                // Page title is the real name (Douyin/Bilibili
-                                // video pages); fall back to the CDN name.
-                                cap_title.clone().unwrap_or_else(|| from_url)
-                            } else {
-                                from_url
-                            }
+                        // Filename priority for browser-captured items:
+                        //   1. a non-generic name from the browser itself
+                        //   2. the page title (Douyin/Bilibili videos are
+                        //      served as generic "index.html")
+                        //   3. whatever the URL can name
+                        let from_url = engine::file_name_from_url(&url);
+                        let cap_ok = cap_name
+                            .as_deref()
+                            .map(|n| !engine::is_generic_name(n))
+                            .unwrap_or(false);
+                        if cap_ok {
+                            cap_name.clone().unwrap_or_else(|| from_url)
+                        } else if !from_url.is_empty() {
+                            from_url
                         } else {
-                            cap_name.clone().unwrap_or_else(|| engine::file_name_from_url(&url))
+                            cap_title.clone().unwrap_or_else(|| cap_name.clone().unwrap_or_default())
                         }
                     }
                 };

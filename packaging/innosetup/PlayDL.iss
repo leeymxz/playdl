@@ -7,7 +7,7 @@
 
 #define MyAppName "PlayDL"
 #define MyAppShortName "PlayDL"
-#define MyAppVersion "0.3.2"
+#define MyAppVersion "0.3.3"
 #define MyAppPublisher "leeymxz"
 #define MyAppURL "https://github.com/leeymxz/playdl"
 #define MyAppExeName "playdl.exe"

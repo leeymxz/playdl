@@ -59,3 +59,4 @@ analyze_ext.py
 \nmake_std_icon.py
 \nfind_capture.py\nfind_addurl.py\nfind_launch.py\nfind_native.py
 \nfind_capname.py\nfind_capname2.py
+\nfind_workers.py\nfind_connlimit.py

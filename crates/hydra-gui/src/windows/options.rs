@@ -453,7 +453,7 @@ fn quota_line(app: &App) -> String {
 fn connection(app: &App) -> El<'_> {
     let s = &app.options.draft;
     let st = &app.options;
-    let conn_opts: Vec<usize> = vec![1, 2, 4, 8, 16, 32];
+    let conn_opts: Vec<usize> = vec![1, 2, 4, 8, 16, 32, 64, 128];
     let mut exc = column![].spacing(2);
     for (server, n) in &s.conn_exceptions {
         exc = exc.push(
