@@ -1931,7 +1931,7 @@ impl App {
             })
             .map(|(_, n)| *n)
             .unwrap_or(self.cfg.settings.default_conns)
-            .clamp(1, 32)
+            .clamp(1, 128)
     }
 
     /// Saved credentials for a URL from Options > Sites Logins.
@@ -6230,7 +6230,7 @@ impl App {
                     self.options
                         .draft
                         .conn_exceptions
-                        .push((server, n.clamp(1, 32)));
+                        .push((server, n.clamp(1, 128)));
                     self.options.conn_exc_server.clear();
                     self.options.conn_exc_n.clear();
                 }

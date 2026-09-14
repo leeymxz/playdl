@@ -38,7 +38,7 @@ const PLAYLIST_MAX: usize = 8 * 1024 * 1024;
 pub const DEFAULT_CONCURRENCY: usize = 8;
 /// Ceiling on it. Past this the origin is being hammered rather than used,
 /// and the staging files start to matter.
-pub const MAX_CONCURRENCY: usize = 32;
+pub const MAX_CONCURRENCY: usize = 128;
 /// Attempts per segment. One lost segment is a hole no player recovers from,
 /// so this is the one place that insists.
 const ATTEMPTS: usize = 3;

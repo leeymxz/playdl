@@ -63,3 +63,4 @@ analyze_ext.py
 \nupload-033.ps1
 \nupdate-body-033.ps1\nRELEASE_NOTES_033.md
 \nfind_updater.py
+\nfind_32net.py\ncompare_proto.py

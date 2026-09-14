@@ -2048,7 +2048,7 @@ async fn run_download(
     };
 
     // ---- scheduler path ---------------------------------------------------
-    let n = spec.conns.clamp(1, 32);
+    let n = spec.conns.clamp(1, 128);
     // A mirror list turns this into a multi-source transfer. Everything below
     // degenerates to exactly the previous single-source behaviour when
     // `spec.mirrors` is empty, which is what every non-Metalink caller passes.
