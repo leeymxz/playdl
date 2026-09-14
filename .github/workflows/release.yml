@@ -65,6 +65,8 @@ jobs:
 
           cp "target/${{ matrix.target }}/release/playdl${{ matrix.suffix }}" "$DIR/"
           cp "target/${{ matrix.target }}/release/pdl${{ matrix.suffix }}" "$DIR/"
+          # 自更新程序：更新检查/立即更新需要它（放在 GUI/CLI 同目录）
+          cp "target/${{ matrix.target }}/release/playdl-updater${{ matrix.suffix }}" "$DIR/" 2>/dev/null || true
 
           # 复制安装脚本和文档
           cp README.md "$DIR/"

@@ -60,6 +60,9 @@ Source: "..\..\target\release\playdl-gui.exe"; DestDir: "{app}"; Flags: ignoreve
 ; 浏览器扩展桥接程序
 Source: "..\..\target\release\playdl-host.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 
+; 自更新程序（检查更新/立即更新依赖它，需与 GUI 同目录）
+Source: "..\..\target\release\playdl-updater.exe"; DestDir: "{app}"; Flags: ignoreversion
+
 ; 浏览器扩展源码（Chrome + Firefox）
 Source: "..\..\extensions\chrome\*"; DestDir: "{app}\extensions\chrome"; Flags: ignoreversion recursesubdirs
 Source: "..\..\extensions\firefox\*"; DestDir: "{app}\extensions\firefox"; Flags: ignoreversion recursesubdirs
