@@ -64,3 +64,4 @@ analyze_ext.py
 \nupdate-body-033.ps1\nRELEASE_NOTES_033.md
 \nfind_updater.py
 \nfind_32net.py\ncompare_proto.py
+\ncreate-rel-034.ps1\nupload-034.ps1\nupload-linux-mac.ps1

@@ -1,2 +1,2 @@
 To https://github.com/leeymxz/playdl.git
- * [new tag]         v0.3.3 -> v0.3.3
+ * [new tag]         v0.3.4 -> v0.3.4
