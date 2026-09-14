@@ -109,11 +109,20 @@ jobs:
             mv "$f" .
           done
 
+      - name: Generate release notes with version
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          sed -e "s|{{ tag_name }}|${GITHUB_REF_NAME}|g" \
+              -e "s|{{ version }}|${TAG}|g" \
+              RELEASE_NOTES.md > RELEASE_NOTES_FINAL.md
+          echo "Generated release notes (tag=${GITHUB_REF_NAME}, version=${TAG})"
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           name: PlayDL ${{ github.ref_name }}
-          body_path: RELEASE_NOTES.md
+          body_path: RELEASE_NOTES_FINAL.md
           draft: false
           prerelease: false
           files: |
