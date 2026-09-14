@@ -61,3 +61,4 @@ analyze_ext.py
 \nfind_capname.py\nfind_capname2.py
 \nfind_workers.py\nfind_connlimit.py
 \nupload-033.ps1
+\nupdate-body-033.ps1\nRELEASE_NOTES_033.md
