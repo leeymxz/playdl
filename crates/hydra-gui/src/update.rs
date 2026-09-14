@@ -193,14 +193,42 @@ async fn drive(
 
     // Download. Progress goes through try_send: a full channel drops a
     // repaint, never blocks the transfer; the terminal events use send().
+    // A flaky connection can truncate the archive (e.g. 17.8/18.1 MB), so
+    // retry a few times, discarding the partial file between attempts.
     {
-        let mut progress_tx = tx.clone();
         let cancel = cancel.clone();
-        pdl_updater::http::download_to_file(&info.asset_url, &ua, &archive, move |got, total| {
-            let _ = progress_tx.try_send(UpdateEvent::Progress(got, total));
-            !cancel.load(Ordering::Relaxed)
-        })
-        .await?;
+        let mut last_err: Option<std::io::Error> = None;
+        for attempt in 0..3u32 {
+            if cancel.load(Ordering::Relaxed) {
+                break;
+            }
+            let mut progress_tx = tx.clone();
+            let cancel_ref = cancel.clone();
+            match pdl_updater::http::download_to_file(&info.asset_url, &ua, &archive, move |got, total| {
+                let _ = progress_tx.try_send(UpdateEvent::Progress(got, total));
+                !cancel_ref.load(Ordering::Relaxed)
+            })
+            .await
+            {
+                Ok(()) => {
+                    last_err = None;
+                    break;
+                }
+                Err(e) => {
+                    last_err = Some(e);
+                    let _ = std::fs::remove_file(&archive);
+                    let _ = tx.send(UpdateEvent::Progress(0, None)).await;
+                    crate::log::warn(&format!(
+                        "update download failed (attempt {}): {}",
+                        attempt + 1,
+                        last_err.as_ref().unwrap()
+                    ));
+                }
+            }
+        }
+        if let Some(e) = last_err {
+            return Err(e);
+        }
     }
 
     // Verify against the release's published checksums when it has any.

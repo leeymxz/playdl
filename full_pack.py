@@ -4,7 +4,7 @@ import zipfile
 
 sys.stdout.reconfigure(encoding="utf-8")
 base = r"C:\Users\Administrator\Documents\Loomy Workspace\my-downloader"
-ver = "0.3.4"
+ver = "0.3.5"
 
 # 源目录
 win_dir = os.path.join(base, "build", f"playdl-{ver}-windows-amd64")

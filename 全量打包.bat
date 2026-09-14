@@ -7,7 +7,7 @@ echo ============================================
 echo.
 
 set DIR=%~dp0
-set VER=0.3.4
+set VER=0.3.5
 
 :: ---- 1. 打包 Windows 绿色版 ----
 echo [1/3] 打包 Windows 绿色版...

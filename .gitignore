@@ -65,3 +65,4 @@ analyze_ext.py
 \nfind_updater.py
 \nfind_32net.py\ncompare_proto.py
 \ncreate-rel-034.ps1\nupload-034.ps1\nupload-linux-mac.ps1
+\ncheck_retry.py
