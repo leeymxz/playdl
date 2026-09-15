@@ -106,16 +106,6 @@ Filename: "cmd.exe"; Parameters: "/C setx PATH ""%PATH:;{app}\bin=%"" /M"; Flags
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
 
-[Registry]
-; 注册 Apps & features 条目
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Uninstall\PlayDL"; ValueType: string; ValueName: "DisplayName"; ValueData: "PlayDL 下载管理器"
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Uninstall\PlayDL"; ValueType: string; ValueName: "UninstallString"; ValueData: """{uninstallexe}"""
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Uninstall\PlayDL"; ValueType: string; ValueName: "DisplayIcon"; ValueData: "{app}\bin\playdl.exe,0"
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Uninstall\PlayDL"; ValueType: string; ValueName: "Publisher"; ValueData: "{#MyAppPublisher}"
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Uninstall\PlayDL"; ValueType: string; ValueName: "URLInfoAbout"; ValueData: "{#MyAppURL}"
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Uninstall\PlayDL"; ValueType: dword; ValueName: "NoModify"; ValueData: "1"
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Uninstall\PlayDL"; ValueType: dword; ValueName: "NoRepair"; ValueData: "1"
-
 [Code]
 // 自定义欢迎页 — 显示 Logo
 function InitializeSetup: Boolean;
