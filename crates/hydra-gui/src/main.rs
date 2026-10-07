@@ -29,6 +29,7 @@ mod macos_surface;
 mod menubus;
 mod model;
 mod nmhost;
+mod pickers;
 mod scan;
 mod sounds;
 mod theme;
@@ -207,6 +208,7 @@ fn boot() -> (App, Task<Message>) {
         cfg,
         state,
         windows: std::collections::HashMap::new(),
+        handles: std::collections::HashMap::new(),
         main_id: None,
         selected: vec![],
         sel_anchor: None,

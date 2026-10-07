@@ -860,6 +860,9 @@ pub enum Message {
     WindowOpened(window::Id),
     WindowClosed(window::Id),
     WindowCloseRequested(window::Id),
+    /// The platform handle of a freshly opened window, cached for the native
+    /// dialogs it may ask for (`pickers`).
+    WindowToken(window::Id, Option<usize>),
     WinMoved(window::Id, Point),
     WinResized(window::Id, iced::Size),
     Engine(engine::Event),
@@ -1053,6 +1056,9 @@ pub enum Message {
     BatchHideHtml(bool),
     BatchHideDups(bool),
     BatchBrowseDir,
+    /// What the folder picker answered for [`Self::BatchBrowseDir`], once it
+    /// ran off the event-loop thread (see `pickers`).
+    BatchDirPicked(Option<String>),
     // generic dialog buttons
     ConfirmYes,
     ConfirmRemoveFile(bool),
@@ -1123,6 +1129,7 @@ pub enum OptField {
     CatDir(String),
     BrowseCatDir,
     CatDirPicked(Option<String>),
+    SoundPicked(usize, Option<String>),
     LoginSel(usize),
     LoginSite(String),
     LoginUser(String),
@@ -1160,6 +1167,11 @@ pub struct App {
     pub cfg: ConfigFile,
     pub state: StateFile,
     pub windows: HashMap<window::Id, WinKind>,
+    /// Raw platform handle per open window (an `HWND` on Windows), cached on
+    /// [`Message::WindowOpened`] so a native dialog can be given an owner the
+    /// moment a button asks for one — `window::run` answers asynchronously,
+    /// which is too late for a picker opened from `update`. See `pickers`.
+    pub handles: HashMap<window::Id, usize>,
     pub main_id: Option<window::Id>,
     /// Multi-selection: click selects, Cmd/Ctrl-click toggles, Shift-click
     /// extends from the anchor. First entry is the primary item.
@@ -1474,6 +1486,17 @@ impl App {
             }
             None => Task::none(),
         })
+    }
+
+    /// The raw platform handle to own a native dialog with: that of the
+    /// window `kind`, falling back to the main window.
+    ///
+    /// A picker owned by no window opens below the dialog that asked for it,
+    /// because that dialog is owned by the main window and an owned window is
+    /// always drawn above its owner (see `pickers`).
+    fn owner_token(&self, kind: WinKind) -> Option<usize> {
+        let id = self.win_of(kind).or(self.main_id)?;
+        self.handles.get(&id).copied()
     }
 
     /// The folder colour of the queue called `name`; `None` for the stock
@@ -3211,7 +3234,12 @@ impl App {
                     // a folder chosen through the system panel is implicitly
                     // granted, so offer the picker and resume right there.
                     let start_dir = self.item(id).map(|d| d.save_dir.clone());
-                    let mut dlg = rfd::FileDialog::new();
+                    // Owned by the main window so it is not hidden behind a
+                    // dialog that is itself owned by it. Still synchronous:
+                    // this path is reached from the engine's failure handler,
+                    // not from a button, and resuming the transfer has to wait
+                    // for the answer either way (see `pickers`).
+                    let mut dlg = crate::pickers::owned(self.owner_token(WinKind::Main));
                     if let Some(dir) = &start_dir {
                         // Guard against a dead/missing start path hanging the
                         // native picker (same issue as the save-as dialog).
@@ -3300,6 +3328,9 @@ impl App {
                 // once the window exists, so it is applied here instead.
                 let skip_taskbar = self.skip_taskbar_task(id);
                 let parent = self.attach_to_main(id);
+                // Cache the handle now so a native dialog opened later from
+                // `update` can be given this window as its owner.
+                let handle = crate::pickers::token_task(id);
                 // Browser-capture dialogs float above everything: at that
                 // moment this app is in the background and a normal-level
                 // window would open behind the browser.
@@ -3314,6 +3345,7 @@ impl App {
                         pin_surface,
                         skip_taskbar,
                         parent,
+                        handle,
                         window::set_level(id, window::Level::AlwaysOnTop),
                         window::gain_focus(id),
                     ]);
@@ -3326,9 +3358,17 @@ impl App {
                 } else {
                     window::gain_focus(id)
                 };
-                Task::batch([pin_surface, skip_taskbar, parent, reveal])
+                Task::batch([pin_surface, skip_taskbar, parent, handle, reveal])
+            }
+            Message::WindowToken(id, handle) => {
+                match handle {
+                    Some(h) => self.handles.insert(id, h),
+                    None => self.handles.remove(&id),
+                };
+                Task::none()
             }
             Message::WindowClosed(id) => {
+                self.handles.remove(&id);
                 let kind = self.windows.remove(&id);
                 // Last window gone + hide-Dock on: drop to Accessory now
                 // that no menu bar is needed (tray-only from here).
@@ -4454,12 +4494,23 @@ impl App {
                         .unwrap_or_default();
                 }
 
-                let mut dlg = rfd::FileDialog::new().set_file_name(&self.file_info.file_name);
-                if !start_dir.is_empty() {
-                    dlg = dlg.set_directory(&start_dir);
-                }
-                let path = dlg.save_file().map(|p| p.to_string_lossy().into_owned());
-                self.update(Message::FiPathPicked(path))
+                let file_name = self.file_info.file_name.clone();
+                let owner = self.owner_token(WinKind::FileInfo(self.file_info.dl));
+                // Off the event loop thread: a dialog opened from `update`
+                // otherwise stops every progress bar for as long as it is open.
+                crate::pickers::run(
+                    owner,
+                    move |dlg| {
+                        let dlg = dlg.set_file_name(&file_name);
+                        let dlg = if start_dir.is_empty() {
+                            dlg
+                        } else {
+                            dlg.set_directory(&start_dir)
+                        };
+                        dlg.save_file().map(|p| p.to_string_lossy().into_owned())
+                    },
+                    Message::FiPathPicked,
+                )
             }
             Message::FiPathPicked(Some(path)) => {
                 self.file_info.set_save_as(&path);
@@ -5436,15 +5487,20 @@ impl App {
                 Task::none()
             }
             Message::BatchBrowseDir => {
-                // Synchronous picker on purpose: AppKit dialogs must run on
-                // the main thread — the async variant on a worker hangs.
-                if let Some(p) = rfd::FileDialog::new().pick_folder() {
-                    self.batch.dir = p.to_string_lossy().into_owned();
-                    self.batch.to_dir = true;
-                    self.batch.to_category = false;
-                }
+                let owner = self.owner_token(WinKind::Batch);
+                crate::pickers::run(
+                    owner,
+                    |dlg| dlg.pick_folder().map(|p| p.to_string_lossy().into_owned()),
+                    Message::BatchDirPicked,
+                )
+            }
+            Message::BatchDirPicked(Some(p)) => {
+                self.batch.dir = p;
+                self.batch.to_dir = true;
+                self.batch.to_category = false;
                 Task::none()
             }
+            Message::BatchDirPicked(None) => Task::none(),
             Message::BatchOk => {
                 self.parse_batch();
                 // Only what the table shows: a hidden duplicate or a hidden
@@ -5847,13 +5903,19 @@ impl App {
                 self.batch = BatchState::default();
                 self.batch.category = "General".into();
                 let open = self.open_window(WinKind::Batch);
-                // Synchronous picker on purpose: AppKit dialogs must run on
-                // the main thread — the async variant on a worker hangs.
-                let text = rfd::FileDialog::new()
-                    .add_filter("Text", &["txt", "text", "lst"])
-                    .pick_file()
-                    .and_then(|f| std::fs::read_to_string(f).ok());
-                Task::batch([open, self.update(Message::BatchLoaded(text))])
+                // The window is still opening, so the token is the main
+                // window's: enough to keep the dialog in front of the app.
+                let owner = self.owner_token(WinKind::Batch);
+                let picked = crate::pickers::run(
+                    owner,
+                    |dlg| {
+                        dlg.add_filter("Text", &["txt", "text", "lst"])
+                            .pick_file()
+                            .and_then(|f| std::fs::read_to_string(f).ok())
+                    },
+                    Message::BatchLoaded,
+                );
+                Task::batch([open, picked])
             }
             MenuAction::SiteGrabber | MenuAction::DropTarget | MenuAction::Find => Task::none(),
             MenuAction::ExportList => {
@@ -6229,10 +6291,12 @@ impl App {
             OptField::VirusScanner(v) => s.virus_scanner = v,
             OptField::VirusArgs(v) => s.virus_args = v,
             OptField::BrowseVirus => {
-                let p = rfd::FileDialog::new()
-                    .pick_file()
-                    .map(|p| p.to_string_lossy().into_owned());
-                return self.on_opt_field(OptField::VirusPicked(p));
+                let owner = self.owner_token(WinKind::Options);
+                return crate::pickers::run(
+                    owner,
+                    |dlg| dlg.pick_file().map(|p| p.to_string_lossy().into_owned()),
+                    |p| Message::OptDraft(OptField::VirusPicked(p)),
+                );
             }
             OptField::VirusPicked(Some(p)) => s.virus_scanner = p,
             OptField::VirusPicked(None) => {}
@@ -6272,10 +6336,17 @@ impl App {
                 }
             }
             OptField::BrowseCatDir => {
-                let p = rfd::FileDialog::new()
-                    .pick_folder()
-                    .map(|p| p.to_string_lossy().into_owned());
-                return self.on_opt_field(OptField::CatDirPicked(p));
+                // The picker used to open owned by nothing, so it landed
+                // behind the Options window — which is itself owned by the
+                // main one — and was only found by moving windows around. It
+                // also ran on iced's own thread, freezing everything until it
+                // closed. Both are answered in `pickers`.
+                let owner = self.owner_token(WinKind::Options);
+                return crate::pickers::run(
+                    owner,
+                    |dlg| dlg.pick_folder().map(|p| p.to_string_lossy().into_owned()),
+                    |p| Message::OptDraft(OptField::CatDirPicked(p)),
+                );
             }
             OptField::CatDirPicked(Some(p)) => {
                 let sel = self.options.sel_category.clone();
@@ -6321,15 +6392,23 @@ impl App {
                 }
             }
             OptField::SoundBrowse(i) => {
-                if let Some(p) = rfd::FileDialog::new()
-                    .add_filter("Audio", &["wav", "ogg"])
-                    .pick_file()
-                {
-                    if let Some(row) = s.sounds.get_mut(i) {
-                        row.file = p.to_string_lossy().into_owned();
-                    }
+                let owner = self.owner_token(WinKind::Options);
+                return crate::pickers::run(
+                    owner,
+                    |dlg| {
+                        dlg.add_filter("Audio", &["wav", "ogg"])
+                            .pick_file()
+                            .map(|p| p.to_string_lossy().into_owned())
+                    },
+                    move |p| Message::OptDraft(OptField::SoundPicked(i, p)),
+                );
+            }
+            OptField::SoundPicked(i, Some(p)) => {
+                if let Some(row) = s.sounds.get_mut(i) {
+                    row.file = p;
                 }
             }
+            OptField::SoundPicked(_, None) => {}
             OptField::SoundPlay(i) => {
                 if let Some(row) = s.sounds.get(i) {
                     sounds::play(
