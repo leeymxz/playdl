@@ -54,6 +54,23 @@ pub struct WxOpts {
     pub referer: bool,
     pub json: bool,
     pub list_only: bool,
+    /// Filename template, e.g. `{author}/{title}_{res}`. Empty means the
+    /// built-in `作者 - 标题` naming.
+    pub template: Option<String>,
+    /// How many entries to fetch at once. 1 keeps the serial behaviour.
+    pub jobs: usize,
+    /// Extra attempts per entry after a failure (connection-level retries are
+    /// separate and stay inside the engine).
+    pub retries: usize,
+    /// Where the download ledger lives. `None` with `no_record` disables it.
+    pub record: Option<PathBuf>,
+    pub no_record: bool,
+    /// Fetch even when the ledger already has the entry.
+    pub force: bool,
+    /// Write this run's result as JSON (`.json`) or CSV (`.csv`).
+    pub export: Option<PathBuf>,
+    /// Input format: `auto`, `json`, `csv` or `har`.
+    pub from: String,
 }
 
 /// Result of one attempted download, for the run summary.
@@ -64,10 +81,34 @@ struct Row {
     ok: bool,
     masked: bool,
     note: String,
+    /// Where it landed, for the ledger and the export.
+    file: String,
+    url: String,
+    /// This entry's own console lines, replayed in manifest order when several
+    /// entries were in flight — interleaved progress for three files reads as
+    /// noise, and a "failed" line landing before its own "downloading" line is
+    /// actively misleading.
+    log: Vec<String>,
+}
+
+/// One line of the ledger: what was fetched, when, and where it went.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct Rec {
+    ts: String,
+    id: String,
+    title: String,
+    author: String,
+    url: String,
+    size: Option<u64>,
+    duration_s: Option<u64>,
+    resolution: Option<String>,
+    file: String,
+    ok: bool,
+    protected: bool,
 }
 
 pub async fn run(opts: WxOpts) -> i32 {
-    let items = match load_items(&opts.source).await {
+    let items = match load_items(&opts.source, &opts).await {
         Ok(v) => v,
         Err(e) => {
             eprintln!("wxchannel: {e}");
@@ -91,9 +132,68 @@ pub async fn run(opts: WxOpts) -> i32 {
         }
     }
 
-    let mut rows = Vec::with_capacity(items.len());
-    for item in &items {
-        rows.push(fetch_one(item, &opts).await);
+    let ledger = if opts.no_record {
+        None
+    } else {
+        Some(opts.record.clone().unwrap_or_else(|| default_ledger(&opts)))
+    };
+    let done: std::collections::HashSet<String> = match (&ledger, opts.force) {
+        (Some(p), false) => load_records(p).into_iter().filter(|r| r.ok).map(|r| r.url).collect(),
+        _ => std::collections::HashSet::new(),
+    };
+
+    // Which entries still need fetching, in manifest order.
+    let todo: Vec<(usize, &Item)> = items
+        .iter()
+        .enumerate()
+        .filter(|(_, it)| {
+            let key = record_key(it);
+            if key.is_empty() || !done.contains(&key) {
+                return true;
+            }
+            if !opts.json {
+                println!("跳过  {}  下载记录里已经有了", stem_for(it));
+            }
+            false
+        })
+        .collect();
+
+    let jobs = opts.jobs.max(1);
+    let skipped = items.len() - todo.len();
+    let rows = run_queue(&todo, &opts, jobs).await;
+
+    if let Some(p) = &ledger {
+        let recs: Vec<Rec> = rows
+            .iter()
+            .zip(todo.iter())
+            .filter(|(r, _)| r.ok)
+            .map(|(r, (_, it))| Rec {
+                ts: now_iso(),
+                id: it.id.clone(),
+                title: it.title.clone(),
+                author: it.author.clone(),
+                url: it.url.clone(),
+                size: Some(r.bytes),
+                duration_s: it.duration_s,
+                resolution: it.resolution.clone(),
+                file: r.file.clone(),
+                ok: r.ok,
+                protected: r.masked,
+            })
+            .collect();
+        if !recs.is_empty() {
+            if let Err(e) = append_records(p, &recs) {
+                eprintln!("wxchannel: 写入下载记录失败（不影响已下载的文件）：{e}");
+            }
+        }
+    }
+
+    if let Some(p) = &opts.export {
+        if let Err(e) = export_rows(p, &rows) {
+            eprintln!("wxchannel: 导出失败：{e}");
+        } else if !opts.json {
+            println!("已导出台账 {}", p.display());
+        }
     }
 
     let ok_count = rows.iter().filter(|r| r.ok).count();
@@ -104,13 +204,15 @@ pub async fn run(opts: WxOpts) -> i32 {
             .map(|r| {
                 serde_json::json!({
                     "name": r.name, "bytes": r.bytes, "ok": r.ok,
-                    "protected": r.masked, "note": r.note,
+                    "protected": r.masked, "note": r.note, "file": r.file,
                 })
             })
             .collect();
         println!("{}", serde_json::to_string_pretty(&arr).unwrap_or_default());
     } else {
-        println!("\n—— 汇总 ——  成功 {ok_count}/{}  受限 {masked}", rows.len());
+        let total = items.len();
+        let good = ok_count + skipped;
+        println!("\n—— 汇总 ——  成功 {good}/{total}  受限 {masked}  跳过 {skipped}");
         for r in rows.iter().filter(|r| !r.ok || r.masked) {
             let tag = if r.ok { "受限" } else { "失败" };
             println!("  [{tag}] {}  {}", r.name, r.note);
@@ -124,8 +226,77 @@ pub async fn run(opts: WxOpts) -> i32 {
     }
 }
 
-/// Read items from a URL, a JSON/JSONL manifest, or a URL-per-line file.
-pub async fn load_items(source: &str) -> Result<Vec<Item>, String> {
+/// Run `todo` with at most `jobs` entries in flight, retrying failures.
+///
+/// Results come back in manifest order regardless of completion order: the
+/// summary and the ledger read the same way every time.
+async fn run_queue(todo: &[(usize, &Item)], opts: &WxOpts, jobs: usize) -> Vec<Row> {
+    let sem = std::sync::Arc::new(tokio::sync::Semaphore::new(jobs));
+    let mut set = tokio::task::JoinSet::new();
+    for (slot, (idx, item)) in todo.iter().enumerate() {
+        let permit = sem.clone().acquire_owned().await.expect("semaphore closed");
+        let item = (*item).clone();
+        let o = opts.clone();
+        let idx = *idx;
+        let slot = slot;
+        set.spawn(async move {
+            let r = fetch_with_retries(&item, &o, slot).await;
+            drop(permit);
+            (idx, r)
+        });
+    }
+    let mut out: Vec<(usize, Row)> = Vec::with_capacity(todo.len());
+    while let Some(res) = set.join_next().await {
+        if let Ok((idx, r)) = res {
+            out.push((idx, r));
+        }
+    }
+    out.sort_by_key(|(i, _)| *i);
+    if jobs > 1 && !opts.json {
+        // Replay in order, so entry 3's story is not split by entry 1's.
+        for (_, r) in &out {
+            for line in &r.log {
+                println!("{line}");
+            }
+        }
+    }
+    out.into_iter().map(|(_, r)| r).collect()
+}
+
+/// One entry, retried `opts.retries` extra times before it is given up on.
+async fn fetch_with_retries(item: &Item, opts: &WxOpts, slot: usize) -> Row {
+    let mut last = fetch_one(item, opts, slot).await;
+    // Each attempt builds its own Row, so the earlier attempts' lines have to
+    // be carried forward or the retry history disappears from the replay.
+    let mut acc: Vec<String> = std::mem::take(&mut last.log);
+    for attempt in 1..=opts.retries {
+        if last.ok {
+            break;
+        }
+        let line = format!(
+            "重试  {}  （第 {attempt} 次，共 {} 次）  {}",
+            last.name, opts.retries, last.note
+        );
+        if !opts.json && opts.jobs > 1 {
+            acc.push(line);
+        } else if !opts.json {
+            println!("{line}");
+        }
+        let mut next = fetch_one(item, opts, slot).await;
+        acc.extend(std::mem::take(&mut next.log));
+        last = next;
+    }
+    last.log = acc;
+    last
+}
+
+/// Read items from a URL, a JSON/JSONL manifest, a CSV table, a HAR capture,
+/// or a URL-per-line file.
+///
+/// `--from` forces the reading; `auto` sniffs. The sniffing order matters: a
+/// HAR is valid JSON, so it is recognised by its shape before the generic JSON
+/// path gets a chance to turn it into one useless item.
+pub async fn load_items(source: &str, opts: &WxOpts) -> Result<Vec<Item>, String> {
     let t = source.trim();
     if looks_like_url(t) {
         // A bare link has no title, so it needs *some* discriminator or every
@@ -139,7 +310,312 @@ pub async fn load_items(source: &str) -> Result<Vec<Item>, String> {
     let path = PathBuf::from(t);
     let text = std::fs::read_to_string(&path)
         .map_err(|e| format!("读取清单 {}: {e}", path.display()))?;
-    parse_manifest(&text)
+
+    let lower = opts.from.trim().to_ascii_lowercase();
+    let ext = path
+        .extension()
+        .map(|e| e.to_string_lossy().to_ascii_lowercase())
+        .unwrap_or_default();
+    let kind = if !lower.is_empty() && lower != "auto" {
+        lower.clone()
+    } else if ext == "har" || is_har(&text) {
+        "har".to_string()
+    } else if ext == "csv" || ext == "tsv" {
+        "csv".to_string()
+    } else {
+        "json".to_string()
+    };
+
+    match kind.as_str() {
+        "har" => parse_har(&text).map_err(|e| format!("解析 HAR 失败：{e}")),
+        "csv" | "tsv" => Ok(csv_to_items(&text, if ext == "tsv" { '\t' } else { ',' })),
+        "json" | "jsonl" => parse_manifest(&text),
+        other => Err(format!("不支持的清单格式 {other}（可用 auto/json/csv/har）")),
+    }
+}
+
+/// True when `text` is an HTTP Archive document: its `log.entries` array is the
+/// giveaway, and no manifest shape has it.
+fn is_har(text: &str) -> bool {
+    let trimmed = text.trim_start();
+    if !trimmed.starts_with('{') {
+        return false;
+    }
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(trimmed) else {
+        return false;
+    };
+    v.get("log")
+        .and_then(|l| l.get("entries"))
+        .and_then(|e| e.as_array())
+        .is_some()
+}
+
+/// Pull media requests out of a HAR capture.
+///
+/// The point of supporting this: getting the link is the one step this command
+/// cannot do for you, and the honest way to do it is to watch YOUR OWN traffic
+/// with a proxy you control (mitmproxy, Fiddler, Charles) and export it. No
+/// injection into anybody's client, no certificate PlayDL has to install.
+fn parse_har(text: &str) -> Result<Vec<Item>, String> {
+    let v: serde_json::Value =
+        serde_json::from_str(text.trim_start()).map_err(|e| e.to_string())?;
+    let entries = v
+        .get("log")
+        .and_then(|l| l.get("entries"))
+        .and_then(|e| e.as_array())
+        .ok_or("HAR 里没有 log.entries")?;
+
+    let mut out = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for (n, e) in entries.iter().enumerate() {
+        let url = e
+            .get("request")
+            .and_then(|r| r.get("url"))
+            .and_then(|u| u.as_str())
+            .unwrap_or_default()
+            .to_string();
+        if url.is_empty() {
+            continue;
+        }
+        let ctype = e
+            .get("response")
+            .and_then(|r| r.get("content"))
+            .and_then(|c| c.get("mimeType"))
+            .and_then(|m| m.as_str())
+            .unwrap_or_default()
+            .to_string();
+        if !har_entry_is_media(&url, &ctype) {
+            continue;
+        }
+        if !seen.insert(url.clone()) {
+            continue; // the same object is often requested twice
+        }
+        // Metadata hides in the API replies that share the capture: look for
+        // the fields we know wherever they sit in the response body.
+        let body = e
+            .get("response")
+            .and_then(|r| r.get("content"))
+            .and_then(|c| c.get("text"))
+            .and_then(|t| t.as_str());
+        let meta = body.and_then(|t| serde_json::from_str::<serde_json::Value>(t).ok());
+
+        let title = meta
+            .as_ref()
+            .and_then(|m| deep_find(m, &["title", "desc", "description", "object_desc"]))
+            .unwrap_or_default();
+        let author = meta
+            .as_ref()
+            .and_then(|m| deep_find(m, &["nickname", "author", "author_name", "creator"]))
+            .unwrap_or_default();
+        let size = e
+            .get("response")
+            .and_then(|r| r.get("bodySize"))
+            .and_then(|b| b.as_u64())
+            .filter(|n| *n > 0);
+        out.push(Item {
+            id: format!("har{n:04}"),
+            title,
+            author,
+            url,
+            cover: None,
+            size,
+            duration_s: meta
+                .as_ref()
+                .and_then(|m| deep_find_u64(m, &["duration", "duration_ms"])),
+            resolution: None,
+        });
+    }
+    if out.is_empty() {
+        return Err("这份 HAR 里没有找到媒体请求".to_string());
+    }
+    Ok(out)
+}
+
+/// Breadth-first hunt for the first string under any of `keys`.
+///
+/// Capture exports bury the interesting fields at unpredictable depths
+/// (`data.object.desc`, `object_list[0].nickname`, …), so a fixed path would
+/// find nothing.
+fn deep_find(v: &serde_json::Value, keys: &[&str]) -> Option<String> {
+    let mut queue: Vec<&serde_json::Value> = vec![v];
+    let mut guard = 0;
+    while let Some(cur) = queue.pop() {
+        guard += 1;
+        if guard > 20_000 {
+            break;
+        }
+        match cur {
+            serde_json::Value::Object(m) => {
+                for k in keys {
+                    if let Some(s) = m.get(*k).and_then(|x| x.as_str()) {
+                        let s = s.trim();
+                        if !s.is_empty() {
+                            return Some(s.to_string());
+                        }
+                    }
+                }
+                for x in m.values() {
+                    queue.push(x);
+                }
+            }
+            serde_json::Value::Array(a) => {
+                for x in a {
+                    queue.push(x);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn deep_find_u64(v: &serde_json::Value, keys: &[&str]) -> Option<u64> {
+    let mut queue: Vec<&serde_json::Value> = vec![v];
+    let mut guard = 0;
+    while let Some(cur) = queue.pop() {
+        guard += 1;
+        if guard > 20_000 {
+            break;
+        }
+        match cur {
+            serde_json::Value::Object(m) => {
+                for k in keys {
+                    if let Some(n) = m.get(*k).and_then(|x| x.as_u64()) {
+                        if n > 0 {
+                            return Some(if n > 86_400 { n / 1000 } else { n });
+                        }
+                    }
+                }
+                for x in m.values() {
+                    queue.push(x);
+                }
+            }
+            serde_json::Value::Array(a) => {
+                for x in a {
+                    queue.push(x);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Does one HAR entry look like the bytes we want?
+fn har_entry_is_media(url: &str, ctype: &str) -> bool {
+    let l = url.to_ascii_lowercase();
+    if l.contains("stodownload") || l.contains("encfilekey") || l.contains("finder.video.qq.com") {
+        return true;
+    }
+    let ct = ctype.to_ascii_lowercase();
+    if ct.starts_with("video/") || ct.starts_with("audio/") {
+        return true;
+    }
+    let path = l.split('?').next().unwrap_or(&l);
+    matches!(
+        path.rsplit('.').next().unwrap_or(""),
+        "mp4" | "m4a" | "mov" | "webm" | "mkv" | "flv" | "ts" | "m4s" | "mp3" | "aac"
+    )
+}
+
+/// Minimal RFC 4180 reader: quotes, escaped `""`, CRLF and a custom separator.
+fn csv_rows(text: &str, sep: char) -> Vec<Vec<String>> {
+    let mut rows: Vec<Vec<String>> = Vec::new();
+    let mut row: Vec<String> = Vec::new();
+    let mut cur = String::new();
+    let mut in_q = false;
+    let mut it = text.chars().peekable();
+    while let Some(c) = it.next() {
+        match c {
+            '"' if in_q => {
+                if it.peek() == Some(&'"') {
+                    it.next();
+                    cur.push('"');
+                } else {
+                    in_q = false;
+                }
+            }
+            '"' => in_q = true,
+            '\r' => {}
+            '\n' if !in_q => {
+                row.push(std::mem::take(&mut cur));
+                rows.push(std::mem::take(&mut row));
+            }
+            c if c == sep && !in_q => {
+                row.push(std::mem::take(&mut cur));
+            }
+            c => cur.push(c),
+        }
+    }
+    if !cur.is_empty() || !row.is_empty() {
+        row.push(cur);
+        rows.push(row);
+    }
+    rows
+}
+
+/// Turn an exported table (from a capture tool or a spreadsheet) into items.
+///
+/// Headers are matched by alias in several languages, and a headerless file
+/// that is just a column of links still works.
+fn csv_to_items(text: &str, sep: char) -> Vec<Item> {
+    let rows = csv_rows(text, sep);
+    let mut iter = rows.iter();
+    let Some(header) = iter.find(|r| r.iter().any(|c| !c.trim().is_empty())) else {
+        return Vec::new();
+    };
+    let head: Vec<String> = header.iter().map(|c| c.trim().to_ascii_lowercase()).collect();
+    let has_alias = |keys: &[&str]| head.iter().any(|h| keys.contains(&h.as_str()));
+    let col = |keys: &[&str]| -> Option<usize> {
+        head.iter().position(|h| keys.contains(&h.as_str()))
+    };
+
+    let i_url = col(&["video_url", "url", "link", "media_url", "play_url", "链接", "地址", "下载地址"]);
+    let i_title = col(&["title", "desc", "description", "name", "标题", "描述", "视频标题"]);
+    let i_author = col(&["author", "nickname", "author_name", "creator", "作者", "昵称"]);
+    let i_cover = col(&["cover_url", "cover", "coverurl", "thumb", "封面"]);
+    let i_size = col(&["size", "file_size", "filesize", "filesize_bytes", "大小", "字节"]);
+    let i_dur = col(&["duration", "duration_ms", "durationms", "时长", "时长(秒)"]);
+    let i_res = col(&["resolution", "spec", "分辨率"]);
+    let i_id = col(&["id", "video_id", "export_id", "编号"]);
+
+    // No recognisable header: fall back to "any cell that is a link".
+    if i_url.is_none() && !has_alias(&["title", "标题"]) {
+        return rows
+            .iter()
+            .flat_map(|r| r.iter())
+            .filter(|c| looks_like_url(c.trim()))
+            .map(|c| Item {
+                url: c.trim().to_string(),
+                id: short_token(c.trim()),
+                ..Item::default()
+            })
+            .collect();
+    }
+
+    let mut out = Vec::new();
+    for r in rows.iter().skip(1) {
+        let get = |i: Option<usize>| -> String {
+            i.and_then(|k| r.get(k)).map(|s| s.trim().to_string()).unwrap_or_default()
+        };
+        let url = get(i_url);
+        if !looks_like_url(&url) {
+            continue;
+        }
+        let size = i_size.and_then(|k| r.get(k)).and_then(|s| s.trim().parse::<u64>().ok());
+        let dur = i_dur.and_then(|k| r.get(k)).and_then(|s| s.trim().parse::<u64>().ok());
+        out.push(Item {
+            id: get(i_id),
+            title: get(i_title),
+            author: get(i_author),
+            url,
+            cover: i_cover.and_then(|k| r.get(k)).map(|s| s.trim().to_string()).filter(|s| looks_like_url(s)),
+            size,
+            duration_s: dur.map(|n| if n > 86_400 { n / 1000 } else { n }),
+            resolution: i_res.and_then(|k| r.get(k)).map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
+        });
+    }
+    out
 }
 
 fn looks_like_url(s: &str) -> bool {
@@ -285,8 +761,19 @@ fn resolve_duration(n: u64, size: Option<u64>) -> u64 {
 }
 
 /// Turn arbitrary (often multi-line, hashtag-laden) titles into one usable
-/// filename component.
+/// filename component. Empty input becomes `untitled` — see [`clean_part`] for
+/// the variant that keeps it empty, which templates need.
 fn sanitize_name(s: &str, limit: usize) -> String {
+    let r = clean_part(s, limit);
+    if r.is_empty() {
+        "untitled".to_string()
+    } else {
+        r
+    }
+}
+
+/// Same cleaning, but empty in means empty out.
+fn clean_part(s: &str, limit: usize) -> String {
     let mut out = String::with_capacity(s.len());
     for ch in s.chars() {
         // Video titles carry newlines and 话题分隔符; fold them to spaces.
@@ -303,7 +790,7 @@ fn sanitize_name(s: &str, limit: usize) -> String {
     let collapsed: String = out.split_whitespace().collect::<Vec<_>>().join(" ");
     let trimmed = collapsed.trim().trim_end_matches('.').trim().to_string();
     if trimmed.is_empty() {
-        return "untitled".to_string();
+        return String::new();
     }
     // Windows counts bytes for its path budget; cap on characters, which is
     // what the user reads, and leave room for " - " and the suffix.
@@ -357,8 +844,174 @@ fn stem_for(item: &Item) -> String {
     }
 }
 
-fn target_path(item: &Item, opts: &WxOpts, ext: &str, masked: bool) -> PathBuf {
-    let stem = stem_for(item);
+/// Apply a `--template`, falling back to the built-in naming when it produces
+/// nothing usable.
+///
+/// `/` in a template means a subdirectory, so `{author}/{title}` sorts things
+/// without needing `--by-author`.
+fn stem_with(item: &Item, tpl: Option<&str>, index: usize) -> String {
+    let Some(tpl) = tpl.map(|s| s.trim()).filter(|s| !s.is_empty()) else {
+        return stem_for(item);
+    };
+    let value = |ph: &str| -> String {
+        match ph {
+            "author" | "作者" => item.author.clone(),
+            "title" | "标题" => item.title.clone(),
+            "id" => item.id.clone(),
+            "res" | "resolution" => item.resolution.clone().unwrap_or_default(),
+            "dur" | "duration" => item.duration_s.map(|d| d.to_string()).unwrap_or_default(),
+            "date" => today_str(),
+            "index" | "n" => (index + 1).to_string(),
+            _ => String::new(),
+        }
+    };
+    let chars: Vec<char> = tpl.chars().collect();
+    let mut out = String::new();
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i] == '{' {
+            if let Some(rel) = chars[i..].iter().position(|c| *c == '}') {
+                let ph: String = chars[i + 1..i + rel].iter().collect();
+                out.push_str(&clean_part(&value(ph.trim()), 60));
+                i += rel + 1;
+                continue;
+            }
+        }
+        out.push(chars[i]);
+        i += 1;
+    }
+    // A placeholder that resolved to nothing leaves a dangling separator:
+    // "{author} - {title}" with no author must not start with " - ".
+    let parts: Vec<String> = out
+        .split('/')
+        .map(|p| {
+            // Strip what is left of a placeholder that resolved to nothing:
+            // "{author} - {title}" with no author must not start with " - ".
+            let s = p.trim_matches(|c: char| c == '_' || c == '-' || c.is_whitespace());
+            clean_part(s, 60)
+        })
+        .filter(|p| !p.is_empty())
+        .collect();
+    if parts.is_empty() {
+        stem_for(item)
+    } else {
+        parts.join("/")
+    }
+}
+
+fn today_str() -> String {
+    chrono::Local::now().format("%Y-%m-%d").to_string()
+}
+
+fn now_iso() -> String {
+    chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
+}
+
+/// Where to look.
+fn default_ledger(opts: &WxOpts) -> PathBuf {
+    match &opts.dir {
+        Some(d) => d.join(".playdl-wxchannel.jsonl"),
+        None => PathBuf::from(".playdl-wxchannel.jsonl"),
+    }
+}
+
+/// What identifies an entry in the ledger.
+///
+/// The signed URL is the identity that matters: the same video re-exported
+/// carries the same link while it is still valid, and a fresh link means the
+/// bytes must be fetched again regardless of any id.
+fn record_key(item: &Item) -> String {
+    let u = item.url.trim();
+    if !u.is_empty() {
+        u.to_string()
+    } else {
+        item.id.trim().to_string()
+    }
+}
+
+/// The ledger is append-only JSON Lines: a half-written last line is dropped
+/// rather than fatal, because a crash mid-write must not lose the whole record.
+fn load_records(path: &Path) -> Vec<Rec> {
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return Vec::new();
+    };
+    text.lines()
+        .filter(|l| !l.trim().is_empty())
+        .filter_map(|l| serde_json::from_str::<Rec>(l).ok())
+        .collect()
+}
+
+fn append_records(path: &Path, recs: &[Rec]) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)?;
+        }
+    }
+    let mut f = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)?;
+    use std::io::Write;
+    for r in recs {
+        if let Ok(line) = serde_json::to_string(r) {
+            writeln!(f, "{line}")?;
+        }
+    }
+    Ok(())
+}
+
+fn csv_cell(s: &str) -> String {
+    if s.contains([',', '"', '\n', '\r']) {
+        format!("\"{}\"", s.replace('"', "\"\""))
+    } else {
+        s.to_string()
+    }
+}
+
+/// Write the run's outcome as a ledger file: JSON by default, CSV when the
+/// path ends in `.csv` (with a BOM, or Excel reads the Chinese as mojibake).
+fn export_rows(path: &Path, rows: &[Row]) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)?;
+        }
+    }
+    let is_csv = path
+        .extension()
+        .map(|e| e.eq_ignore_ascii_case("csv"))
+        .unwrap_or(false);
+    if is_csv {
+        let mut s = String::from("\u{FEFF}");
+        s.push_str("状态,文件名,字节,说明\n");
+        for r in rows {
+            let tag = if !r.ok { "失败" } else if r.masked { "受限" } else { "成功" };
+            s.push_str(&format!(
+                "{},{},{},{}\n",
+                tag,
+                csv_cell(&r.name),
+                r.bytes,
+                csv_cell(&r.note)
+            ));
+        }
+        std::fs::write(path, s)
+    } else {
+        let arr: Vec<serde_json::Value> = rows
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "name": r.name, "file": r.file, "url": r.url, "bytes": r.bytes,
+                    "ok": r.ok, "protected": r.masked, "note": r.note,
+                })
+            })
+            .collect();
+        let s = serde_json::to_string_pretty(&arr).unwrap_or_default();
+        std::fs::write(path, s + "\n")
+    }
+}
+
+/// Where the file goes, honouring `--template` when one was given.
+fn target_path(item: &Item, opts: &WxOpts, ext: &str, masked: bool, index: usize) -> PathBuf {
+    let stem = stem_with(item, opts.template.as_deref(), index);
     let suffix = if masked { ".masked" } else { "" };
     let name = format!("{stem}{suffix}.{ext}");
     match (&opts.dir, opts.by_author) {
@@ -466,42 +1119,67 @@ fn head_of(path: &Path, n: usize) -> std::io::Result<Vec<u8>> {
     Ok(buf)
 }
 
-async fn fetch_one(item: &Item, opts: &WxOpts) -> Row {
-    let display = stem_for(item);
+/// One entry's own console line: printed now when entries run one at a time,
+/// held for an ordered replay when they run together.
+fn emit(log: &mut Vec<String>, opts: &WxOpts, line: String) {
+    if opts.json {
+        return;
+    }
+    if opts.jobs > 1 {
+        log.push(line);
+    } else {
+        println!("{line}");
+    }
+}
+
+async fn fetch_one(item: &Item, opts: &WxOpts, index: usize) -> Row {
+    let display = stem_with(item, opts.template.as_deref(), index);
+    // Several entries in flight: hold our own lines and let run_queue replay
+    // them in manifest order.
+    let mut log: Vec<String> = Vec::new();
     if item.url.trim().is_empty() {
         let note = "条目没有下载地址".to_string();
-        if !opts.json {
-            println!("跳过  {display}  {note}");
-        }
-        return Row { name: display, bytes: 0, ok: false, masked: false, note };
+        emit(&mut log, opts, format!("跳过  {display}  {note}"));
+        return Row {
+            name: display.clone(),
+            bytes: 0,
+            ok: false,
+            masked: false,
+            note,
+            file: String::new(),
+            url: item.url.clone(),
+            log: std::mem::take(&mut log),
+        };
     }
 
     if let Some(age) = nonce_age_secs(&item.url) {
         if age > 86_400 {
             let days = age / 86_400;
-            if !opts.json {
-                println!("提示  {display}  这份链接签发于 {days} 天前，很可能已过期");
-            }
+            emit(&mut log, opts, format!("提示  {display}  这份链接签发于 {days} 天前，很可能已过期"));
         }
     }
 
     let ext = extension_of(&item.url, "mp4");
     // A previous run may already have stored this entry under its masked name.
-    let plain = target_path(item, opts, &ext, false);
-    let masked_path = target_path(item, opts, &ext, true);
+    let plain = target_path(item, opts, &ext, false, index);
+    let masked_path = target_path(item, opts, &ext, true, index);
     if let Some(size) = item.size {
         for p in [&plain, &masked_path] {
             if let Ok(md) = std::fs::metadata(p) {
                 if md.len() == size {
-                    if !opts.json {
-                        println!("跳过  {display}  已存在且大小一致（{} 字节）", md.len());
-                    }
+                    emit(&mut log, opts, format!(
+                        "跳过  {display}  已存在且大小一致（{} 字节）",
+                        md.len()
+                    ));
                     return Row {
                         name: display.clone(),
                         bytes: md.len(),
                         ok: true,
                         masked: p == &masked_path,
                         note: "已存在且大小一致，跳过".to_string(),
+                        file: p.display().to_string(),
+                        url: item.url.clone(),
+                        log,
                     };
                 }
             }
@@ -515,24 +1193,24 @@ async fn fetch_one(item: &Item, opts: &WxOpts) -> Row {
     job.resume = true;
     job.create_dirs = true;
     job.tries = 3;
-    job.show_error = true;
+    // In parallel mode the engine's own `hydra: …` diagnostics would interleave
+    // with the ordered replay `run_queue` prints afterwards, so they are silenced
+    // here; the failure reason is reported by our own 失败/受限 lines instead.
+    let parallel = opts.jobs > 1 && !opts.json;
+    job.show_error = !parallel;
     if opts.referer {
         job.headers
             .push("Referer: https://channels.weixin.qq.com/".to_string());
     }
-    if opts.json {
-        job.quiet = true;
-        job.no_progress = true;
-    } else {
-        job.quiet = false;
-        job.no_progress = false;
-    }
+    // Several entries in flight would interleave progress bars and the engine's
+    // own diagnostics into unreadable noise, so past one job the engine goes
+    // quiet and each entry's story is replayed once, in order, by `run_queue`.
+    job.quiet = opts.json || parallel;
+    job.no_progress = opts.json || parallel;
 
     // `display` already carries the author as `作者 - 标题`, so it is not
     // repeated here.
-    if !opts.json {
-        println!("\n下载  {display}");
-    }
+    emit(&mut log, opts, format!("\n下载  {display}"));
 
     let out = crate::download::run(job).await;
     let mut row = Row {
@@ -541,14 +1219,19 @@ async fn fetch_one(item: &Item, opts: &WxOpts) -> Row {
         ok: out.ok,
         masked: false,
         note: String::new(),
+        file: out.output.clone(),
+        url: item.url.clone(),
+        log: Vec::new(), // filled in on the way out: more lines follow
     };
 
     if !out.ok {
         row.note = classify_failure(out.note.as_deref());
-        if !opts.json {
-            println!("失败  {display}  {}", row.note);
-        }
+        emit(&mut log, opts, format!("失败  {display}  {}", row.note));
+        row.log = std::mem::take(&mut log);
         return row;
+    }
+    if opts.jobs > 1 {
+        emit(&mut log, opts, format!("完成  {display}  {} 字节", out.size));
     }
 
     // Payload check: some objects are delivered with the player's own head-of-
@@ -560,10 +1243,9 @@ async fn fetch_one(item: &Item, opts: &WxOpts) -> Row {
         if looks_protected(&head) {
             let _ = std::fs::rename(&saved, &masked_path);
             row.masked = true;
+            row.file = masked_path.display().to_string();
             row.note = "内容不是标准容器（可能加了头部保护），已原样保存并标注 .masked".to_string();
-            if !opts.json {
-                println!("受限  {display}  {}", row.note);
-            }
+            emit(&mut log, opts, format!("受限  {display}  {}", row.note));
         }
     }
 
@@ -573,7 +1255,7 @@ async fn fetch_one(item: &Item, opts: &WxOpts) -> Row {
                 let mut cj = crate::download::default_job();
                 cj.urls = vec![cover.clone()];
                 let cext = extension_of(cover, "jpg");
-                cj.output = Some(target_path(item, opts, &cext, false));
+                cj.output = Some(target_path(item, opts, &cext, false, index));
                 cj.resume = true;
                 cj.create_dirs = true;
                 cj.quiet = true;
@@ -583,6 +1265,7 @@ async fn fetch_one(item: &Item, opts: &WxOpts) -> Row {
         }
     }
 
+    row.log = std::mem::take(&mut log);
     row
 }
 
@@ -855,6 +1538,120 @@ mod tests {
         let host_only = short_token("https://example.com/?v=1");
         assert!(host_only.starts_with("wxchannel-"));
         assert!(!host_only.contains(['/', '\\', ':', '?']));
+    }
+
+    fn har(entries: &[serde_json::Value]) -> String {
+        serde_json::json!({ "log": { "version": "1.2", "entries": entries } }).to_string()
+    }
+
+    fn har_entry(url: &str, mime: &str, body: Option<&str>) -> serde_json::Value {
+        serde_json::json!({
+            "request": { "url": url },
+            "response": { "bodySize": 207588679, "content": {
+                "mimeType": mime, "text": body.unwrap_or("") } }
+        })
+    }
+
+    #[test]
+    fn har_capture_yields_only_media_entries() {
+        // The API reply carries the metadata, but nested where a fixed path
+        // would never look.
+        let api = r#"{"data":{"object":{"desc":"测试标题","nickname":"甲作者","duration":184000}}}"#;
+        let doc = har(&[
+            har_entry("https://finder.video.qq.com/251/20302/stodownload?encfilekey=AAA", "", None),
+            har_entry("https://cdn.example.com/clip.mp4", "video/mp4", Some(api)),
+            har_entry("https://cdn.example.com/app.js", "application/javascript", None),
+            har_entry("https://cdn.example.com/clip.mp4", "video/mp4", None), // duplicate
+        ]);
+        let v = parse_har(&doc).unwrap();
+        assert_eq!(v.len(), 2, "脚本要排除，重复链接要去重");
+        assert_eq!(v[0].url.contains("stodownload"), true);
+        assert_eq!(v[1].title, "测试标题");
+        assert_eq!(v[1].author, "甲作者");
+        assert_eq!(v[1].duration_s, Some(184));
+        assert!(is_har(&doc));
+        assert!(!is_har("[{\"url\":\"https://a/b.mp4\"}]"));
+    }
+
+    #[test]
+    fn csv_table_reads_headers_and_quotes() {
+        let doc = concat!(
+            "标题,作者,链接,时长,大小\n",
+            "\"带,逗号的标题\",甲作者,https://x/a.mp4,184,207588679\n",
+            "第二个,乙作者,https://x/b.mp4,,\n",
+            "没有链接的一行,丙作者,,,\n"
+        );
+        let v = csv_to_items(doc, ',');
+        assert_eq!(v.len(), 2, "没有链接的行要丢掉");
+        assert_eq!(v[0].title, "带,逗号的标题", "引号里的逗号不能被切开");
+        assert_eq!(v[0].author, "甲作者");
+        assert_eq!(v[0].size, Some(207588679));
+        assert_eq!(v[0].duration_s, Some(184));
+        assert_eq!(v[1].size, None);
+    }
+
+    #[test]
+    fn headerless_csv_is_a_url_list() {
+        let doc = "https://a/one.mp4\nhttps://b/two.mp4\n";
+        let v = csv_to_items(doc, ',');
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[0].url, "https://a/one.mp4");
+    }
+
+    #[test]
+    fn templates_expand_and_drop_dangling_separators() {
+        let i = Item {
+            title: "标题".into(),
+            author: "甲".into(),
+            resolution: Some("1080x1920".into()),
+            ..Item::default()
+        };
+        assert_eq!(stem_with(&i, Some("{author}/{title}_{res}"), 0), "甲/标题_1080x1920");
+        assert_eq!(stem_with(&i, Some("{date}_{index}"), 4), format!("{}_5", today_str()));
+        // No author: the separator must not survive as a dangling " - ".
+        let anon = Item { title: "标题".into(), ..Item::default() };
+        assert_eq!(stem_with(&anon, Some("{author} - {title}"), 0), "标题");
+        // A template of nothing but placeholders that resolve to nothing still
+        // has to produce a usable name.
+        assert_eq!(stem_with(&Item::default(), Some("{author}/{title}"), 0), "wxchannel-video");
+        // Windows-hostile characters do not come back through the template.
+        let nasty = Item { title: "a/b:c".into(), ..Item::default() };
+        assert_eq!(stem_with(&nasty, Some("{title}"), 0), "a_b_c");
+    }
+
+    #[test]
+    fn ledger_survives_a_round_trip() {
+        let p = std::env::temp_dir().join(format!("playdl-wx-test-{}.jsonl", std::process::id()));
+        let _ = std::fs::remove_file(&p);
+        let recs = vec![Rec {
+            ts: "2026-10-08 10:00:00".into(),
+            id: "x1".into(),
+            title: "标题".into(),
+            author: "甲".into(),
+            url: "https://x/a.mp4".into(),
+            size: Some(10),
+            duration_s: Some(3),
+            resolution: None,
+            file: "a.mp4".into(),
+            ok: true,
+            protected: false,
+        }];
+        append_records(&p, &recs).unwrap();
+        let back = load_records(&p);
+        assert_eq!(back.len(), 1);
+        assert_eq!(back[0].url, "https://x/a.mp4");
+        assert_eq!(record_key(&Item { url: back[0].url.clone(), ..Item::default() }), "https://x/a.mp4");
+        // A truncated last line must not take the rest of the ledger with it.
+        std::fs::write(&p, format!("{}\n{{\"broken", serde_json::to_string(&recs[0]).unwrap())).unwrap();
+        assert_eq!(load_records(&p).len(), 1);
+        let _ = std::fs::remove_file(&p);
+    }
+
+    #[test]
+    fn csv_cells_are_quoted() {
+        assert_eq!(csv_cell("plain"), "plain");
+        assert_eq!(csv_cell("a,b"), "\"a,b\"");
+        assert_eq!(csv_cell("say \"hi\""), "\"say \"\"hi\"\"\"");
     }
 
     #[test]

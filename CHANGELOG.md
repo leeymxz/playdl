@@ -17,10 +17,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Failure text is actionable rather than numeric: expired links, `403` and `404` all read as "the link has to be captured again". Age of the link is judged from its `svrnonce` before the download is even attempted.
   - `--by-author` sorts into per-author subdirectories, `--cover` fetches cover images, `-x` sets connections, `--json` gives machine-readable output, and `--list` previews a manifest.
   - Payloads that arrive with WeChat's head-of-file masking are **kept byte-for-byte** and renamed `…​.masked.ext` with an explanation. Deliberately not unmasked: doing so would be reproducing the vendor's own protection bypass, which this project does not do.
+  - **Capture-tool import (the honest "get the link" step)**: `wxchannel` now reads **HAR** captures (`--from har`) exported from mitmproxy / Fiddler / Charles — it pulls `finder.video.qq.com` `stodownload` and `encfilekey`-bearing media responses, de-duplicates by URL, and harvests title / author / duration from nested API response bodies — and **CSV** tables (`--from csv`) whose headers accept Chinese + English aliases (`标题/作者/链接/时长/大小/分辨率/编号`) or fall back to a raw URL column. No client injection, no certificate install.
+  - **Custom naming template**: `--template '{author}/{title}_{res}'` expands `{author} {title} {id} {res} {dur} {date} {index}`; a `/` opens a subdirectory, and dangling separators left by a missing placeholder are trimmed.
+  - **Cross-session ledger + de-dup**: an append-only JSONL ledger (default `<DIR>/.playdl-wxchannel.jsonl`, or `--record <FILE>`) records each signed URL / ID so a second run skips what the first already fetched; `--force` re-fetches, `--no-record` skips writing.
+  - **Export**: `--export <FILE>` writes the run's outcome as a BOM-quoted CSV (spreadsheet-ready) or JSON, so the download list doubles as an audit trail.
+  - **Parallel queue + retries**: `-j/--jobs <N>` runs N entries at once and `--retries <N>` retries each on failure; engine progress/diagnostics are silenced above one job and every entry's story (download → result → retry history) is replayed in manifest order afterwards.
 
 ### Fixed
 
 - **Column alignment when listing manifests (`hydra-cli`)**: `playdl wxchannel --list` measured columns in characters while East-Asian glyphs occupy two terminal cells, and it printed titles containing embedded newlines verbatim. Both broke the table with real Chinese titles, which is every real title.
+- **Interleaved console output under parallel download (`hydra-cli`)**: with `-j/--jobs > 1`, the engine's progress bars and `hydra: …` diagnostics, plus each entry's `下载/完成/失败/受限` lines, collided into unreadable noise. The engine now goes quiet above one job and `run_queue` replays each entry's buffered log — including retry history — in manifest order once all tasks finish.
 
 ---
 

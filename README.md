@@ -151,6 +151,14 @@ playdl wxchannel items.json --list
 | `--no-referer` | 不发送 `Referer`（个别 CDN 节点更严格时可试） |
 | `--json` | 机器可读输出 |
 | `--list` | 只列清单 |
+| `--template <TPL>` | 文件名模板，占位符 `{author} {title} {id} {res} {dur} {date} {index}`，`/` 分目录；默认 `作者 - 标题` |
+| `-j, --jobs <N>` | 同时下载的条目数，默认 `1`（`>1` 时隐藏进度条，结束后按清单顺序回放每条结果，避免交错） |
+| `--retries <N>` | 单条失败后额外重试次数，默认 `1`（重试历史会一并回放） |
+| `--record <FILE>` | 下载台账路径（默认 `<DIR>/.playdl-wxchannel.jsonl`），用于跨会话去重 |
+| `--no-record` | 本次不写台账 |
+| `--force` | 即使台账已记录为完成也重新下载 |
+| `--export <FILE>` | 把本次结果导出成清单：`.csv` 为带 BOM 的表格，其它后缀为 JSON |
+| `--from <KIND>` | 强制输入格式 `auto/json/csv/har`；`auto` 自动识别 HAR 抓包、CSV 表格、JSON 数组、JSON Lines 与每行一个 URL |
 
 **它替你做的几件事**
 
@@ -183,6 +191,28 @@ playdl wxchannel items.json --list
 ```
 字段别名也做了兼容：标题认 `title/desc/description/name`，作者认 `author/nickname/author_name/creator`，
 地址认 `video_url/url/link/media_url/play_url`。
+
+**抓包导入：HAR 与 CSV（推荐拿到链接的方式）**
+
+拿链接这一步 PlayDL 不做，也不该做——不去注入任何客户端、不装证书。规矩的做法是**用你自己的抓包工具**
+（mitmproxy / Fiddler / Charles）看自己的流量，导成文件再喂进来：
+
+- **HAR**：抓包工具导出的 `*.har`（`--from har`）。自动挑出 `finder.video.qq.com` 的
+  `stodownload` 请求与带 `encfilekey` 的媒体响应，按 URL 去重，并从响应体里捞标题、作者、时长。
+- **CSV**：带表头的表格（`--from csv`），表头认中文与英文别名——
+  `标题/author/作者/链接/url/link/时长/duration/大小/size/分辨率/resolution/编号/index`；
+  没有表头就当「每行一个 URL」处理。逗号、引号、CRLF 都按 RFC 4180 解析。
+
+```bash
+# 抓到自己的流量 → 导出 HAR → 直接喂
+playdl wxchannel my_capture.har -d 视频号 -x 16 --template '{author}/{title}' -j 4
+
+# 或导成 CSV 台账后再批量下载
+playdl wxchannel export.csv -d 视频号 --from csv -j 4 --retries 2 --export 视频号/台账.csv
+```
+
+导出的 `台账.csv` 带 UTF-8 BOM、字段用引号包裹，Excel 直接双击就能打开；`--record` 指向的 JSONL
+台账让第二次运行自动跳过已经下好的条目（用签名链接或 ID 做身份），`--force` 可强制重下。
 
 ---
 

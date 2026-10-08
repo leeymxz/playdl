@@ -1183,6 +1183,47 @@ pub enum Command {
         /// List what the manifest holds and exit without downloading.
         #[arg(long = "list")]
         list_only: bool,
+
+        /// Filename template, e.g. `{author}/{title}_{res}`.
+        ///
+        /// Placeholders: `{author} {title} {id} {res} {dur} {date} {index}`.
+        /// A `/` becomes a subdirectory. Defaults to `作者 - 标题`.
+        #[arg(long, value_name = "TPL")]
+        template: Option<String>,
+
+        /// Entries to fetch at once. Progress bars are dropped above 1 so the
+        /// output stays readable.
+        #[arg(short = 'j', long, value_name = "N", default_value_t = 1)]
+        jobs: usize,
+
+        /// Extra attempts per entry after a failure.
+        #[arg(long, value_name = "N", default_value_t = 1)]
+        retries: usize,
+
+        /// Where the download ledger lives. Defaults to
+        /// `<DIR>/.playdl-wxchannel.jsonl`; it is what makes the second run
+        /// skip what the first one already fetched.
+        #[arg(long, value_name = "FILE")]
+        record: Option<PathBuf>,
+
+        /// Do not keep a ledger for this run.
+        #[arg(long)]
+        no_record: bool,
+
+        /// Fetch even entries the ledger already lists as done.
+        #[arg(long)]
+        force: bool,
+
+        /// Write this run's outcome to a file: `.csv` for a spreadsheet,
+        /// anything else as JSON.
+        #[arg(long, value_name = "FILE")]
+        export: Option<PathBuf>,
+
+        /// Input format. `auto` recognises HAR captures, CSV tables, JSON
+        /// arrays, JSON Lines and URL lists; HAR is how a mitmproxy / Fiddler /
+        /// Charles export of your own traffic comes in.
+        #[arg(long, value_name = "KIND", default_value = "auto")]
+        from: String,
     },
 
     /// Install the `wget` / `curl` dialect entry points as links to this binary.

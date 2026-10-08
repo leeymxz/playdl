@@ -552,6 +552,14 @@ async fn async_main() -> std::process::ExitCode {
             no_referer,
             json,
             list_only,
+            template,
+            jobs,
+            retries,
+            record,
+            no_record,
+            force,
+            export,
+            from,
         }) => {
             let code = wxchannel::run(wxchannel::WxOpts {
                 source: source.clone(),
@@ -562,6 +570,14 @@ async fn async_main() -> std::process::ExitCode {
                 referer: !*no_referer,
                 json: *json,
                 list_only: *list_only,
+                template: template.clone(),
+                jobs: (*jobs).max(1),
+                retries: *retries,
+                record: record.clone(),
+                no_record: *no_record,
+                force: *force,
+                export: export.clone(),
+                from: from.clone(),
             })
             .await;
             return std::process::ExitCode::from(code as u8);
