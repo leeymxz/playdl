@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - **Cross-session ledger + de-dup**: an append-only JSONL ledger (default `<DIR>/.playdl-wxchannel.jsonl`, or `--record <FILE>`) records each signed URL / ID so a second run skips what the first already fetched; `--force` re-fetches, `--no-record` skips writing.
   - **Export**: `--export <FILE>` writes the run's outcome as a BOM-quoted CSV (spreadsheet-ready) or JSON, so the download list doubles as an audit trail.
   - **Parallel queue + retries**: `-j/--jobs <N>` runs N entries at once and `--retries <N>` retries each on failure; engine progress/diagnostics are silenced above one job and every entry's story (download → result → retry history) is replayed in manifest order afterwards.
+  - **Clipboard watch mode (`--watch`)**: runs in the background, polls the clipboard, and auto-downloads any `finder.video.qq.com/…/stodownload?encfilekey=…` signed link as it appears (Ctrl-C to stop). Windows only. No client injection, no root certificate: the user still performs the one "copy link" action in WeChat, PlayDL does the fetch — the closest thing to a one-click button without touching the WeChat process. Links already in the ledger are not re-fetched.
 
 ### Fixed
 

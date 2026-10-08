@@ -560,6 +560,7 @@ async fn async_main() -> std::process::ExitCode {
             force,
             export,
             from,
+            watch,
         }) => {
             let code = wxchannel::run(wxchannel::WxOpts {
                 source: source.clone(),
@@ -578,6 +579,7 @@ async fn async_main() -> std::process::ExitCode {
                 force: *force,
                 export: export.clone(),
                 from: from.clone(),
+                watch: *watch,
             })
             .await;
             return std::process::ExitCode::from(code as u8);

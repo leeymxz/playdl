@@ -46,7 +46,7 @@ pub struct Item {
 /// Options for one `wxchannel` invocation.
 #[derive(Clone, Debug)]
 pub struct WxOpts {
-    pub source: String,
+    pub source: Option<String>,
     pub dir: Option<PathBuf>,
     pub conns: usize,
     pub by_author: bool,
@@ -71,6 +71,9 @@ pub struct WxOpts {
     pub export: Option<PathBuf>,
     /// Input format: `auto`, `json`, `csv` or `har`.
     pub from: String,
+    /// Clipboard watch mode: poll the clipboard and auto-download any 视频号
+    /// signed link that appears. Runs until Ctrl-C.
+    pub watch: bool,
 }
 
 /// Result of one attempted download, for the run summary.
@@ -108,34 +111,55 @@ struct Rec {
 }
 
 pub async fn run(opts: WxOpts) -> i32 {
-    let items = match load_items(&opts.source, &opts).await {
-        Ok(v) => v,
-        Err(e) => {
-            eprintln!("wxchannel: {e}");
+    // One-shot manifest / URL, if a SOURCE was given.
+    if let Some(src) = opts.source.as_deref() {
+        let items = match load_items(src, &opts).await {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("wxchannel: {e}");
+                return 1;
+            }
+        };
+        if items.is_empty() {
+            eprintln!("wxchannel: 清单里没有可用的条目");
             return 1;
         }
-    };
-    if items.is_empty() {
-        eprintln!("wxchannel: 清单里没有可用的条目");
+        if opts.list_only {
+            print_list(&items, &opts);
+            return 0;
+        }
+        let rows = download_items(&items, &opts, true).await;
+        let ok_count = rows.iter().filter(|r| r.ok).count();
+        if ok_count != rows.len() {
+            return 1;
+        }
+    }
+
+    // Clipboard watch mode takes over (and runs until Ctrl-C).
+    if opts.watch {
+        return watch_loop(opts).await;
+    }
+
+    if opts.source.is_none() {
+        eprintln!("wxchannel: 需要 SOURCE 或 --watch");
         return 1;
     }
+    0
+}
 
-    if opts.list_only {
-        print_list(&items, &opts);
-        return 0;
-    }
-
+/// Fetch a batch of items: ledger de-dup, parallel queue, record, optional
+/// export, and (when `print_summary`) a final tally. Extracted so the
+/// `--watch` clipboard loop can reuse the exact same engine per link.
+async fn download_items(items: &[Item], opts: &WxOpts, print_summary: bool) -> Vec<Row> {
     if let Some(dir) = &opts.dir {
         if let Err(e) = std::fs::create_dir_all(dir) {
             eprintln!("wxchannel: 无法创建输出目录 {}: {e}", dir.display());
-            return 1;
         }
     }
-
     let ledger = if opts.no_record {
         None
     } else {
-        Some(opts.record.clone().unwrap_or_else(|| default_ledger(&opts)))
+        Some(opts.record.clone().unwrap_or_else(|| default_ledger(opts)))
     };
     let done: std::collections::HashSet<String> = match (&ledger, opts.force) {
         (Some(p), false) => load_records(p).into_iter().filter(|r| r.ok).map(|r| r.url).collect(),
@@ -189,27 +213,16 @@ pub async fn run(opts: WxOpts) -> i32 {
     }
 
     if let Some(p) = &opts.export {
-        if let Err(e) = export_rows(p, &rows) {
+        if let Err(e) = export_rows(p, &rows, opts.watch) {
             eprintln!("wxchannel: 导出失败：{e}");
-        } else if !opts.json {
+        } else if !opts.json && print_summary {
             println!("已导出台账 {}", p.display());
         }
     }
 
-    let ok_count = rows.iter().filter(|r| r.ok).count();
-    let masked = rows.iter().filter(|r| r.masked).count();
-    if opts.json {
-        let arr: Vec<serde_json::Value> = rows
-            .iter()
-            .map(|r| {
-                serde_json::json!({
-                    "name": r.name, "bytes": r.bytes, "ok": r.ok,
-                    "protected": r.masked, "note": r.note, "file": r.file,
-                })
-            })
-            .collect();
-        println!("{}", serde_json::to_string_pretty(&arr).unwrap_or_default());
-    } else {
+    if print_summary && !opts.json {
+        let ok_count = rows.iter().filter(|r| r.ok).count();
+        let masked = rows.iter().filter(|r| r.masked).count();
         let total = items.len();
         let good = ok_count + skipped;
         println!("\n—— 汇总 ——  成功 {good}/{total}  受限 {masked}  跳过 {skipped}");
@@ -219,11 +232,122 @@ pub async fn run(opts: WxOpts) -> i32 {
         }
     }
 
-    if ok_count == rows.len() {
-        0
-    } else {
-        1
+    rows
+}
+
+/// Clipboard watch mode: poll the clipboard and, whenever a 视频号 signed
+/// link appears, hand it to the same download engine. No client injection, no
+/// certificate — the user still performs the one "copy link" action in WeChat
+/// (wx_channel's button, or WeChat's own share menu); PlayDL does the rest.
+async fn watch_loop(opts: WxOpts) -> i32 {
+    if cfg!(not(windows)) {
+        eprintln!("wxchannel: --watch 目前仅在 Windows 上可用（微信视频号是 Windows 客户端）");
+        return 1;
     }
+    if !opts.json {
+        println!("剪贴板监听已开启：在微信里复制视频号链接即自动下载（Ctrl-C 退出）");
+    }
+    // Don't re-fetch a link that is still on the clipboard or was fetched in a
+    // previous run: seed `seen` from the ledger, then track this session too.
+    let mut seen: std::collections::HashSet<String> = if opts.no_record {
+        std::collections::HashSet::new()
+    } else {
+        let ledger = opts.record.clone().unwrap_or_else(|| default_ledger(&opts));
+        load_records(&ledger).into_iter().map(|r| r.url).collect()
+    };
+    let mut last = String::new();
+    let poll = std::time::Duration::from_millis(1000);
+    loop {
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {
+                if !opts.json {
+                    println!("\n剪贴板监听已停止");
+                }
+                break;
+            }
+            _ = tokio::time::sleep(poll) => {}
+        }
+        let text = match read_clipboard_text() {
+            Some(t) => t,
+            None => continue,
+        };
+        if text.trim() == last.trim() {
+            continue;
+        }
+        last = text.clone();
+        for url in watch_urls(&text) {
+            if seen.contains(&url) {
+                continue;
+            }
+            seen.insert(url.clone());
+            if !opts.json {
+                let preview: String = if url.len() > 60 {
+                    format!("{}…", &url[..60])
+                } else {
+                    url.clone()
+                };
+                println!("剪贴板发现新链接，已加入下载：{preview}");
+            }
+            let item = Item {
+                url: url.clone(),
+                ..Item::default()
+            };
+            // Per-link feedback comes from the engine's own lines; skip the
+            // batch 汇总 so the watch log stays quiet between copies.
+            download_items(&[item], &opts, false).await;
+        }
+    }
+    0
+}
+
+/// Read the system clipboard as text (Windows). Other platforms return `None`
+/// — clipboard watching is a Windows-only convenience for 微信视频号.
+#[cfg(windows)]
+fn read_clipboard_text() -> Option<String> {
+    use std::process::Command;
+    let out = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "Get-Clipboard -Raw",
+        ])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if s.is_empty() {
+        None
+    } else {
+        Some(s)
+    }
+}
+
+#[cfg(not(windows))]
+fn read_clipboard_text() -> Option<String> {
+    None
+}
+
+/// Pull 视频号 signed download links out of arbitrary clipboard text. The
+/// signed link always carries `encfilekey`, so that is the marker we key on;
+/// `finder.video.qq.com` keeps us from grabbing unrelated URLs.
+fn watch_urls(text: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for tok in text.split(|c: char| {
+        c.is_whitespace() || c == ',' || c == '"' || c == '\'' || c == '`' || c == '<' || c == '>'
+    }) {
+        let t = tok.trim();
+        if !(t.starts_with("http://") || t.starts_with("https://")) {
+            continue;
+        }
+        let low = t.to_ascii_lowercase();
+        if low.contains("finder.video.qq.com") && low.contains("encfilekey") {
+            out.push(t.to_string());
+        }
+    }
+    out
 }
 
 /// Run `todo` with at most `jobs` entries in flight, retrying failures.
@@ -970,7 +1094,10 @@ fn csv_cell(s: &str) -> String {
 
 /// Write the run's outcome as a ledger file: JSON by default, CSV when the
 /// path ends in `.csv` (with a BOM, or Excel reads the Chinese as mojibake).
-fn export_rows(path: &Path, rows: &[Row]) -> std::io::Result<()> {
+/// `append` is for `--watch`, where each new link is a separate batch: the CSV
+/// grows by appending data rows (header written once), so the 台账 accumulates
+/// across the whole session instead of being overwritten every copy.
+fn export_rows(path: &Path, rows: &[Row], append: bool) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
             std::fs::create_dir_all(parent)?;
@@ -981,11 +1108,10 @@ fn export_rows(path: &Path, rows: &[Row]) -> std::io::Result<()> {
         .map(|e| e.eq_ignore_ascii_case("csv"))
         .unwrap_or(false);
     if is_csv {
-        let mut s = String::from("\u{FEFF}");
-        s.push_str("状态,文件名,字节,说明\n");
+        let mut data = String::new();
         for r in rows {
             let tag = if !r.ok { "失败" } else if r.masked { "受限" } else { "成功" };
-            s.push_str(&format!(
+            data.push_str(&format!(
                 "{},{},{},{}\n",
                 tag,
                 csv_cell(&r.name),
@@ -993,7 +1119,18 @@ fn export_rows(path: &Path, rows: &[Row]) -> std::io::Result<()> {
                 csv_cell(&r.note)
             ));
         }
-        std::fs::write(path, s)
+        if append && path.exists() {
+            // A pre-existing file already has its BOM + header; just add rows.
+            use std::io::Write;
+            let mut f = std::fs::OpenOptions::new().create(true).append(true).open(path)?;
+            f.write_all(data.as_bytes())?;
+            Ok(())
+        } else {
+            let mut s = String::from("\u{FEFF}");
+            s.push_str("状态,文件名,字节,说明\n");
+            s.push_str(&data);
+            std::fs::write(path, s)
+        }
     } else {
         let arr: Vec<serde_json::Value> = rows
             .iter()
@@ -1652,6 +1789,24 @@ mod tests {
         assert_eq!(csv_cell("plain"), "plain");
         assert_eq!(csv_cell("a,b"), "\"a,b\"");
         assert_eq!(csv_cell("say \"hi\""), "\"say \"\"hi\"\"\"");
+    }
+
+    #[test]
+    fn watch_urls_picks_finder_signed_links() {
+        let text = "随便一段文字 https://finder.video.qq.com/251/20302/stodownload?encfilekey=ABC&token=T 后面还有";
+        let v = watch_urls(text);
+        assert_eq!(v.len(), 1);
+        assert!(v[0].contains("encfilekey=ABC"));
+
+        // 无关 URL 不认
+        assert!(watch_urls("https://example.com/foo?encfilekey=x").is_empty());
+        // 缺 encfilekey 的视频号链接不认
+        assert!(watch_urls("https://finder.video.qq.com/251/20302/stodownload?token=T").is_empty());
+        // 一整段就是链接
+        assert_eq!(
+            watch_urls("https://finder.video.qq.com/x/stodownload?encfilekey=Z").len(),
+            1
+        );
     }
 
     #[test]

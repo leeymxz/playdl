@@ -1149,9 +1149,10 @@ pub enum Command {
     #[command(name = "wxchannel", visible_alias = "wx")]
     WxChannel {
         /// A signed media URL, or the path to a manifest file
-        /// (JSON array, JSON Lines, or one URL per line).
-        #[arg(value_name = "SOURCE")]
-        source: String,
+        /// (JSON array, JSON Lines, or one URL per line). Omit it with
+        /// `--watch`, which then monitors the clipboard for links instead.
+        #[arg(value_name = "SOURCE", required_unless_present = "watch")]
+        source: Option<String>,
 
         /// Directory to save into. Defaults to the current directory.
         #[arg(short = 'd', long, value_name = "DIR")]
@@ -1224,6 +1225,12 @@ pub enum Command {
         /// Charles export of your own traffic comes in.
         #[arg(long, value_name = "KIND", default_value = "auto")]
         from: String,
+
+        /// Watch the clipboard for 视频号 signed links and download each as it
+        /// appears. Runs until interrupted (Ctrl-C). Windows only — no client
+        /// injection, no certificate: the user still copies the link in WeChat.
+        #[arg(long)]
+        watch: bool,
     },
 
     /// Install the `wget` / `curl` dialect entry points as links to this binary.

@@ -159,6 +159,7 @@ playdl wxchannel items.json --list
 | `--force` | 即使台账已记录为完成也重新下载 |
 | `--export <FILE>` | 把本次结果导出成清单：`.csv` 为带 BOM 的表格，其它后缀为 JSON |
 | `--from <KIND>` | 强制输入格式 `auto/json/csv/har`；`auto` 自动识别 HAR 抓包、CSV 表格、JSON 数组、JSON Lines 与每行一个 URL |
+| `--watch` | 剪贴板监听：后台轮询剪贴板，出现视频号签名链接就自动下载，直到 Ctrl-C。Windows 专用，不注入微信、不装证书 |
 
 **它替你做的几件事**
 
@@ -213,6 +214,20 @@ playdl wxchannel export.csv -d 视频号 --from csv -j 4 --retries 2 --export �
 
 导出的 `台账.csv` 带 UTF-8 BOM、字段用引号包裹，Excel 直接双击就能打开；`--record` 指向的 JSONL
 台账让第二次运行自动跳过已经下好的条目（用签名链接或 ID 做身份），`--force` 可强制重下。
+
+**最省事的「一键」：剪贴板监听（`--watch`）**
+
+开着 PlayDL，在微信里把视频号链接复制一下（用 `wx_channel` 的按钮，或微信自带的「分享 → 复制链接」），
+PlayDL 就自动把它接走下载——全程不往微信里塞代码、不装证书：
+
+```bash
+# 后台挂着，复制链接即下；Ctrl-C 退出
+playdl wxchannel --watch -d 视频号 -x 16 -j 4
+```
+
+它只认形如 `https://finder.video.qq.com/…/stodownload?encfilekey=…` 的签名链接，其它内容忽略；
+已经下过的（台账里有）不会重复下。这是「打开视频号就能顺手存下来」最稳的做法——把麻烦留在微信里那次
+复制上，剩下的交给多连接引擎。
 
 ---
 
