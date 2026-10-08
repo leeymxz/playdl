@@ -47,6 +47,7 @@ mod tui;
 mod update;
 mod url;
 mod video;
+mod wxchannel;
 mod xval;
 
 use pdl_core::{Scheduler, Source};
@@ -540,6 +541,29 @@ async fn async_main() -> std::process::ExitCode {
                     cookies: cookies.clone(),
                 },
             );
+            return std::process::ExitCode::from(code as u8);
+        }
+        Some(cli::Command::WxChannel {
+            source,
+            dir,
+            conns,
+            by_author,
+            cover,
+            no_referer,
+            json,
+            list_only,
+        }) => {
+            let code = wxchannel::run(wxchannel::WxOpts {
+                source: source.clone(),
+                dir: dir.clone(),
+                conns: (*conns).max(1),
+                by_author: *by_author,
+                cover: *cover,
+                referer: !*no_referer,
+                json: *json,
+                list_only: *list_only,
+            })
+            .await;
             return std::process::ExitCode::from(code as u8);
         }
         Some(cli::Command::Completions { shell, bin_name }) => {

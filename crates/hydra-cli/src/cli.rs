@@ -1136,6 +1136,55 @@ pub enum Command {
         cookies: Option<PathBuf>,
     },
 
+    /// Download WeChat Channels (视频号) media you already have links for.
+    ///
+    /// This is the download side only. 视频号 hands out short-lived signed URLs
+    /// (`finder.video.qq.com/…/stodownload?…`) that are obtained inside a
+    /// logged-in session by WeChat's own private protocol; reproducing that part
+    /// is deliberately not attempted here. Give this command a link, or a
+    /// manifest listing links and titles, and it fetches them with the full
+    /// multi-connection PlayDL engine — naming files by author and title, and
+    /// telling you plainly when a link has expired or a payload arrives in a
+    /// protected form that only WeChat's own player can read.
+    #[command(name = "wxchannel", visible_alias = "wx")]
+    WxChannel {
+        /// A signed media URL, or the path to a manifest file
+        /// (JSON array, JSON Lines, or one URL per line).
+        #[arg(value_name = "SOURCE")]
+        source: String,
+
+        /// Directory to save into. Defaults to the current directory.
+        #[arg(short = 'd', long, value_name = "DIR")]
+        dir: Option<PathBuf>,
+
+        /// Connections per file. The WeChat CDN answers ranges, so several is
+        /// faster than one; this is the ceiling, `--adaptive` style behaviour
+        /// comes from the engine's own search.
+        #[arg(short = 'x', long, value_name = "N", default_value_t = 8)]
+        conns: usize,
+
+        /// Sort each video into a subdirectory named after its author.
+        #[arg(long)]
+        by_author: bool,
+
+        /// Also fetch the cover image next to each video.
+        #[arg(long)]
+        cover: bool,
+
+        /// Do not send a `Referer` header. Some CDN nodes are stricter about
+        /// referers than others; try this if downloads are refused.
+        #[arg(long)]
+        no_referer: bool,
+
+        /// Machine-readable output.
+        #[arg(long)]
+        json: bool,
+
+        /// List what the manifest holds and exit without downloading.
+        #[arg(long = "list")]
+        list_only: bool,
+    },
+
     /// Install the `wget` / `curl` dialect entry points as links to this binary.
     ///
     /// The dialect is chosen from `argv[0]`, so a link named `wget` or `curl`

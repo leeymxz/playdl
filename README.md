@@ -124,6 +124,66 @@ playdl interactive
 playdl --json https://example.com/f
 ```
 
+### 🎬 视频号下载（`wxchannel` / `wx`）
+
+> **这是「下载侧」的能力。** 视频号真正播放地址是**短时效的签名链接**（形如
+> `https://finder.video.qq.com/…/stodownload?encfilekey=…&token=…&sign=…&svrnonce=…`），
+> 由微信自己的私有协议在已登录会话里下发。PlayDL **不去复现这一步**，也不去解视频头部的掩码；
+> 它负责的是后半段：你已经有链接了，让它用满速多连接把文件稳稳拉下来。
+
+```bash
+# 1) 直接粘一条链接
+playdl wxchannel 'https://finder.video.qq.com/251/20302/stodownload?encfilekey=…&token=…'
+
+# 2) 批量：吃常见采集工具导出的清单
+playdl wxchannel items.json -d 视频号 -x 16 --by-author --cover
+
+# 3) 先看看清单里有什么，不下
+playdl wxchannel items.json --list
+```
+
+| 选项 | 作用 |
+|------|------|
+| `-d, --dir <DIR>` | 保存到指定目录 |
+| `-x, --conns <N>` | 每文件连接数，默认 `8`（腾讯 CDN 支持 Range，多连接明显更快） |
+| `--by-author` | 按作者分目录 |
+| `--cover` | 顺带下载封面图 |
+| `--no-referer` | 不发送 `Referer`（个别 CDN 节点更严格时可试） |
+| `--json` | 机器可读输出 |
+| `--list` | 只列清单 |
+
+**它替你做的几件事**
+
+- **文件名自动整理**：`作者 - 标题.mp4`。标题里常见的换行、`#话题#`、以及 Windows 不允许的
+  `/ \ : * ? " < > |` 全部清理干净，长标题会被截断。只有链接没有标题时，用链接里的
+  `encfilekey` 生成不重复的名字（`wxchannel-Cvvj5Ix3eez3Y79S.mp4`），避免两条视频互相覆盖。
+- **时长单位自动换算**：清单里的 `duration` 可能是秒也可能是毫秒，按文件大小反算码率来判断；
+  `size` / `duration_ms` / `durationMs` 也都认。
+- **失败说人话**：链接过期给「腾讯返回链接已过期（需重新获取）」，而不是一句 HTTP 状态码；
+  链接里的 `svrnonce` 是签发时间，超过一天会先提示你这条大概率已经不能用了。
+- **断点续传 / 重复跳过**：中断后重跑继续传；已有同大小文件直接跳过。
+- **受限内容明确标注**：微信对部分视频加了头部掩码，PlayDL **不会**去还原它，而是原样保存并
+  重命名为 `xxx.masked.mp4`，让你一眼知道这个文件的播放器只有微信自己。
+
+**清单支持四种写法**（都能直接喂进来）
+
+```jsonc
+// 数组、{"items":[…]}、每行一个 JSON（JSON Lines）、或每行一个 URL（# 开头为注释）
+[
+  {
+    "title": "视频标题",
+    "author": "作者名",
+    "video_url": "https://finder.video.qq.com/251/20302/stodownload?encfilekey=…",
+    "cover_url": "https://…/cover.jpg",
+    "size": 207588679,
+    "duration": 266834,
+    "resolution": "1080x1920"
+  }
+]
+```
+字段别名也做了兼容：标题认 `title/desc/description/name`，作者认 `author/nickname/author_name/creator`，
+地址认 `video_url/url/link/media_url/play_url`。
+
 ---
 
 ## 🔧 核心技术
@@ -136,6 +196,7 @@ playdl --json https://example.com/f
 | ✅ **完整性校验** | SHA-256 / BLAKE3 + Reed-Solomon 纠错码 |
 | 💾 **内存恒定** | 直接定位写入，文件多大都不爆内存 |
 | 🌐 **多协议** | HTTP(S) / FTP / Metalink / HLS / DASH |
+| 🎬 **视频号** | `wxchannel` 子命令：签名链接多连接下载、文件名整理、受限内容标注 |
 | 🔌 **SOCKS 代理** | SOCKS4 / SOCKS4a / SOCKS5 |
 | 🪶 **极低内存** | 8 连接仅 6.9 MiB，不到 aria2c 的 1/3 |
 

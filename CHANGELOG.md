@@ -5,6 +5,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **WeChat Channels (视频号) download support — download side only (`hydra-cli`)**:
+  - New `playdl wxchannel` subcommand (alias `wx`) that takes a signed `finder.video.qq.com/…/stodownload` link, or a manifest of them, and fetches them with the existing multi-connection engine.
+  - Manifests may be a JSON array, a `{"items":[…]}` / `{"data":[…]}` / `{"list":[…]}` wrapper, JSON Lines, or one URL per line with `#` comments; field aliases are accepted for the shapes common capture tools export (`video_url`/`url`/`link`, `author`/`nickname`, `title`/`desc`, …).
+  - Files are named `作者 - 标题.ext`, with newlines, `#话题#` decorations and Windows-hostile characters folded away; a link with no title falls back to a per-object `encfilekey` token so two pasted videos never collide.
+  - Durations are resolved to seconds even when the exporter writes milliseconds, using the object's own bitrate as a cross-check — the pure magnitude rule mislabelled every clip shorter than a day's worth of milliseconds.
+  - Failure text is actionable rather than numeric: expired links, `403` and `404` all read as "the link has to be captured again". Age of the link is judged from its `svrnonce` before the download is even attempted.
+  - `--by-author` sorts into per-author subdirectories, `--cover` fetches cover images, `-x` sets connections, `--json` gives machine-readable output, and `--list` previews a manifest.
+  - Payloads that arrive with WeChat's head-of-file masking are **kept byte-for-byte** and renamed `…​.masked.ext` with an explanation. Deliberately not unmasked: doing so would be reproducing the vendor's own protection bypass, which this project does not do.
+
+### Fixed
+
+- **Column alignment when listing manifests (`hydra-cli`)**: `playdl wxchannel --list` measured columns in characters while East-Asian glyphs occupy two terminal cells, and it printed titles containing embedded newlines verbatim. Both broke the table with real Chinese titles, which is every real title.
+
+---
+
 ## [0.4.3] - 2026-09-08
 
 ### Added
