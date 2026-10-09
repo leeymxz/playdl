@@ -953,9 +953,30 @@ pub fn apply_with(
         let entry = entry?;
         let path = entry.path();
         if !path.is_file() {
-            report
-                .skipped
-                .push(entry.file_name().to_string_lossy().into_owned());
+            // A subdirectory the install ALREADY has (`bin/`, `extensions/`)
+            // is updated by the same replace-only-what-exists rule applied
+            // one level down — the Windows bundle ships its CLI under `bin/`,
+            // and a zip update that only ever touched root files would leave
+            // the old CLI running forever. A directory the install lacks is
+            // still never created.
+            if path.is_dir() {
+                let name = entry.file_name();
+                let dest_dir = install_dir.join(&name);
+                if dest_dir.is_dir() {
+                    let sub = apply_with(&path, &dest_dir, opts)?;
+                    report.replaced.extend(sub.replaced);
+                    report.skipped.extend(sub.skipped);
+                    report.notes.extend(sub.notes);
+                } else {
+                    report
+                        .skipped
+                        .push(name.to_string_lossy().into_owned());
+                }
+            } else {
+                report
+                    .skipped
+                    .push(entry.file_name().to_string_lossy().into_owned());
+            }
             continue;
         }
         let name = entry.file_name();
@@ -1242,11 +1263,11 @@ mod tests {
         // the image, and neither must the other architecture's file.
         let mut r = rel("v0.3.4-rc", true);
         for name in [
-            "Hydra-0.3.4-x86_64.AppImage",
-            "Hydra-0.3.4-aarch64.AppImage",
-            "Hydra-0.3.4-x86_64.AppImage.zsync",
-            "Hydra-0.3.4-aarch64.AppImage.zsync",
-            "Hydra-0.3.4-x86_64.dmg",
+            "PlayDL-0.3.4-x86_64.AppImage",
+            "PlayDL-0.3.4-aarch64.AppImage",
+            "PlayDL-0.3.4-x86_64.AppImage.zsync",
+            "PlayDL-0.3.4-aarch64.AppImage.zsync",
+            "PlayDL-0.3.4-x86_64.dmg",
         ] {
             r.assets.push(ReleaseAsset {
                 name: name.into(),
@@ -1299,10 +1320,10 @@ mod tests {
         Release {
             tag_name: tag.into(),
             prerelease,
-            name: String::new(),
-            body: String::new(),
+            name: None,
+            body: None,
             html_url: String::new(),
-            published_at: String::new(),
+            published_at: None,
             assets: vec![],
         }
     }
@@ -1328,7 +1349,7 @@ mod tests {
     fn asset_names_follow_the_release_pipeline() {
         let gui = gui_asset_name("0.2.4");
         let cli = cli_asset_name("0.2.4");
-        assert!(gui.starts_with("hydra-0.2.4-"));
+        assert!(gui.starts_with("playdl-0.2.4-"));
         assert!(cli.starts_with("hydra-cli-0.2.4-"));
         for n in [&gui, &cli] {
             assert!(n.contains(os_tag()) && n.contains(arch_tag()));
@@ -1431,11 +1452,11 @@ mod tests {
             "playdl-download-manager_0.3.4_amd64.deb",
             "playdl-download-manager-0.3.4-1.aarch64.rpm",
             "playdl-download-manager-0.3.4-1.x86_64.rpm",
-            "Hydra-0.3.4-arm64.dmg",
-            "Hydra-0.3.4-arm64.pkg",
-            "Hydra-0.3.4-x86_64.dmg",
-            "hydra-0.3.4-windows-arm64-setup.exe",
-            "hydra-0.3.4-windows-x64-setup.exe",
+            "PlayDL-0.3.4-arm64.dmg",
+            "PlayDL-0.3.4-arm64.pkg",
+            "PlayDL-0.3.4-x86_64.dmg",
+            "PlayDL-0.3.4-windows-arm64-setup.exe",
+            "PlayDL-0.3.4-windows-x64-setup.exe",
             "hydra-0.3.4-linux-arm64.tar.gz",
         ] {
             r.assets.push(ReleaseAsset {
@@ -1455,10 +1476,10 @@ mod tests {
                 "aarch64",
                 "playdl-download-manager-0.3.4-1.aarch64.rpm",
             ),
-            (PackageKind::Dmg, "arm64", "Hydra-0.3.4-arm64.dmg"),
-            (PackageKind::Pkg, "arm64", "Hydra-0.3.4-arm64.pkg"),
-            (PackageKind::Dmg, "x86_64", "Hydra-0.3.4-x86_64.dmg"),
-            (PackageKind::Exe, "x64", "hydra-0.3.4-windows-x64-setup.exe"),
+            (PackageKind::Dmg, "arm64", "PlayDL-0.3.4-arm64.dmg"),
+            (PackageKind::Pkg, "arm64", "PlayDL-0.3.4-arm64.pkg"),
+            (PackageKind::Dmg, "x86_64", "PlayDL-0.3.4-x86_64.dmg"),
+            (PackageKind::Exe, "x64", "PlayDL-0.3.4-windows-x64-setup.exe"),
         ] {
             let (prefix, ext, _) = kind.asset_shape();
             assert_eq!(
@@ -1585,6 +1606,39 @@ mod tests {
             "new gui"
         );
         assert!(!plain.join("hydra").exists());
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn a_subdirectory_the_install_already_has_is_updated_in_place() {
+        // The Windows bundle ships its CLI under `bin/`; a zip update has to
+        // reach those files too, but it must never CREATE a directory (or a
+        // file inside one) that the install does not already have.
+        let tmp = std::env::temp_dir().join(format!("hydra-subdir-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        let src = tmp.join("bundle");
+        std::fs::create_dir_all(src.join("bin")).unwrap();
+        std::fs::create_dir_all(src.join("docs")).unwrap();
+        let cli = if cfg!(windows) { "hydra.exe" } else { "hydra" };
+        std::fs::write(src.join("bin").join(cli), b"new cli").unwrap();
+        std::fs::write(src.join("bin/new-tool.exe"), b"new tool").unwrap();
+        std::fs::write(src.join("docs/manual.pdf"), b"pdf").unwrap();
+        let install = tmp.join("install");
+        std::fs::create_dir_all(install.join("bin")).unwrap();
+        std::fs::write(install.join("bin").join(cli), b"old cli").unwrap();
+
+        let report = apply(&src, &install).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(install.join("bin").join(cli)).unwrap(),
+            "new cli"
+        );
+        // An install that never had new-tool.exe does not gain it.
+        assert!(!install.join("bin/new-tool.exe").exists());
+        // A directory the install lacks is left alone entirely.
+        assert!(!install.join("docs").exists());
+        assert!(report.replaced.contains(&cli.to_string()));
+        assert!(report.skipped.contains(&"docs".to_string()));
 
         let _ = std::fs::remove_dir_all(&tmp);
     }

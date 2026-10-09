@@ -27,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Fixed
 
+- **In-place updates never reached the CLI (`hydra-updater`)**: `apply_with` walked only the archive's root files, so the Windows bundle's `bin/` directory — where `playdl.exe` and `pdl.exe` live — was skipped on every in-place update, and the old CLI stayed installed no matter how many times the GUI "updated". Subdirectories the install already has are now updated with the same replace-only-what-exists rule, one level at a time; directories the install lacks are still never created.
 - **Column alignment when listing manifests (`hydra-cli`)**: `playdl wxchannel --list` measured columns in characters while East-Asian glyphs occupy two terminal cells, and it printed titles containing embedded newlines verbatim. Both broke the table with real Chinese titles, which is every real title.
 - **Interleaved console output under parallel download (`hydra-cli`)**: with `-j/--jobs > 1`, the engine's progress bars and `hydra: …` diagnostics, plus each entry's `下载/完成/失败/受限` lines, collided into unreadable noise. The engine now goes quiet above one job and `run_queue` replays each entry's buffered log — including retry history — in manifest order once all tasks finish.
 
