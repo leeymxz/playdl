@@ -1078,7 +1078,10 @@ async function tabMedia(tabId) {
 
 /// One badge for everything grabbable on the tab: direct files and streams.
 async function refreshBadge(tabId) {
-  const n = (await tabMedia(tabId)).length + (await tabStreams(tabId)).length;
+  const n =
+    (await tabMedia(tabId)).length +
+    (await tabStreams(tabId)).length +
+    (await tabWx(tabId)).length;
   try {
     await chrome.action.setBadgeBackgroundColor({ color: "#2c6e31", tabId });
     await chrome.action.setBadgeText({ tabId, text: n ? String(n) : "" });
@@ -1333,9 +1336,98 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }
         break;
       }
+      case "wxchannel-links": {
+        // What the 视频号 panel may offer, for the asking tab only.
+        const id = await whichTab();
+        const list = id != null ? await tabWx(id) : [];
+        sendResponse({
+          links: list.map((e) => ({ url: e.url, ts: e.ts, age: wxAgeSecs(e.url) })),
+        });
+        break;
+      }
+      case "wxchannel-download": {
+        // The panel's "download" button. Only a link THIS page actually
+        // requested is accepted — the panel is not a proxy for handing
+        // arbitrary URLs to PlayDL.
+        const id = await whichTab();
+        const url = typeof msg?.url === "string" ? msg.url.trim() : "";
+        if (!url) return sendResponse({ ok: false, error: "empty url" });
+        const known = id != null ? (await tabWx(id)).some((e) => e.url === url) : false;
+        if (!known) return sendResponse({ ok: false, error: "link is not from this page" });
+        const tab = id != null ? await chrome.tabs.get(id).catch(() => null) : null;
+        sendResponse(
+          await sendToPlayDL(url, {
+            referer: tab?.url || null,
+            filename: titleName(tab?.title),
+          })
+        );
+        break;
+      }
       default:
         sendResponse({ ok: false, error: "unknown message" });
     }
   })();
   return true; // async sendResponse
 });
+
+// ---------------------------------------------------- 视频号 (WeChat Channels)
+//
+// channels.weixin.qq.com plays a video without ever putting the signed
+// download URL in the DOM, so the link is taken off the wire instead.
+// Deliberately NOT injected into the WeChat client and NOT backed by a
+// root certificate: this only reads requests the browser already makes, and
+// offers the link to the user (copy it, or hand it to PlayDL).
+//
+// The shape, for the record:
+//   https://finder.video.qq.com/…/stodownload?encfilekey=…&token=…&svrnonce=…
+// `encfilekey` is what marks it as a signed media link, and `svrnonce` is
+// the signing time in epoch seconds — the link expires, so its age matters.
+
+const WX_HOST = /^https?:\/\/finder\.video\.qq\.com\//i;
+const WX_MARK = /(^|[?&])encfilekey=/i;
+const WX_PER_TAB = 20;
+
+function wxSigned(url) {
+  return WX_HOST.test(url) && (WX_MARK.test(url) || /stodownload/i.test(url));
+}
+
+/// How old the link's signature is, in seconds. `null` when it carries no
+/// `svrnonce`, which older captures do not.
+function wxAgeSecs(url) {
+  const m = /[?&]svrnonce=(\d+)/.exec(url);
+  if (!m) return null;
+  return Math.max(0, Math.round(Date.now() / 1000 - Number(m[1])));
+}
+
+async function tabWx(tabId) {
+  const key = `wx_${tabId}`;
+  const got = await sessionStore().get(key);
+  return got[key] || [];
+}
+
+chrome.webRequest?.onBeforeRequest.addListener(
+  (details) => {
+    if (details.tabId < 0) return;
+    const url = details.url.split("#")[0];
+    if (!wxSigned(url)) return;
+    withTab(details.tabId, async () => {
+      const list = await tabWx(details.tabId);
+      // Every signed link shares the same path, so the generic sniffer's
+      // "same URL without the query" de-duplication would keep only the
+      // first video of a feed. Compare the whole URL.
+      if (list.some((e) => e.url === url)) return;
+      list.push({ url, ts: Date.now() });
+      while (list.length > WX_PER_TAB) list.shift();
+      await sessionStore().set({ [`wx_${details.tabId}`]: list });
+      await refreshBadge(details.tabId);
+      try {
+        Promise.resolve(
+          chrome.tabs.sendMessage(details.tabId, { type: "playdl-wx-captured" })
+        ).catch(() => {});
+      } catch {
+        // No content script here (a tab that is still loading, or closing).
+      }
+    });
+  },
+  { urls: ["*://*.video.qq.com/*"] }
+);

@@ -947,3 +947,254 @@ document.addEventListener("fullscreenchange", () => {
 // at the default inset and then jumps to the remembered spot.
 loadPanelOffset();
 refreshPageItems();
+
+// ---------------------------------------------------------- 视频号 panel
+//
+// On a 视频号 page the signed download URL is never in the DOM — the
+// background takes it off the wire, and this is the button that offers it:
+//
+//   "复制下载链接"   → the clipboard; with `playdl wxchannel --watch`
+//                     running, that alone starts the download.
+//   "用 PlayDL 下载" → straight to the app over WebSocket / native host.
+//
+// The link is short-lived (`svrnonce` is its signing time), so the age is
+// shown too: a stale link only comes back by playing the video again.
+
+const WX_PAGE_HOST = /(^|\.)channels\.weixin\.qq\.com$/i;
+
+let wxHostEl = null;
+let wxLinks = [];
+let wxTimer = 0;
+let wxClosed = false;
+
+function wxIsPage() {
+  return WX_PAGE_HOST.test(location.hostname);
+}
+
+/// `svrnonce` is epoch seconds; older captures omit it.
+function wxAge(url) {
+  const m = /[?&]svrnonce=(\d+)/.exec(url);
+  if (!m) return null;
+  return Math.max(0, Math.round(Date.now() / 1000 - Number(m[1])));
+}
+
+function wxAgeText(secs) {
+  if (secs == null) return "";
+  if (secs < 60) return "刚刚";
+  if (secs < 3600) return `${Math.floor(secs / 60)} 分钟前`;
+  return `${Math.floor(secs / 3600)} 小时前`;
+}
+
+function wxBuild() {
+  wxHostEl = document.createElement("div");
+  wxHostEl.style.cssText =
+    "position:fixed;z-index:2147483647;top:14px;right:14px;width:0;height:0;overflow:visible;";
+  const shadow = wxHostEl.attachShadow({ mode: "closed" });
+  const style = document.createElement("style");
+  style.textContent = `
+    .box {
+      position: absolute; top: 0; right: 0;
+      width: 268px;
+      font: 12px/1.5 system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      color: #17321a;
+      background: linear-gradient(#ffffff, #f1f6f1);
+      border: 1px solid #9db89f;
+      border-radius: 10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.22);
+      padding: 10px 12px 11px;
+      user-select: none;
+    }
+    .head { display: flex; align-items: center; gap: 6px; }
+    .head .icon { width: 15px; height: 15px; flex: 0 0 15px; display: block; }
+    .title { font-weight: 600; font-size: 12.5px; }
+    .close {
+      margin-left: auto; font-size: 11px; color: #777;
+      padding: 1px 5px; border-radius: 8px; cursor: pointer;
+    }
+    .close:hover { background: #dcdcdc; color: #333; }
+    .status { margin: 7px 0 8px; color: #3f5a42; }
+    .status .stale { color: #92400e; font-weight: 600; }
+    .row { display: flex; gap: 6px; }
+    .btn {
+      flex: 1 1 0; min-width: 0;
+      font: inherit; font-weight: 600;
+      color: #12301a; background: linear-gradient(#f7fbf7, #dfeade);
+      border: 1px solid #9db89f; border-radius: 7px;
+      padding: 6px 4px; cursor: pointer;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .btn:hover:not(:disabled) { background: linear-gradient(#ffffff, #cfe4d1); }
+    .btn:disabled { opacity: .5; cursor: default; }
+    .hint { margin-top: 7px; font-size: 11px; color: #6b7c6d; }
+    .hint.done { color: #15803d; font-weight: 600; }
+    .hint.err { color: #b91c1c; font-weight: 600; }
+  `;
+
+  const box = document.createElement("div");
+  box.className = "box";
+
+  const head = document.createElement("div");
+  head.className = "head";
+  const icon = brandIcon();
+  icon.className = "icon";
+  const title = document.createElement("span");
+  title.className = "title";
+  title.textContent = "PlayDL · 视频号";
+  const close = document.createElement("span");
+  close.className = "close";
+  close.textContent = "✕";
+  close.title = "关闭";
+  head.append(icon, title, close);
+
+  const status = document.createElement("div");
+  status.className = "status";
+
+  const row = document.createElement("div");
+  row.className = "row";
+  const copyBtn = document.createElement("button");
+  copyBtn.className = "btn";
+  copyBtn.textContent = "复制下载链接";
+  const dlBtn = document.createElement("button");
+  dlBtn.className = "btn";
+  dlBtn.textContent = "用 PlayDL 下载";
+  row.append(copyBtn, dlBtn);
+
+  const hint = document.createElement("div");
+  hint.className = "hint";
+
+  box.append(head, status, row, hint);
+  shadow.append(style, box);
+  document.documentElement.append(wxHostEl);
+
+  close.addEventListener("click", (e) => {
+    e.stopPropagation();
+    wxClosed = true;
+    if (wxTimer) clearInterval(wxTimer);
+    wxTimer = 0;
+    wxHostEl.style.display = "none";
+  });
+
+  copyBtn.addEventListener("click", async () => {
+    if (!wxLinks.length) return;
+    const link = wxLinks[wxLinks.length - 1];
+    const ok = await wxCopy(link.url);
+    wxSay(
+      hint,
+      ok ? "已复制到剪贴板（--watch 会自动下载）" : "复制失败，请手动复制",
+      ok ? "done" : "err"
+    );
+  });
+
+  dlBtn.addEventListener("click", () => {
+    if (!wxLinks.length) return;
+    const link = wxLinks[wxLinks.length - 1];
+    dlBtn.disabled = true;
+    wxSay(hint, "正在发送到 PlayDL…");
+    try {
+      chrome.runtime.sendMessage({ type: "wxchannel-download", url: link.url }, (r) => {
+        dlBtn.disabled = false;
+        wxSay(hint, r && r.ok ? "已发送到 PlayDL ✓" : `发送失败：${r?.error || "PlayDL 未响应"}`, r && r.ok ? "done" : "err");
+      });
+    } catch {
+      dlBtn.disabled = false;
+      wxSay(hint, "发送失败：无法连接扩展", "err");
+    }
+  });
+
+  wxHostEl.__status = status;
+  wxHostEl.__buttons = [copyBtn, dlBtn];
+  wxHostEl.__hint = hint;
+  return wxHostEl;
+}
+
+function wxSay(el, text, cls) {
+  if (!el) return;
+  el.textContent = text;
+  el.className = cls ? `hint ${cls}` : "hint";
+}
+
+async function wxCopy(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // Clipboard API needs a secure context and can be blocked by policy;
+    // the selection trick still works from a click handler.
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.cssText = "position:fixed;top:-1000px;opacity:0;";
+      document.body.append(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      ta.remove();
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
+function wxRender() {
+  if (wxClosed || !wxHostEl) return;
+  const status = wxHostEl.__status;
+  const [copyBtn, dlBtn] = wxHostEl.__buttons;
+  if (!wxLinks.length) {
+    status.textContent = "正在等待视频播放…";
+    copyBtn.disabled = true;
+    dlBtn.disabled = true;
+    return;
+  }
+  const link = wxLinks[wxLinks.length - 1];
+  const age = wxAge(link.url);
+  const stale = age != null && age > 1800; // ~30 min: signed links do expire
+  status.innerHTML = "";
+  status.append(document.createTextNode(`已抓到 ${wxLinks.length} 条下载链接`));
+  if (age != null) {
+    status.append(document.createTextNode(` · ${wxAgeText(age)}签发`));
+  }
+  if (stale) {
+    const s = document.createElement("span");
+    s.className = "stale";
+    s.textContent = "（可能已过期，重播一次）";
+    status.append(s);
+  }
+  copyBtn.disabled = false;
+  dlBtn.disabled = false;
+}
+
+async function wxRefresh() {
+  if (wxClosed || !wxIsPage()) return;
+  try {
+    const r = await new Promise((res) => {
+      try {
+        chrome.runtime.sendMessage({ type: "wxchannel-links" }, (resp) => res(resp || {}));
+      } catch {
+        res({});
+      }
+    });
+    if (r && Array.isArray(r.links)) {
+      wxLinks = r.links;
+      if (!wxHostEl) wxBuild();
+      wxRender();
+    }
+  } catch {
+    // Background unreachable (extension reloading); try again on the tick.
+  }
+}
+
+if (wxIsPage()) {
+  wxBuild();
+  wxRender();
+  wxRefresh();
+  // Requests land while the video starts; the background also nudges us,
+  // but a slow tick keeps the panel honest if a message is missed.
+  wxTimer = setInterval(() => {
+    if (document.visibilityState === "visible") wxRefresh();
+  }, 2000);
+}
+
+chrome.runtime.onMessage?.addListener((msg) => {
+  if (msg?.type === "playdl-wx-captured") wxRefresh();
+  return false;
+});
